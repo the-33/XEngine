@@ -1,0 +1,6 @@
+SDL2-devel-2.32.10-VC
+SDL2_image-2.8.8
+SDL2_mixer-2.8.1
+SDL2_ttf-2.24.0
+imgui-1.92.3
+nlohmann/json-3.12.0

@@ -1,0 +1,201 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Archivos de origen">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Archivos de encabezado">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="Archivos de recursos">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="Archivos de origen\Managers">
+      <UniqueIdentifier>{329a2b05-9829-4e8b-b3ff-63a9582f0e69}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Archivos de origen\Components">
+      <UniqueIdentifier>{9cfd8692-775c-4ac5-9bfd-578a321237d3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Archivos de origen\Scene">
+      <UniqueIdentifier>{bad4bcc8-3df4-4b85-b968-3dd9f97fdcb1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Archivos de encabezado\Core">
+      <UniqueIdentifier>{ce64e6d2-fc48-4ace-9b0e-b6706293f03c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Archivos de encabezado\Managers">
+      <UniqueIdentifier>{0c11d718-2884-4b4a-a873-6787cc035210}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Archivos de encabezado\Scene">
+      <UniqueIdentifier>{f4f47dff-4386-4969-a01a-cd22009b1776}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Archivos de encabezado\Components">
+      <UniqueIdentifier>{3d191e94-c271-41b0-833b-40dd37ec1352}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Archivos de origen\Core">
+      <UniqueIdentifier>{5bba228a-d8f6-40ad-89c3-84e143057b74}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Archivos de encabezado\Engine">
+      <UniqueIdentifier>{2cea0ae1-2766-45df-95e9-92e5b67701ab}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Archivos de origen\Engine">
+      <UniqueIdentifier>{941dad3a-d88a-4b98-a9a1-033a84b285ab}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\..\scr\internal\gameEngine\src\AssetManager.cpp">
+      <Filter>Archivos de origen\Managers</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\scr\internal\gameEngine\src\CollisionManager.cpp">
+      <Filter>Archivos de origen\Managers</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\scr\internal\gameEngine\src\InputManager.cpp">
+      <Filter>Archivos de origen\Managers</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\scr\internal\gameEngine\src\RenderManager.cpp">
+      <Filter>Archivos de origen\Managers</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\scr\internal\gameEngine\src\SceneManager.cpp">
+      <Filter>Archivos de origen\Managers</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\scr\internal\gameEngine\src\SoundManager.cpp">
+      <Filter>Archivos de origen\Managers</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\scr\internal\gameEngine\src\TimeManager.cpp">
+      <Filter>Archivos de origen\Managers</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\scr\internal\gameEngine\src\WindowManager.cpp">
+      <Filter>Archivos de origen\Managers</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\scr\internal\gameEngine\src\UIManager.cpp">
+      <Filter>Archivos de origen\Managers</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\scr\internal\gameEngine\src\Transform.cpp">
+      <Filter>Archivos de origen\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\scr\internal\gameEngine\src\SpriteRenderer.cpp">
+      <Filter>Archivos de origen\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\scr\internal\gameEngine\src\Collider2D.cpp">
+      <Filter>Archivos de origen\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\scr\internal\gameEngine\src\Scene.cpp">
+      <Filter>Archivos de origen\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\scr\internal\gameEngine\src\Camera2D.cpp">
+      <Filter>Archivos de origen\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\scr\internal\gameEngine\src\GameObject.cpp">
+      <Filter>Archivos de origen\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\scr\internal\gameEngine\src\Assets.cpp">
+      <Filter>Archivos de origen\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\scr\internal\gameEngine\src\ErrorHandler.cpp">
+      <Filter>Archivos de origen\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\scr\internal\gameEngine\src\Engine.cpp">
+      <Filter>Archivos de origen\Engine</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\scr\internal\gameEngine\src\RigidBody2D.cpp">
+      <Filter>Archivos de origen\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\scr\internal\gameEngine\src\PysicsManager.cpp">
+      <Filter>Archivos de origen\Managers</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\scr\internal\gameEngine\src\RandomManager.cpp">
+      <Filter>Archivos de origen\Managers</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\scr\internal\gameEngine\src\Behaviour.cpp">
+      <Filter>Archivos de origen\Components</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\..\scr\internal\gameEngine\include\BaseTypes.h">
+      <Filter>Archivos de encabezado\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\scr\internal\gameEngine\include\Assets.h">
+      <Filter>Archivos de encabezado\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\scr\internal\gameEngine\include\ErrorHandler.h">
+      <Filter>Archivos de encabezado\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\scr\internal\gameEngine\include\Singleton.h">
+      <Filter>Archivos de encabezado\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\scr\internal\gameEngine\include\Property.h">
+      <Filter>Archivos de encabezado\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\scr\internal\gameEngine\include\SceneManager.h">
+      <Filter>Archivos de encabezado\Managers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\scr\internal\gameEngine\include\AssetManager.h">
+      <Filter>Archivos de encabezado\Managers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\scr\internal\gameEngine\include\CollisionManager.h">
+      <Filter>Archivos de encabezado\Managers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\scr\internal\gameEngine\include\InputManager.h">
+      <Filter>Archivos de encabezado\Managers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\scr\internal\gameEngine\include\RenderManager.h">
+      <Filter>Archivos de encabezado\Managers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\scr\internal\gameEngine\include\WindowManager.h">
+      <Filter>Archivos de encabezado\Managers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\scr\internal\gameEngine\include\SoundManager.h">
+      <Filter>Archivos de encabezado\Managers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\scr\internal\gameEngine\include\TimeManager.h">
+      <Filter>Archivos de encabezado\Managers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\scr\internal\gameEngine\include\UIManager.h">
+      <Filter>Archivos de encabezado\Managers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\scr\internal\gameEngine\include\Camera2D.h">
+      <Filter>Archivos de encabezado\Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\scr\internal\gameEngine\include\Behaviour.h">
+      <Filter>Archivos de encabezado\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\scr\internal\gameEngine\include\Collider2D.h">
+      <Filter>Archivos de encabezado\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\scr\internal\gameEngine\include\Component.h">
+      <Filter>Archivos de encabezado\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\scr\internal\gameEngine\include\SpriteRenderer.h">
+      <Filter>Archivos de encabezado\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\scr\internal\gameEngine\include\Transform.h">
+      <Filter>Archivos de encabezado\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\scr\internal\gameEngine\include\GameObject.h">
+      <Filter>Archivos de encabezado\Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\scr\internal\gameEngine\include\Engine.h">
+      <Filter>Archivos de encabezado\Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\scr\internal\gameEngine\include\XEngine.h">
+      <Filter>Archivos de encabezado\Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\scr\internal\gameEngine\include\ConsoleFonts.h">
+      <Filter>Archivos de encabezado\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\scr\internal\gameEngine\include\PhysicsManager.h">
+      <Filter>Archivos de encabezado\Managers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\scr\internal\gameEngine\include\RigidBody2D.h">
+      <Filter>Archivos de encabezado\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\scr\internal\gameEngine\include\RandomManager.h">
+      <Filter>Archivos de encabezado\Managers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\scr\internal\gameEngine\include\Scene.h">
+      <Filter>Archivos de encabezado\Scene</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

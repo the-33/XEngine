@@ -1,0 +1,55 @@
+{
+	"Engine": {
+	  "multiThreading": false,
+	  "logStats": true,
+	  "logErrors": true
+	},
+  "Window": {
+    "width": 1280,
+    "height": 720,
+    "fullscreen": false,
+    "title": "Blob's quest"
+  },
+  "Renderer": {
+    "vsync": true,
+    "hardwareAcceleration": true,
+    "bgColor": [0, 0, 0, 255]
+  },
+  "Input": {
+    "startTextInput": false,
+    "startMouseLocked": false,
+    "startMouseHidden": false
+  },
+  "Time": {
+    "fixedDt": 0.005
+  },
+  "Assets": {
+    "assetsFolderPath": "../../../../../../assets/game1/",
+    "defaultFontRelativePath": "fonts/ui-font-default.ttf"
+  },
+  "Sound": {
+    "sfxChannels": 32,
+    "masterVolume": 1.0,
+    "enableDucking": false,
+    "duckVolume": 0.6,
+    "duckAttackSec": 0.02,
+    "duckReleaseSec": 0.25
+  },
+  "UIStyle": {
+    "text":    [240, 240, 240, 255],
+    "btn":     [60, 60, 60, 255],
+    "btnHot":  [80, 80, 80, 255],
+    "btnActive":[40, 40, 40, 255],
+    "outline": [200, 200, 200, 255],
+    "padding": 6.0,
+    "defaultFontKey": "ui_default",
+    "defaultFontPtSize": 24
+  },
+	"Physics": {
+    "baseGravity": [ 0.0, 9.81 ],
+    "penetrationPercent": 0.8,
+	  "penetrationSlop": 0.01,
+	  "maxSubsteps":     8,
+	  "ccdMinSizeFactor":0.5
+	}
+}

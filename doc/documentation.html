@@ -1,0 +1,385 @@
+﻿<!DOCTYPE html>
+<html  dir="ltr">
+
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>XEngine Documentation</title>
+        <link rel="shortcut icon" href="images/favicon.ico" type="image/x-icon">
+        <link rel="apple-touch-icon-precomposed" href="images/apple-touch-icon.png">
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/uikit/2.26.4/css/uikit.gradient.css">
+
+        <!-- <link rel="stylesheet" href="style.css"> -->
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/diversen/pandoc-uikit@master/style.css">
+        <link href="https://vjs.zencdn.net/5.4.4/video-js.css" rel="stylesheet" />
+        <script src="https://code.jquery.com/jquery-2.2.1.min.js"></script>
+        <!-- <script src="uikit.js"></script> -->
+        <script src="https://cdn.jsdelivr.net/gh/diversen/pandoc-uikit@master/uikit.js"></script>
+        <!-- <script src="scripts.js"></script> -->
+        <script src="https://cdn.jsdelivr.net/gh/diversen/pandoc-uikit@master/scripts.js"></script>
+        <!-- <script src="jquery.sticky-kit.js "></script> -->
+        <script src="https://cdn.jsdelivr.net/gh/diversen/pandoc-uikit@master/jquery.sticky-kit.js"></script>
+
+        <meta name="generator" content="pandoc-uikit" />
+                        <title>XEngine Documentation</title>
+        <style type="text/css">code{white-space: pre;}</style>
+                                                       
+    </head>
+
+    <body>
+
+
+        <div class="uk-container uk-container-center uk-margin-top uk-margin-large-bottom">
+
+                        <div class="uk-grid" data-uk-grid-margin>
+                <div class="uk-width-1-1">
+                    <h1 class="uk-heading-large">XEngine Documentation</h1>
+                                                        </div>
+            </div>
+            
+            <div class="uk-grid" data-uk-grid-margin >          
+                <div class="uk-width-medium-1-4">
+                    <div class="uk-overflow-container" data-uk-sticky="{top:25,media: 768}">
+                        <div class="uk-panel uk-panel-box menu-begin" >
+
+                                                        <ul>
+                                                        <li><a href="#xengine-sdl2-engine-documentation">XEngine (SDL2) — Engine Documentation</a>
+                                                        <ul>
+                                                        <li><a href="#high-level-overview">1. High-Level Overview</a></li>
+                                                        <li><a href="#project-structure">2. Project Structure</a>
+                                                        <ul>
+                                                        <li><a href="#core">2.1 Core</a></li>
+                                                        <li><a href="#scene-entity-system">2.2 Scene &amp; Entity System</a></li>
+                                                        <li><a href="#managers-singletons">2.3 Managers (Singletons)</a></li>
+                                                        <li><a href="#uml-class-diagram">2.4 UML Class Diagram</a></li>
+                                                        </ul></li>
+                                                        <li><a href="#basetypes-math-common-value-types">3. BaseTypes (Math &amp; Common Value Types)</a></li>
+                                                        <li><a href="#property-system-c-style-api-in-c">4. Property System (C#-Style API in C++)</a>
+                                                        <ul>
+                                                        <li><a href="#motivation">4.1 Motivation</a></li>
+                                                        <li><a href="#property-types">4.2 Property types</a></li>
+                                                        </ul></li>
+                                                        <li><a href="#startup-configuration">5. Startup &amp; Configuration</a>
+                                                        <ul>
+                                                        <li><a href="#startup-sequence">5.1 Startup sequence</a></li>
+                                                        <li><a href="#configuration">5.2 Configuration</a></li>
+                                                        </ul></li>
+                                                        <li><a href="#main-game-loop-how-it-works-internally">6. Main Game Loop (How It Works Internally)</a>
+                                                        <ul>
+                                                        <li><a href="#engine-flowchart">6.1 Engine Flowchart</a></li>
+                                                        </ul></li>
+                                                        <li><a href="#scene-system-lifecycle">7. Scene System &amp; Lifecycle</a>
+                                                        <ul>
+                                                        <li><a href="#ownership-and-safe-destruction">7.1 Ownership and safe destruction</a></li>
+                                                        <li><a href="#unity-like-lifecycle">7.2 Unity-like lifecycle</a></li>
+                                                        <li><a href="#instantiation-workflows">7.3 Instantiation workflows</a></li>
+                                                        </ul></li>
+                                                        <li><a href="#gameobject-components-and-transform">8. GameObject, Components, and Transform</a>
+                                                        <ul>
+                                                        <li><a href="#composition-model">8.1 Composition model</a></li>
+                                                        <li><a href="#hierarchy">8.2 Hierarchy</a></li>
+                                                        </ul></li>
+                                                        <li><a href="#rendering-system">9. Rendering System</a>
+                                                        <ul>
+                                                        <li><a href="#renderer-backend">9.1 Renderer backend</a></li>
+                                                        <li><a href="#sprite-rendering">9.2 Sprite rendering</a></li>
+                                                        <li><a href="#camera2d">9.3 Camera2D</a></li>
+                                                        <li><a href="#debug-tools">9.4 Debug tools</a></li>
+                                                        </ul></li>
+                                                        <li><a href="#assets-layer-sdl-wrappers-caching">10. Assets Layer (SDL Wrappers + Caching)</a>
+                                                        <ul>
+                                                        <li><a href="#sdl-wrapper-types">10.1 SDL wrapper types</a></li>
+                                                        <li><a href="#assetmanager-caching">10.2 AssetManager caching</a></li>
+                                                        </ul></li>
+                                                        <li><a href="#audio-system-soundmanager">11. Audio System (SoundManager)</a></li>
+                                                        <li><a href="#input-system">12. Input System</a></li>
+                                                        <li><a href="#collision-physics">13. Collision &amp; Physics</a>
+                                                        <ul>
+                                                        <li><a href="#collisionmanager">13.1 CollisionManager</a></li>
+                                                        <li><a href="#physicsmanager">13.2 PhysicsManager</a></li>
+                                                        </ul></li>
+                                                        <li><a href="#ui-system-immediate-mode">14. UI System (Immediate Mode)</a></li>
+                                                        <li><a href="#two-games-built-with-xengine">15. Two Games Built With XEngine</a>
+                                                        <ul>
+                                                        <li><a href="#game-1-blobs-quest">Game 1 — Blob’s quest</a></li>
+                                                        <li><a href="#game-2-my-princess-run">Game 2 — My Princess Run</a></li>
+                                                        </ul></li>
+                                                        <li><a href="#extending-xengine-planned-possible-improvements">16. Extending XEngine (Planned / Possible Improvements)</a>
+                                                        <ul>
+                                                        <li><a href="#multithreading-recommended-extension">16.1 Multithreading (Recommended extension)</a></li>
+                                                        <li><a href="#tooling-workflow">16.2 Tooling &amp; workflow</a></li>
+                                                        <li><a href="#rendering-upgrades">16.3 Rendering upgrades</a></li>
+                                                        <li><a href="#physics-upgrades">16.4 Physics upgrades</a></li>
+                                                        <li><a href="#ui-upgrades">16.5 UI upgrades</a></li>
+                                                        </ul></li>
+                                                        <li><a href="#conclusion">17. Conclusion</a></li>
+                                                        </ul></li>
+                                                        </ul>
+                            
+                        </div>
+                    </div>
+                </div>
+
+                <div class="uk-width-medium-3-4">
+
+                    
+<h1 id="xengine-sdl2-engine-documentation">XEngine (SDL2) — Engine Documentation</h1>
+<blockquote>
+<p><strong>Project context:</strong> XEngine is a lightweight 2D game engine built on top of <strong>SDL2</strong> (+ SDL_image, SDL_ttf, SDL_mixer).<br />
+It follows a <strong>Unity-like workflow</strong> (Scene → GameObjects → Components/Behaviours) and organizes most subsystems as <strong>manager singletons</strong> (window, input, rendering, assets, audio, scenes, collisions, physics, UI, random, time).</p>
+</blockquote>
+<hr />
+<h2 id="high-level-overview">1. High-Level Overview</h2>
+<p>XEngine is designed to build small-to-medium 2D games with a codebase that stays <strong>simple, explicit, and extendable</strong>.</p>
+<p>Core ideas: - <strong>Scenes</strong> contain and own all game objects. - <strong>GameObjects</strong> are lightweight entities that aggregate <strong>Components</strong>. - <strong>Components</strong> implement functionality; <strong>Behaviours</strong> are Components with enable/disable and gameplay callbacks (Unity-like). - A central <strong>Engine loop</strong> updates managers, runs fixed-step physics, updates gameplay, renders, and safely applies queued changes (destroyed objects / scene switches).</p>
+<p>The design balances: - <strong>Low-level control</strong> (plain C++, SDL renderer, explicit managers) - <strong>High-level ergonomics</strong> (BaseTypes math, C#-style properties, safe lifecycle, caching asset pipeline)</p>
+<hr />
+<h2 id="project-structure">2. Project Structure</h2>
+<p>Conceptually, the engine is split into:</p>
+<h3 id="core">2.1 Core</h3>
+<ul>
+<li><strong>Engine</strong>: orchestrates startup/shutdown and the full game loop.</li>
+<li><strong>BaseTypes</strong>: math + utility value types used everywhere (vectors, rects, colors, helpers).</li>
+<li><strong>Singleton</strong>: template singleton used by managers.</li>
+<li><strong>ErrorHandler / Logging</strong>: centralized error reporting.</li>
+<li><strong>Property system</strong>: C#-style <code>.position</code>, <code>.zoom</code>, <code>.viewRect</code>, etc. in C++.</li>
+</ul>
+<h3 id="scene-entity-system">2.2 Scene &amp; Entity System</h3>
+<ul>
+<li><strong>Scene</strong>
+<ul>
+<li>Owns all objects (<code>std::vector&lt;std::unique_ptr&lt;GameObject&gt;&gt;</code>)</li>
+<li>Runs global lifecycle (<code>AwakeAll</code>, <code>StartAll</code>, <code>FixedUpdate</code>, <code>Update</code>, <code>Render</code>)</li>
+<li>Provides safe creation/destruction through queues</li>
+</ul></li>
+<li><strong>GameObject</strong>
+<ul>
+<li>Has an ID, name, hierarchy (parent/children)</li>
+<li>Holds a list of <code>Component</code>s</li>
+<li>Dispatches lifecycle and collision/trigger events to components/behaviours</li>
+</ul></li>
+<li><strong>Component</strong>
+<ul>
+<li>Base class for everything attached to a GameObject</li>
+<li>Unity-like lifecycle + loops (<code>Awake/Start/FixedUpdate/Update/Render/OnDestroy</code>)</li>
+</ul></li>
+<li><strong>Behaviour</strong>
+<ul>
+<li>A component that can be enabled/disabled at runtime</li>
+<li>Adds hooks like <code>OnEnable</code>, <code>OnDisable</code> and collision/trigger callbacks</li>
+</ul></li>
+</ul>
+<h3 id="managers-singletons">2.3 Managers (Singletons)</h3>
+<ul>
+<li><strong>WindowManager</strong>: SDL_Window creation, resolution/fullscreen, close events</li>
+<li><strong>RenderManager</strong>: SDL_Renderer, camera world→screen conversion, debug draw, backgrounds/parallax</li>
+<li><strong>InputManager</strong>: keyboard/mouse states (pressed/down/released), mouse world position, text input buffer</li>
+<li><strong>TimeManager</strong>: deltaTime, fixedDeltaTime, timeScale, timestamps</li>
+<li><strong>AssetManager</strong>: cached loading of textures/fonts/sfx/music, base asset folder</li>
+<li><strong>SoundManager</strong>: music + SFX playback, channels, optional ducking</li>
+<li><strong>SceneManager</strong>: scene registry and safe switching</li>
+<li><strong>CollisionManager</strong>: broadphase + narrowphase, trigger/collision dispatch</li>
+<li><strong>PhysicsManager</strong>: rigidbody integration + impulse solve + positional correction (substeps for fast bodies)</li>
+<li><strong>UIManager</strong>: immediate-mode UI widgets</li>
+<li><strong>RandomManager</strong>: seeded RNG utilities</li>
+</ul>
+<h3 id="uml-class-diagram">2.4 UML Class Diagram</h3>
+<p><a href="../diagrams/uml.svg"><img src="../diagrams/uml.svg" alt="Cool UML Diagram" /></a></p>
+<hr />
+<h2 id="basetypes-math-common-value-types">3. BaseTypes (Math &amp; Common Value Types)</h2>
+<p><strong>BaseTypes</strong> is the shared foundation used across rendering, physics, UI, and gameplay.</p>
+<p>Key goals: - Avoid scattering raw SDL structs across the engine. - Provide small <strong>value types</strong> that are easy to copy, pass, serialize, and debug. - Keep math consistent across all subsystems.</p>
+<p>Typical contents: - <strong>Vectors</strong>: <code>TVec2&lt;T&gt;</code>, <code>TVec3&lt;T&gt;</code> and aliases such as <code>Vec2f</code>, <code>Vec2i</code>, <code>Vec3f</code> - <strong>Rectangles</strong>: <code>TRect&lt;T&gt;</code> and aliases such as <code>Rectf</code>, <code>Recti</code> - <strong>Color</strong>: RGBA value type used by renderer and UI - <strong>Math utilities</strong>: clamp, lerp, dot, length, normalize, angle helpers, epsilon comparisons</p>
+<p>Why this matters: - Physics contacts, camera conversions, sprite placement, and UI layouts all share the same types. - Less friction when moving data between systems (world-space &lt;-&gt; screen-space, float &lt;-&gt; int).</p>
+<hr />
+<h2 id="property-system-c-style-api-in-c">4. Property System (C#-Style API in C++)</h2>
+<p>XEngine includes a <code>Property</code> / <code>PropertyRO</code> system to expose clean gameplay APIs without exposing internal state.</p>
+<h3 id="motivation">4.1 Motivation</h3>
+<p>In Unity, you naturally write: - <code>transform.position = ...</code> - <code>camera.zoom = ...</code> - <code>rect = camera.viewRect</code> (read-only)</p>
+<p>In raw C++, that often becomes: - verbose getters/setters - or public fields (harder to validate / maintain invariants)</p>
+<p>Properties provide: - <strong>Readable syntax</strong> - <strong>Controlled access</strong> (read-only vs read/write) - <strong>Encapsulation</strong> (setters can mark dirty flags, clamp values, trigger callbacks)</p>
+<h3 id="property-types">4.2 Property types</h3>
+<ul>
+<li><strong>PropertyRO</strong>: read-only property (returns from a getter)</li>
+<li><strong>Property</strong>: read/write property (getter + setter)</li>
+</ul>
+<p>Example: Camera exposes a read-only <code>viewRect</code> and editable <code>center</code>/<code>zoom</code> via properties (pattern shown in Camera code). This gives a clean API while keeping the implementation private.</p>
+<hr />
+<h2 id="startup-configuration">5. Startup &amp; Configuration</h2>
+<h3 id="startup-sequence">5.1 Startup sequence</h3>
+<p><code>Engine::Start()</code> typically: 1. Loads configuration (JSON) or defaults 2. Initializes SDL subsystems (video + audio + image/ttf/mixer) 3. Creates/initializes managers in dependency order: - Window → Renderer → Time → Random → Input → Assets → Sound → Collision → Physics → UI → Scenes 4. Loads a default font for UI/debug 5. Marks engine ready to run</p>
+<h3 id="configuration">5.2 Configuration</h3>
+<p>A JSON config file usually defines: - Window: size, fullscreen, title - Rendering: vsync, acceleration - Time: fixed timestep - Assets: base folder - Audio: channels, master volume, ducking - Physics: gravity and solver parameters - UI: default style values</p>
+<hr />
+<h2 id="main-game-loop-how-it-works-internally">6. Main Game Loop (How It Works Internally)</h2>
+<p>The engine is single-threaded by default and follows a stable classic loop:</p>
+<ol type="1">
+<li><strong>Time tick</strong>
+<ul>
+<li><code>TimeManager::Tick()</code> updates delta time (with timeScale)</li>
+</ul></li>
+<li><strong>Input polling</strong>
+<ul>
+<li><code>InputManager::Update()</code> stores pressed/down/released for keyboard + mouse</li>
+</ul></li>
+<li><strong>FixedUpdate</strong>
+<ul>
+<li>Accumulator loop:
+<ul>
+<li>while <code>accumulator &gt;= fixedDt</code>, run fixed step(s)</li>
+</ul></li>
+<li>Used for physics and deterministic logic</li>
+</ul></li>
+<li><strong>Update</strong>
+<ul>
+<li>Variable time gameplay logic using <code>deltaTime</code></li>
+</ul></li>
+<li><strong>Render</strong>
+<ul>
+<li>Render current scene using active camera through RenderManager</li>
+</ul></li>
+<li><strong>Safe queues</strong>
+<ul>
+<li>Flush destroy queue (remove objects safely after updates)</li>
+<li>Apply pending scene switch</li>
+</ul></li>
+</ol>
+<p>This avoids deleting objects during iteration and keeps lifecycle deterministic.</p>
+<h3 id="engine-flowchart">6.1 Engine Flowchart</h3>
+<p><a href="../diagrams/flowchart.svg"><img src="../diagrams/flowchart.svg" alt="Cool Flowchart" /></a></p>
+<hr />
+<h2 id="scene-system-lifecycle">7. Scene System &amp; Lifecycle</h2>
+<h3 id="ownership-and-safe-destruction">7.1 Ownership and safe destruction</h3>
+<ul>
+<li>A <code>Scene</code> owns <code>GameObject</code> instances (<code>unique_ptr</code>).</li>
+<li><code>DestroyObject()</code> enqueues IDs.</li>
+<li><code>FlushDestroyQueue()</code> removes objects in a safe moment (after updates).</li>
+</ul>
+<h3 id="unity-like-lifecycle">7.2 Unity-like lifecycle</h3>
+<p>For each GameObject and its Components: - <strong>Awake</strong>: once when scene loads - <strong>Start</strong>: once before first frame - <strong>FixedUpdate / Update / Render</strong>: per frame (if active) - <strong>OnDestroy</strong>: cleanup hook</p>
+<p>Behaviours add: - <strong>OnEnable / OnDisable</strong> when activation changes</p>
+<h3 id="instantiation-workflows">7.3 Instantiation workflows</h3>
+<p>XEngine supports both: - <strong>Prefab-like cloning</strong> (copy an existing GameObject tree) - <strong>Builder-style instantiation</strong> (recommended extension / workflow) - <code>Instantiate(name, lambda(go){ ...add components... })</code></p>
+<p>The builder approach avoids complex generic cloning and makes construction explicit.</p>
+<hr />
+<h2 id="gameobject-components-and-transform">8. GameObject, Components, and Transform</h2>
+<h3 id="composition-model">8.1 Composition model</h3>
+<ul>
+<li>A <code>GameObject</code> is a container of Components.</li>
+<li>Components implement behaviour (render, physics, scripts).</li>
+<li>Some components are <em>unique</em> (e.g., Transform-like pattern).</li>
+</ul>
+<h3 id="hierarchy">8.2 Hierarchy</h3>
+<ul>
+<li>GameObjects can be parented.</li>
+<li>Transform works with local/world conversions and caching (dirty flags).</li>
+<li>Parent transforms affect children automatically.</li>
+</ul>
+<hr />
+<h2 id="rendering-system">9. Rendering System</h2>
+<h3 id="renderer-backend">9.1 Renderer backend</h3>
+<ul>
+<li>Uses <code>SDL_Renderer</code> for drawing.</li>
+<li>RenderManager provides world-space and screen-space draw calls.</li>
+</ul>
+<h3 id="sprite-rendering">9.2 Sprite rendering</h3>
+<p><code>SpriteRenderer</code> typically supports: - Texture + source rectangle (spritesheets) - Tint (RGBA) - Rotation + pivot (0..1) - Flip X/Y - Local offsets</p>
+<h3 id="camera2d">9.3 Camera2D</h3>
+<p>Camera provides: - Center position - Zoom - Base view size - World &lt;-&gt; screen conversion - Follow and clamp helpers</p>
+<h3 id="debug-tools">9.4 Debug tools</h3>
+<ul>
+<li>Debug lines/rectangles (world space)</li>
+<li>Optional stats overlay (FPS, frame time, draw calls)</li>
+</ul>
+<hr />
+<h2 id="assets-layer-sdl-wrappers-caching">10. Assets Layer (SDL Wrappers + Caching)</h2>
+<p>XEngine wraps SDL resources into <strong>move-only C++ asset types</strong> instead of passing raw pointers everywhere.</p>
+<h3 id="sdl-wrapper-types">10.1 SDL wrapper types</h3>
+<p>The engine defines wrappers: - <code>Texture</code> wraps <code>SDL_Texture*</code>, stores width/height and supports pixels-per-unit metadata - <code>Font</code> wraps <code>TTF_Font*</code> - <code>SoundEffect</code> wraps <code>Mix_Chunk*</code> - <code>Music</code> wraps <code>Mix_Music*</code></p>
+<p>Important design points: - They are <strong>move-only</strong> (copy disabled) to avoid double-free and accidental shared ownership - Destructors release the underlying SDL resources (RAII) - Internal access uses <code>GetSDL()</code> for systems that must call SDL directly (e.g., RenderManager / SoundManager)</p>
+<h3 id="assetmanager-caching">10.2 AssetManager caching</h3>
+<p><code>AssetManager</code> is responsible for: - Loading assets once and caching them (by path and/or by logical key). - Storing them as <code>std::unique_ptr&lt;...&gt;</code> in internal maps (textures, fonts, sfx, music). - Providing <code>LoadX()</code> and <code>GetX()</code> methods (plus <code>ByKey</code> variants).</p>
+<p>This keeps: - file I/O and SDL load calls centralized - consistent error handling/logging - stable asset lifetime across the whole game</p>
+<hr />
+<h2 id="audio-system-soundmanager">11. Audio System (SoundManager)</h2>
+<p>SoundManager handles playback using the asset wrappers above.</p>
+<p>Key features: - Configurable SFX channel pool (default example: 32 channels) - Global master volume applied to music and SFX - Optional <strong>ducking</strong> (reduce music volume while SFX are playing) with tunable duck volume and attack/release timings</p>
+<p>Public API overview: - Music: <code>PlayMusic(...)</code>, <code>StopMusic()</code>, <code>IsMusicPlaying()</code> - SFX: <code>PlaySFX(...)</code>, <code>StopAllSFX()</code>, <code>StopSFXChannel()</code>, <code>IsAnySFXPlaying()</code> - Runtime tuning: <code>SetMasterVolume()</code>, <code>SetSFXChannelCount()</code></p>
+<hr />
+<h2 id="input-system">12. Input System</h2>
+<p>InputManager supports: - Keyboard: down / pressed / released - Mouse buttons: down / pressed / released - Mouse position + delta + wheel - Text input buffer (useful for UI and debug tools) - World-space mouse position via camera conversions</p>
+<hr />
+<h2 id="collision-physics">13. Collision &amp; Physics</h2>
+<h3 id="collisionmanager">13.1 CollisionManager</h3>
+<p>Responsible for: - Broadphase pair generation - Narrowphase collision tests (OBB/Circle combinations) - Trigger vs solid handling - Event dispatch: - <code>OnCollisionEnter/Stay/Exit</code> - <code>OnTriggerEnter/Stay/Exit</code></p>
+<p>Collision info can include contact points (point/normal/penetration) for physics response.</p>
+<h3 id="physicsmanager">13.2 PhysicsManager</h3>
+<p>Provides: - Rigidbody integration (gravity, damping, constraints) - Impulse-based solver (restitution) - Positional correction to reduce overlap/sinking - Substepping for fast bodies (lightweight CCD approach)</p>
+<hr />
+<h2 id="ui-system-immediate-mode">14. UI System (Immediate Mode)</h2>
+<p>UIManager provides a compact immediate-mode UI: - Panels, labels, images - Buttons (with hover/active states) - Invisible buttons - Checkbox / progress bar (if included in your build)</p>
+<p>The UI renders in screen-space and uses fonts/textures from AssetManager.</p>
+<hr />
+<h2 id="two-games-built-with-xengine">15. Two Games Built With XEngine</h2>
+<h3 id="game-1-blobs-quest">Game 1 — Blob’s quest</h3>
+<ul>
+<li><p><strong>Genre:</strong> Top Down - Twin Stick Shooter</p></li>
+<li><p><strong>Core mechanics:</strong> Avoiding enemies, shooting and picking up coins</p></li>
+<li><p><strong>Engine features used:</strong> Input, Collisions, Phisycs, SFX and Music, Scene loading, UI buttons and Progress bar…</p></li>
+<li><p><strong>Interesting technical notes:</strong> The background tiles are made using Physical tiled background mode not actual gameObjects</p></li>
+<li><p><strong>Gameplay:</strong></p>
+<p><img src="../gameplay/blobs quest.gif" alt="Cool Gameplay" width="400"></p></li>
+</ul>
+<h3 id="game-2-my-princess-run">Game 2 — My Princess Run</h3>
+<ul>
+<li><p><strong>Genre:</strong> Endless Runner</p></li>
+<li><p><strong>Core mechanics:</strong> Jumping and avoiding cactae</p></li>
+<li><p><strong>Engine features used:</strong> Sprite Renderer with a custom animations script, Object instantiation, Collision, Phisycs, UI Image Buttons…</p></li>
+<li><p><strong>Interesting technical notes:</strong> Animations take a big part of this game’s appeal, also ground and background is made with an object threadmill custom script that creates a parallax effect by varying the speed on different layers.</p></li>
+<li><p><strong>Gameplay:</strong></p>
+<p><img src="../gameplay/my princess run.gif" alt="Cool Gameplay" width="400"></p></li>
+</ul>
+<hr />
+<h2 id="extending-xengine-planned-possible-improvements">16. Extending XEngine (Planned / Possible Improvements)</h2>
+<p>XEngine is designed to be extended. Possible next steps:</p>
+<h3 id="multithreading-recommended-extension">16.1 Multithreading (Recommended extension)</h3>
+<p>A natural evolution is adding <strong>multithreading</strong> to reduce frame time and improve scalability.</p>
+<p>Good candidates for parallel work: - <strong>Asset loading</strong> on a background thread<br />
+(async texture/audio loading + main-thread upload to SDL renderer when ready) - <strong>Physics</strong> running in its own step thread - <strong>Rendering</strong> on its own thread to improve FPS (careful sync point before rendering; double-buffer transforms/contact data) - <strong>Collision broadphase</strong> / spatial partitioning updates in parallel - <strong>Audio mixing / streaming</strong> improvements (depending on backend constraints) - <strong>Job system</strong> (thread pool) with small tasks: AI updates, animation updates, particle updates</p>
+<h3 id="tooling-workflow">16.2 Tooling &amp; workflow</h3>
+<ul>
+<li>Scene serialization (save/load scenes to JSON)</li>
+<li>Editor/debug tooling (in-engine debug UI, gizmos, inspectors)</li>
+<li>Hot-reload for textures/audio/fonts</li>
+</ul>
+<h3 id="rendering-upgrades">16.3 Rendering upgrades</h3>
+<ul>
+<li>Sprite batching / sorting by texture to reduce draw calls</li>
+<li>Animation system (spritesheets + state machines)</li>
+<li>Particle system</li>
+<li>2D lighting</li>
+</ul>
+<h3 id="physics-upgrades">16.4 Physics upgrades</h3>
+<ul>
+<li>Friction (static + dynamic)</li>
+<li>Better contact manifolds (multiple contacts)</li>
+<li>Joints (distance/hinge/spring)</li>
+<li>True swept-shape CCD</li>
+</ul>
+<h3 id="ui-upgrades">16.5 UI upgrades</h3>
+<ul>
+<li>Layout system (vertical/horizontal layout groups)</li>
+<li>Input widgets (sliders, text fields)</li>
+<li>UI scaling for different resolutions/aspect ratios</li>
+</ul>
+<hr />
+<h2 id="conclusion">17. Conclusion</h2>
+<p>XEngine provides a complete foundation for building 2D games in C++/SDL: - Clean Scene/GameObject/Component architecture with predictable lifecycle - Stable engine loop with fixed-step physics - Camera-based rendering with sprites, debug tools, and UI - Strong developer ergonomics via <strong>BaseTypes</strong> and the <strong>Property system</strong> - Robust resource management through an <strong>asset-wrapper layer</strong> and caching manager - A clear path for future extensions such as <strong>multithreading</strong>, tooling, and advanced rendering/physics</p>                    
+                </div>
+            </div>
+            <script src="https://vjs.zencdn.net/5.4.4/video.js"></script>
+        </div>
+    </body>
+</html>
+
