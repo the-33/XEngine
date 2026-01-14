@@ -63,7 +63,7 @@ Conceptually, the engine is split into:
 
 ### 2.4 UML Class Diagram
 
-[![Cool UML Diagram](./diagrams/uml.svg)](./diagrams/uml.svg)
+[![Cool UML Diagram](./docs/diagrams/uml.svg)](./docs/diagrams/uml.svg)
 
 ---
 
@@ -162,7 +162,7 @@ This avoids deleting objects during iteration and keeps lifecycle deterministic.
 
 ### 6.1 Engine Flowchart
 
-[![Cool Flowchart](./diagrams/flowchart.svg)](./diagrams/flowchart.svg)
+[![Cool Flowchart](./docs/diagrams/flowchart.svg)](./docs/diagrams/flowchart.svg)
 
 ---
 
@@ -327,23 +327,34 @@ The UI renders in screen-space and uses fonts/textures from AssetManager.
 
 ## 15. Two Games Built With XEngine
 
-### Game 1 — Blob's quest
-- **Genre:** Top Down - Twin Stick Shooter
-- **Core mechanics:** Avoiding enemies, shooting and picking up coins
-- **Engine features used:** Input, Collisions, Phisycs, SFX and Music, Scene loading, UI buttons and Progress bar...
-- **Interesting technical notes:** The background tiles are made using Physical tiled background mode not actual gameObjects
+Two small games were developed to validate XEngine in real projects and showcase different engine features in practice.
+
+---
+
+### Game 1 — Blob’s Quest
+- **Genre:** Top-down / twin-stick shooter
+- **Core mechanics:** Move, shoot, avoid enemies, collect coins to increase score.
+- **Engine features showcased:**  
+  Input handling, Scene management (restart/reload), Physics + Collisions (enemies/projectiles/pickups), UI (score + health bar + restart button), SFX + Music through the Asset pipeline.
+- **Notable implementation detail:**  
+  The floor/background uses a **tiled physical background mode** instead of spawning many GameObjects, keeping the scene lightweight and efficient.
 - **Gameplay:**
 
-    <img src="./gameplay/blobs quest.gif" alt="Cool Gameplay" width="400">
+  <img src="./docs/gameplay/blobs_quest.gif" alt="Blob’s Quest gameplay" width="420">
+
+---
 
 ### Game 2 — My Princess Run
-- **Genre:** Endless Runner
-- **Core mechanics:** Jumping and avoiding cactae
-- **Engine features used:** Sprite Renderer with a custom animations script, Object instantiation, Collision, Phisycs, UI Image Buttons...
-- **Interesting technical notes:** Animations take a big part of this game's appeal, also ground and background is made with an object threadmill custom script that creates a parallax effect by varying the speed on different layers.
+- **Genre:** Endless runner
+- **Core mechanics:** Jump and avoid obstacles while the run speed and score increase.
+- **Engine features showcased:**  
+  SpriteRenderer + animation via custom Behaviour, runtime instantiation/spawning, Physics + Collisions for obstacle hits, UI image buttons, multi-layer parallax backgrounds.
+- **Notable implementation detail:**  
+  The game uses a **“treadmill” scrolling approach** (environment moves and wraps) plus **parallax layers** at different speeds to add depth.
 - **Gameplay:**
 
-    <img src="./gameplay/my princess run.gif" alt="Cool Gameplay" width="400">
+  <img src="./docs/gameplay/my_princess_run.gif" alt="My Princess Run gameplay" width="420">
+
 
 ---
 

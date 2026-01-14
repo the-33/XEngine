@@ -6,4 +6,4 @@ call pandoc -s --toc ^
   --pdf-engine=xelatex ^
   -V documentclass=report -V classoption=oneside -V classoption=openany ^
   -V title="XEngine Documentation" ^
-  README.md -o ".\doc\documentation.pdf"
+  README.md -o ".\docs\documentation.pdf"

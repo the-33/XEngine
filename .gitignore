@@ -401,4 +401,4 @@ FodyWeavers.xsd
 *.sln.iml
 
 # Doc generators
-./doc/*.bat
+./docs/*.bat

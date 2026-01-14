@@ -102,7 +102,7 @@
                                                         <li><a href="#ui-system-immediate-mode">14. UI System (Immediate Mode)</a></li>
                                                         <li><a href="#two-games-built-with-xengine">15. Two Games Built With XEngine</a>
                                                         <ul>
-                                                        <li><a href="#game-1-blobs-quest">Game 1 — Blob’s quest</a></li>
+                                                        <li><a href="#game-1-blobs-quest">Game 1 — Blob’s Quest</a></li>
                                                         <li><a href="#game-2-my-princess-run">Game 2 — My Princess Run</a></li>
                                                         </ul></li>
                                                         <li><a href="#extending-xengine-planned-possible-improvements">16. Extending XEngine (Planned / Possible Improvements)</a>
@@ -185,7 +185,7 @@ It follows a <strong>Unity-like workflow</strong> (Scene → GameObjects → Com
 <li><strong>RandomManager</strong>: seeded RNG utilities</li>
 </ul>
 <h3 id="uml-class-diagram">2.4 UML Class Diagram</h3>
-<p><a href="../diagrams/uml.svg"><img src="../diagrams/uml.svg" alt="Cool UML Diagram" /></a></p>
+<p><a href="./diagrams/uml.svg"><img src="./diagrams/uml.svg" alt="Cool UML Diagram" /></a></p>
 <hr />
 <h2 id="basetypes-math-common-value-types">3. BaseTypes (Math &amp; Common Value Types)</h2>
 <p><strong>BaseTypes</strong> is the shared foundation used across rendering, physics, UI, and gameplay.</p>
@@ -247,7 +247,7 @@ It follows a <strong>Unity-like workflow</strong> (Scene → GameObjects → Com
 </ol>
 <p>This avoids deleting objects during iteration and keeps lifecycle deterministic.</p>
 <h3 id="engine-flowchart">6.1 Engine Flowchart</h3>
-<p><a href="../diagrams/flowchart.svg"><img src="../diagrams/flowchart.svg" alt="Cool Flowchart" /></a></p>
+<p><a href="./diagrams/flowchart.svg"><img src="./diagrams/flowchart.svg" alt="Cool Flowchart" /></a></p>
 <hr />
 <h2 id="scene-system-lifecycle">7. Scene System &amp; Lifecycle</h2>
 <h3 id="ownership-and-safe-destruction">7.1 Ownership and safe destruction</h3>
@@ -322,23 +322,30 @@ It follows a <strong>Unity-like workflow</strong> (Scene → GameObjects → Com
 <p>The UI renders in screen-space and uses fonts/textures from AssetManager.</p>
 <hr />
 <h2 id="two-games-built-with-xengine">15. Two Games Built With XEngine</h2>
-<h3 id="game-1-blobs-quest">Game 1 — Blob’s quest</h3>
+<p>Two small games were developed to validate XEngine in real projects and showcase different engine features in practice.</p>
+<hr />
+<h3 id="game-1-blobs-quest">Game 1 — Blob’s Quest</h3>
 <ul>
-<li><p><strong>Genre:</strong> Top Down - Twin Stick Shooter</p></li>
-<li><p><strong>Core mechanics:</strong> Avoiding enemies, shooting and picking up coins</p></li>
-<li><p><strong>Engine features used:</strong> Input, Collisions, Phisycs, SFX and Music, Scene loading, UI buttons and Progress bar…</p></li>
-<li><p><strong>Interesting technical notes:</strong> The background tiles are made using Physical tiled background mode not actual gameObjects</p></li>
+<li><p><strong>Genre:</strong> Top-down / twin-stick shooter</p></li>
+<li><p><strong>Core mechanics:</strong> Move, shoot, avoid enemies, collect coins to increase score.</p></li>
+<li><p><strong>Engine features showcased:</strong><br />
+Input handling, Scene management (restart/reload), Physics + Collisions (enemies/projectiles/pickups), UI (score + health bar + restart button), SFX + Music through the Asset pipeline.</p></li>
+<li><p><strong>Notable implementation detail:</strong><br />
+The floor/background uses a <strong>tiled physical background mode</strong> instead of spawning many GameObjects, keeping the scene lightweight and efficient.</p></li>
 <li><p><strong>Gameplay:</strong></p>
-<p><img src="../gameplay/blobs quest.gif" alt="Cool Gameplay" width="400"></p></li>
+<p><img src="./gameplay/blobs_quest.gif" alt="Blob’s Quest gameplay" width="420"></p></li>
 </ul>
+<hr />
 <h3 id="game-2-my-princess-run">Game 2 — My Princess Run</h3>
 <ul>
-<li><p><strong>Genre:</strong> Endless Runner</p></li>
-<li><p><strong>Core mechanics:</strong> Jumping and avoiding cactae</p></li>
-<li><p><strong>Engine features used:</strong> Sprite Renderer with a custom animations script, Object instantiation, Collision, Phisycs, UI Image Buttons…</p></li>
-<li><p><strong>Interesting technical notes:</strong> Animations take a big part of this game’s appeal, also ground and background is made with an object threadmill custom script that creates a parallax effect by varying the speed on different layers.</p></li>
+<li><p><strong>Genre:</strong> Endless runner</p></li>
+<li><p><strong>Core mechanics:</strong> Jump and avoid obstacles while the run speed and score increase.</p></li>
+<li><p><strong>Engine features showcased:</strong><br />
+SpriteRenderer + animation via custom Behaviour, runtime instantiation/spawning, Physics + Collisions for obstacle hits, UI image buttons, multi-layer parallax backgrounds.</p></li>
+<li><p><strong>Notable implementation detail:</strong><br />
+The game uses a <strong>“treadmill” scrolling approach</strong> (environment moves and wraps) plus <strong>parallax layers</strong> at different speeds to add depth.</p></li>
 <li><p><strong>Gameplay:</strong></p>
-<p><img src="../gameplay/my princess run.gif" alt="Cool Gameplay" width="400"></p></li>
+<p><img src="./gameplay/my_princess_run.gif" alt="My Princess Run gameplay" width="420"></p></li>
 </ul>
 <hr />
 <h2 id="extending-xengine-planned-possible-improvements">16. Extending XEngine (Planned / Possible Improvements)</h2>

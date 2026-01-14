@@ -15,4 +15,4 @@ if not exist "%FILE%" (
 )
 
 powershell -NoProfile -ExecutionPolicy Bypass ^
-  "(Get-Content -Raw -Encoding UTF8 '%FILE%') -replace '\./diagrams','../diagrams' -replace '\./gameplay','../gameplay' | Set-Content -Encoding UTF8 '%FILE%'"
+  "(Get-Content -Raw -Encoding UTF8 '%FILE%') -replace '\./docs/diagrams','./diagrams' -replace '\./docs/gameplay','./gameplay' | Set-Content -Encoding UTF8 '%FILE%'"
