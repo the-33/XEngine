@@ -43,7 +43,9 @@ private:
 
 public:
     // --- Comportamientos avanzados ---
-    void Follow(const Vec2& target, float smooth = 0.f, float dt = 0.f /*NO USAR EL VALOR POR DEFECTO*/) noexcept;
+    // Follow: smooth = 0 por defecto. El parámetro dt debe proporcionarse explícitamente;
+    // no se debe confiar en el valor por defecto para la lógica dependiente del tiempo.
+    void Follow(const Vec2& target, float smooth = 0.f, float dt = 0.f /* dt debe proporcionarse explícitamente */) noexcept;
     void ClampToWorld(const Rect& worldBounds) noexcept;
 
     using CenterProperty = Property<Camera2D, Vec2,

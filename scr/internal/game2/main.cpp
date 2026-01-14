@@ -11,9 +11,9 @@ public:
 
 private:
     // --- Ajustes ---
-    float jumpImpulse = 15.f;        // tu patada inicial (VelocityChange)
-    float holdBoostPerSec = 20.f;    // extra mientras mantienes (VelocityChange por segundo)
-    float maxHoldTime = 0.18f;       // máximo tiempo de “mantener”
+    float jumpImpulse = 15.f;        // impulso inicial (VelocityChange)
+    float holdBoostPerSec = 20.f;    // impulso adicional mientras se mantiene pulsado (VelocityChange por segundo)
+    float maxHoldTime = 0.18f;       // tiempo máximo de mantenimiento
     float jumpCutMultiplier = 0.45f; // al soltar pronto: recorta vy (0..1)
 
     // --- Estado ---
@@ -62,7 +62,7 @@ private:
             holdTimer = 0.f;
         }
 
-        // 2) Mientras mantienes: empuje extra (limitado)
+        // 2) Mientras se mantiene pulsado: empuje extra (limitado)
         if (isJumping && JumpHeld_())
         {
             holdTimer += dt;
@@ -73,12 +73,12 @@ private:
             }
         }
 
-        // 3) Si sueltas pronto: “jump cut”
+        // 3) Si se suelta pronto: “jump cut”
         if (isJumping && JumpReleased_())
         {
             Vec2 v = rb->velocity;
 
-            // Si aún va hacia arriba (con tu gravedad +Y, subir = vy < 0)
+            // Si aún va hacia arriba (con la gravedad +Y, subir = vy < 0)
             if (v.y < 0.f)
             {
                 v.y *= jumpCutMultiplier; // menos negativo => sube menos

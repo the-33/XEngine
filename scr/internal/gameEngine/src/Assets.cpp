@@ -28,17 +28,17 @@ Texture::Texture(Texture&& other) noexcept
 Texture& Texture::operator=(Texture&& other) noexcept
 {
 	if (this != &other) {
-		// libera lo que tengamos
+		// liberar recursos actuales si los hay
 		if (mTexture) {
 			SDL_DestroyTexture(mTexture);
 		}
-		// mueve
+		// mover recursos desde el origen
 		mTexture = other.mTexture;
 		mW = other.mW;
 		mH = other.mH;
 		pixelsPerUnit = other.pixelsPerUnit;
 
-		// deja el origen en estado nulo
+		// dejar el origen en estado nulo
 		other.mTexture = nullptr;
 		other.mW = other.mH = 0;
 		other.pixelsPerUnit = 100.f;
