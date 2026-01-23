@@ -397,6 +397,9 @@ Good candidates for parallel work:
 - Input widgets (sliders, text fields)
 - UI scaling for different resolutions/aspect ratios
 
+### 16.5 SCene graph visualizer
+- Hierarchy tree of the screen as a debug feature
+
 ---
 
 ## 17. Conclusion
