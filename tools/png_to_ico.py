@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
-"""Convert a game's PNG icon to a multiresolution Windows ICO.
+"""Convert PNG icons to multiresolution Windows ICO files.
 
 Usage:
-  python tools/png_to_ico.py "Blob's Quest" xengine_logo
+  python tools/png_to_ico.py
+  python tools/png_to_ico.py --png "C:/art/my icon.png"
+  python tools/png_to_ico.py "Blob's Quest" xengine_icon
   python tools/png_to_ico.py "My Princess Run" princess --set-config
   python tools/png_to_ico.py "My Princess Run" game --png textures/logo.png
 
+With no arguments, refresh the BlankGame xengine_icon.ico from xengine_icon.png.
+With --png alone, write <source stem>.ico beside the specified PNG.
 Pillow is required ONLY for this optional artwork conversion tool, not XEngine builds.
 """
 from __future__ import annotations
@@ -18,6 +22,7 @@ import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parent.parent
+TEMPLATE_ICON_PNG = Path('tools/templates/BlankGame/assets/icons/xengine_icon.png')
 ICO_SIZES = (16, 24, 32, 48, 64, 128, 256)
 WINDOWS_RESERVED = {
     'CON', 'PRN', 'AUX', 'NUL',
@@ -62,6 +67,16 @@ def source_png(assets: Path, relative: str) -> Path:
     src = (assets / portable).resolve()
     if not src.is_relative_to(assets.resolve()):
         raise IconError('PNG path must stay inside the game assets/ directory')
+    if not src.is_file():
+        raise IconError(f'PNG source not found: {src}')
+    return src
+
+
+def standalone_png(value: str) -> Path:
+    """Accept any filesystem PNG path, relative to the calling directory or absolute."""
+    src = Path(value).expanduser().resolve()
+    if src.suffix.lower() != '.png':
+        raise IconError(f'--png must point to a PNG file: {value}')
     if not src.is_file():
         raise IconError(f'PNG source not found: {src}')
     return src
@@ -131,34 +146,46 @@ def update_config(game: Path, windows_ico: Path, linux_png: Path) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(
-        description='Convert games/<game>/assets/icons/<icon>.png to a multiresolution Windows .ico'
-    )
-    parser.add_argument('game', help='Game folder name, e.g. "Blob\'s Quest"')
-    parser.add_argument('icon', help='Icon name without extension, e.g. princess')
-    parser.add_argument('--png', help='Alternative source PNG path relative to assets/, e.g. textures/logo.png')
+    parser = argparse.ArgumentParser(description='Convert a PNG to a multiresolution Windows ICO')
+    parser.add_argument('game', nargs='?', help='Optional game folder name (requires icon)')
+    parser.add_argument('icon', nargs='?', help='Optional game icon name without extension (requires game)')
+    parser.add_argument('--png', help='Without game/icon: any PNG filesystem path. With game/icon: path under that game\'s assets/.')
     parser.add_argument('--force', action='store_true', help='Overwrite an existing .ico')
     parser.add_argument('--set-config', action='store_true',
-                        help='Set project.icon.windows (ICO) and project.icon.linux (PNG) in config.json')
+                        help='With game/icon: set project.icon.windows (ICO) and project.icon.linux (PNG) in config.json')
     args = parser.parse_args(argv)
     try:
-        name = safe_filename(args.icon)
-        game = game_path(args.game)
-        assets = game / 'assets'
-        src = source_png(assets, args.png if args.png is not None else f'icons/{name}.png')
-        dest = (assets / 'icons' / f'{name}.ico').resolve()
-        if not dest.is_relative_to(assets.resolve()):
-            raise IconError('Icon output path must remain inside assets/')
-        if args.set_config and not (game / 'config.json').is_file():
-            raise IconError(f'config.json not found: {game / "config.json"}')
-        convert_png(src, dest, args.force)
+        if (args.game is None) != (args.icon is None):
+            raise IconError('Provide both GAME and ICON, or omit both to use the template/--png mode.')
+        game = None
+        if args.game is not None:
+            name = safe_filename(args.icon)
+            game = game_path(args.game)
+            assets = game / 'assets'
+            src = source_png(assets, args.png if args.png is not None else f'icons/{name}.png')
+            dest = (assets / 'icons' / f'{name}.ico').resolve()
+            if not dest.is_relative_to(assets.resolve()):
+                raise IconError('Icon output path must remain inside assets/')
+            if args.set_config and not (game / 'config.json').is_file():
+                raise IconError(f'config.json not found: {game / "config.json"}')
+            overwrite = args.force
+        else:
+            if args.set_config:
+                raise IconError('--set-config requires GAME and ICON.')
+            src = standalone_png(args.png) if args.png is not None else ROOT / TEMPLATE_ICON_PNG
+            if not src.is_file():
+                raise IconError(f'PNG source not found: {src}')
+            dest = src.with_suffix('.ico')
+            # An explicit no-argument run always refreshes the template ICO.
+            overwrite = args.force or args.png is None
+        convert_png(src, dest, overwrite)
         print(f'[OK] Windows ICO: {dest}')
         print(f'[OK] Sizes (px): {", ".join(map(str, ICO_SIZES))}')
         print(f'[OK] Linux PNG unchanged: {src}')
         if args.set_config:
             update_config(game, dest, src)
             print(f'[OK] Updated: {game / "config.json"}')
-        else:
+        elif game is not None:
             print('[INFO] config.json unchanged; use --set-config to set both icon paths.')
         return 0
     except (IconError, OSError) as exc:

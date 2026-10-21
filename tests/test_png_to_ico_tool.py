@@ -90,6 +90,40 @@ class IconConversionTests(unittest.TestCase):
         self.assertEqual(tool.main(["Blob's Quest", 'engine']), 1)
         self.assertFalse((self.icons/'engine.ico').exists())
 
+    def test_no_arguments_refreshes_template_icon_in_place(self):
+        template_icons = self.root/'tools/templates/BlankGame/assets/icons'
+        template_icons.mkdir(parents=True)
+        source = template_icons/'xengine_icon.png'
+        original = Image.new('RGBA', (512, 512), (80, 40, 130, 100))
+        original.save(source)
+        destination = template_icons/'xengine_icon.ico'
+        destination.write_bytes(b'OLD')
+        self.assertEqual(tool.main([]), 0)
+        self.assertEqual(source.read_bytes()[:8], b'\x89PNG\r\n\x1a\n')
+        with Image.open(destination) as image:
+            self.assertEqual(set(image.ico.sizes()), {(s, s) for s in tool.ICO_SIZES})
+            self.assertEqual(image.convert('RGBA').getpixel((128, 128))[3], 100)
+        self.assertEqual(tool.main([]), 0)  # Repeated no-argument runs must work.
+
+    def test_png_alone_accepts_arbitrary_path_and_protects_existing_ico(self):
+        outside = self.root/'Artwork outside games'/'my icon.png'
+        outside.parent.mkdir()
+        Image.new('RGBA', (240, 120), (20, 110, 180, 200)).save(outside)
+        target = outside.with_suffix('.ico')
+        self.assertEqual(tool.main(['--png', str(outside)]), 0)
+        with Image.open(target) as image:
+            self.assertEqual(set(image.ico.sizes()), {(s, s) for s in tool.ICO_SIZES})
+        first = target.read_bytes()
+        self.assertEqual(tool.main(['--png', str(outside)]), 1)
+        self.assertEqual(target.read_bytes(), first)
+        self.assertEqual(tool.main(['--png', str(outside), '--force']), 0)
+        self.assertEqual(tool.main(['--png', str(outside.parent/'missing.png')]), 1)
+
+    def test_reject_incomplete_positional_args_and_standalone_set_config(self):
+        self.assertEqual(tool.main(["Blob's Quest"]), 1)
+        self.assertEqual(tool.main(['--set-config']), 1)
+        self.assertEqual(tool.main(['--png', str(self.src), '--set-config']), 1)
+
 
 class TemplateIconTests(unittest.TestCase):
     def test_blankgame_default_icons_exist_and_are_valid(self):
@@ -101,14 +135,14 @@ class TemplateIconTests(unittest.TestCase):
         })
         # Brand assets are supplied by the project maintainer and are not
         # replaced by synthetic icons in patch archives.
-        if not (template/'assets/icons/xengine_logo.png').is_file() or not (template/'assets/icons/xengine_logo.ico').is_file():
-            self.skipTest('Maintainer must provide new xengine_logo.png / .ico assets')
+        if not (template/'assets/icons/xengine_icon.png').is_file() or not (template/'assets/icons/xengine_icon.ico').is_file():
+            self.skipTest('Maintainer must provide xengine_icon.png / .ico assets')
         if Image:
-            with Image.open(template/'assets/icons/xengine_logo.png') as im:
+            with Image.open(template/'assets/icons/xengine_icon.png') as im:
                 self.assertEqual(im.size, (512, 512))
                 self.assertEqual(im.mode, 'RGBA')
                 self.assertEqual(im.getpixel((0,0))[3], 0)
-            with Image.open(template/'assets/icons/xengine_logo.ico') as im:
+            with Image.open(template/'assets/icons/xengine_icon.ico') as im:
                 self.assertGreaterEqual(len(im.ico.sizes()), 4)
 
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Synchronize the two reserved XEngine default icons with BlankGame.
 
-Only assets/icons/xengine_logo.ico and assets/icons/xengine_logo.png are
+Only assets/icons/xengine_icon.ico and assets/icons/xengine_icon.png are
 managed. All other filenames, including explicitly configured custom icons,
 are left untouched. No imaging libraries are required.
 """
@@ -18,7 +18,7 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 TEMPLATE = Path('tools/templates/BlankGame/assets/icons')
-ICON_NAMES = ('xengine_logo.ico', 'xengine_logo.png')
+ICON_NAMES = ('xengine_icon.ico', 'xengine_icon.png')
 BACKUPS = '.xengine-icon-backups'
 
 
@@ -78,7 +78,7 @@ def sync(root: Path, names: list[str] | None = None, *, check: bool = False,
     for name in ICON_NAMES:
         source = root / TEMPLATE / name
         if source.is_symlink() or not source.is_file():
-            raise IconSyncError(f'Default icon missing: {source}. Add your own xengine_logo files to BlankGame first.')
+            raise IconSyncError(f'Default icon missing: {source}. Add your own xengine_icon files to BlankGame first.')
         content = source.read_bytes()
         _verify(name, content)
         sources[name] = content

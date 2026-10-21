@@ -500,19 +500,21 @@ void RenderManager::DrawSprite_(const Texture& tex, const SpriteProjection::Pose
     if (snapRecord && mDeferSpriteProjection) {
         if (mDrawPhase != DrawPhase::Debug) {
             ++mPublicWorldCommandsThisFrame;
-            const auto units = RenderDiagnostics::SpriteUnits(
-                pose.rotationX != 0.f || pose.rotationY != 0.f,
-                pose.rotationZ != 0.f,
-                pose.offsetX != 0.f || pose.offsetY != 0.f);
-            mPublicWorldWorkUnitsThisFrame += units;
-            const bool offscreen = mEstimateVisibleWork &&
-                RenderDiagnostics::DefinitelyOffscreenSprite(mSelectorView,
-                    pose.x, pose.y, pose.width, pose.height,
-                    pose.scaleX, pose.scaleY, pose.offsetX, pose.offsetY,
-                    pose.pivotX, pose.pivotY);
-            mPublicEffectiveWorldWorkUnitsThisFrame +=
-                RenderDiagnostics::EffectiveUnits(units, offscreen);
-            mEstimatedOffscreenSprites += offscreen ? 1u : 0u;
+            if (mWorkEstimateMode != RenderDiagnostics::WorkEstimate::Off) {
+                const auto units = RenderDiagnostics::SpriteUnits(
+                    pose.rotationX != 0.f || pose.rotationY != 0.f,
+                    pose.rotationZ != 0.f,
+                    pose.offsetX != 0.f || pose.offsetY != 0.f);
+                mPublicWorldWorkUnitsThisFrame += units;
+                const bool offscreen = mWorkEstimateMode == RenderDiagnostics::WorkEstimate::Visibility &&
+                    RenderDiagnostics::DefinitelyOffscreenSprite(mSelectorView,
+                        pose.x, pose.y, pose.width, pose.height,
+                        pose.scaleX, pose.scaleY, pose.offsetX, pose.offsetY,
+                        pose.pivotX, pose.pivotY);
+                mPublicEffectiveWorldWorkUnitsThisFrame +=
+                    RenderDiagnostics::EffectiveUnits(units, offscreen);
+                mEstimatedOffscreenSprites += offscreen ? 1u : 0u;
+            }
         }
         DrawCmd& c = snapRecord->cmds.emplace_back();
         c.type = DrawCmd::Type::WorldTex;
@@ -533,17 +535,19 @@ void RenderManager::DrawSprite_(const Texture& tex, const SpriteProjection::Pose
     // projection as workers mode. This isolates deferral in the benchmark.
     const auto projected = SpriteProjection::Project(pose);
     const Rect dst{projected.x, projected.y, projected.w, projected.h};
-    mSpriteWorkOverride = RenderDiagnostics::SpriteUnits(
-        pose.rotationX != 0.f || pose.rotationY != 0.f,
-        pose.rotationZ != 0.f,
-        pose.offsetX != 0.f || pose.offsetY != 0.f);
-    const bool offscreen = mEstimateVisibleWork &&
-        RenderDiagnostics::DefinitelyOffscreenSprite(mSelectorView,
-            pose.x, pose.y, pose.width, pose.height,
-            pose.scaleX, pose.scaleY, pose.offsetX, pose.offsetY,
-            pose.pivotX, pose.pivotY);
-    mSpriteEffectiveWorkOverride = RenderDiagnostics::EffectiveUnits(mSpriteWorkOverride, offscreen);
-    mEstimatedOffscreenSprites += offscreen ? 1u : 0u;
+    if (mWorkEstimateMode != RenderDiagnostics::WorkEstimate::Off) {
+        mSpriteWorkOverride = RenderDiagnostics::SpriteUnits(
+            pose.rotationX != 0.f || pose.rotationY != 0.f,
+            pose.rotationZ != 0.f,
+            pose.offsetX != 0.f || pose.offsetY != 0.f);
+        const bool offscreen = mWorkEstimateMode == RenderDiagnostics::WorkEstimate::Visibility &&
+            RenderDiagnostics::DefinitelyOffscreenSprite(mSelectorView,
+                pose.x, pose.y, pose.width, pose.height,
+                pose.scaleX, pose.scaleY, pose.offsetX, pose.offsetY,
+                pose.pivotX, pose.pivotY);
+        mSpriteEffectiveWorkOverride = RenderDiagnostics::EffectiveUnits(mSpriteWorkOverride, offscreen);
+        mEstimatedOffscreenSprites += offscreen ? 1u : 0u;
+    }
     DrawTexture(tex, dst, &srcPx, pose.rotationZ,
                 {pose.pivotX, pose.pivotY}, tint, flipX, flipY);
     mSpriteWorkOverride = 0;
@@ -554,11 +558,13 @@ void RenderManager::DrawTexture(const Texture& tex, const Rect& dstWorld, const 
 {
     if (mDrawPhase != DrawPhase::Debug) {
         ++mPublicWorldCommandsThisFrame;
-        const auto units = mSpriteWorkOverride ? mSpriteWorkOverride :
-            RenderDiagnostics::RectangleUnits(rotationDeg != 0.f);
-        mPublicWorldWorkUnitsThisFrame += units;
-        mPublicEffectiveWorldWorkUnitsThisFrame += mSpriteWorkOverride ?
-            mSpriteEffectiveWorkOverride : units;
+        if (mWorkEstimateMode != RenderDiagnostics::WorkEstimate::Off) {
+            const auto units = mSpriteWorkOverride ? mSpriteWorkOverride :
+                RenderDiagnostics::RectangleUnits(rotationDeg != 0.f);
+            mPublicWorldWorkUnitsThisFrame += units;
+            mPublicEffectiveWorldWorkUnitsThisFrame += mSpriteWorkOverride ?
+                mSpriteEffectiveWorkOverride : units;
+        }
     }
 	// --- RECORDING MODE ---
     if (snapRecord)
@@ -590,9 +596,11 @@ void RenderManager::DrawRect(const Rect& worldRect, float rotationDeg, Vec2 pivo
 {
     if (mDrawPhase != DrawPhase::Debug) {
         ++mPublicWorldCommandsThisFrame;
-        const auto units = RenderDiagnostics::RectangleUnits(rotationDeg != 0.f);
-        mPublicWorldWorkUnitsThisFrame += units;
-        mPublicEffectiveWorldWorkUnitsThisFrame += units;
+        if (mWorkEstimateMode != RenderDiagnostics::WorkEstimate::Off) {
+            const auto units = RenderDiagnostics::RectangleUnits(rotationDeg != 0.f);
+            mPublicWorldWorkUnitsThisFrame += units;
+            mPublicEffectiveWorldWorkUnitsThisFrame += units;
+        }
     }
     // --- RECORDING MODE ---
     if (snapRecord)

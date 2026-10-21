@@ -92,7 +92,7 @@ private:
     std::uint64_t mLastEffectiveWorldWorkUnits = 0;
     std::uint64_t mPublicEffectiveWorldWorkUnitsThisFrame = 0;
     unsigned mEstimatedOffscreenSprites = 0;
-    bool mEstimateVisibleWork = false;
+    RenderDiagnostics::WorkEstimate mWorkEstimateMode = RenderDiagnostics::WorkEstimate::Weighted;
     RenderDiagnostics::View mSelectorView{};
     std::uint64_t mSpriteWorkOverride = 0;
     std::uint64_t mSpriteEffectiveWorkOverride = 0;

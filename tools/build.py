@@ -487,7 +487,7 @@ def project_icon(game: Path, configuration: dict, target: str = 'windows') -> Pa
         return None
     if target not in ('windows', 'linux'):
         raise BuildError(f'Unsupported icon target: {target}')
-    default_path = game / 'assets' / 'icons' / ('xengine_logo.ico' if target == 'windows' else 'xengine_logo.png')
+    default_path = game / 'assets' / 'icons' / ('xengine_icon.ico' if target == 'windows' else 'xengine_icon.png')
     if raw == 'default':
         raw = 'assets/icons/' + default_path.name
     raw = raw.replace('\\', '/')

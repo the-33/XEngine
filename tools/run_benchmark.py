@@ -28,7 +28,9 @@ METRICS = ('frame_ms', 'input_ms', 'fixed_ms', 'update_ms', 'physics_ms',
            'collision_ms', 'collision_snapshot_ms', 'collision_candidates_ms',
            'collision_merge_ms', 'render_present_ms', 'render_record_ms',
            'render_prepare_ms', 'render_submit_ms', 'render_only_present_ms',
-           'render_worker_wait_ms', 'render_sprite_submit_ms',
+           'render_worker_wait_ms', 'render_sprite_submit_ms', 'render_world_ms',
+           'render_selector_decision_ms', 'render_work_estimate_mode',
+           'render_route_override',
            'fixed_steps', 'broadphase_tests', 'narrowphase_tests', 'workers',
            'collision_parallel_steps', 'collision_passes',
            'collision_parallel_passes', 'contacts_built',
@@ -144,6 +146,14 @@ def assert_render_configuration_marker(stdout: str, *, threshold: int, sprites: 
         raise RuntimeError(f'Game render configuration handshake mismatch ({details}). '
                            f'Actual banner: {banners[0]}. Rebuild with --build and '
                            'verify benchmark flags if needed.')
+
+
+def assert_selector_probe_marker(stdout: str, *, estimate: str, route: str) -> None:
+    """Refuse old binaries or silently ignored diagnostic overrides."""
+    expected = f'[BENCH-SELECTOR-PROBE] estimate={estimate} route={route}'
+    if stdout.splitlines().count(expected) != 1:
+        raise RuntimeError(f'Missing/mismatched selector probe handshake ({expected}); '
+                           'rebuild the game with --build.')
 
 
 def assert_fixed_workload(path: Path, warmup: int, frames: int, fixed_steps: int) -> None:
@@ -328,6 +338,10 @@ def arguments() -> argparse.Namespace:
     parser.add_argument('--sprites', type=int, default=None,
                         help='Override sprite count of selected scenario (0..10000)')
     parser.add_argument('--render-selection', choices=('fixed','adaptive'), default='fixed')
+    parser.add_argument('--render-estimate', choices=('auto','off','weighted','visibility'), default='auto',
+                        help='Diagnostic: disable/retain sprite work scoring without changing game config')
+    parser.add_argument('--render-route', choices=('auto','immediate','recorded'), default='auto',
+                        help='Diagnostic: force the same render path across work-scoring variants')
     parser.add_argument('--render-cycle', action='store_true', help='Cycle render sprite load through 55/75/100/65%% phases')
     parser.add_argument('--sprite-projection', choices=('main','workers'), default='workers',
                         help='A/B sprite XYZ geometry: project on main thread vs CPU render workers')
@@ -369,6 +383,12 @@ def main() -> int:
         return 2
     if not 1 <= args.render_threshold <= 100000:
         print('[ERROR] --render-threshold must be within 1..100000', file=sys.stderr)
+        return 2
+    if ((args.render_route != 'auto' and args.modes != ['parallel']) or
+        (args.render_route == 'auto' and args.render_selection == 'adaptive'
+         and args.render_estimate == 'off')):
+        print('[ERROR] Forced render routes require --modes parallel; adaptive/auto route '
+              'cannot use --render-estimate off', file=sys.stderr)
         return 2
     if getattr(args, 'colliders', None) is not None and not 0 <= args.colliders <= 3000:
         print('[ERROR] --colliders must be within 0..3000', file=sys.stderr)
@@ -445,6 +465,7 @@ def main() -> int:
                 'sprites_override': args.sprites, 'render_threshold': args.render_threshold,
                 'render_workload': args.render_workload, 'sprite_projection': args.sprite_projection,
                 'render_selection': args.render_selection, 'render_cycle': args.render_cycle,
+                'render_estimate': args.render_estimate, 'render_route': args.render_route,
                 'layout': args.layout, 'phase_frames': args.phase_frames,
                 'repetitions': args.repetitions, 'scenarios': args.scenarios,
                 'modes': args.modes, 'vsync': False, 'runtime_configurations': configs,
@@ -465,6 +486,7 @@ def main() -> int:
                            '--cell-size', str(getattr(args, 'cell_size', 2.0)),
                            '--render-threshold', str(args.render_threshold),
                            '--render-selection', args.render_selection, '--render-cycle', str(int(args.render_cycle)),
+                           '--render-estimate', args.render_estimate, '--render-route', args.render_route,
                            '--render-workload', args.render_workload,
                            '--sprite-projection', args.sprite_projection]
                 if args.sprites is not None:
@@ -511,6 +533,10 @@ def main() -> int:
                         proc.stdout, threshold=args.render_threshold, sprites=expected_sprites,
                         workload=args.render_workload, selection=args.render_selection,
                         cycle=args.render_cycle)
+                    if args.render_estimate != 'auto' or args.render_route != 'auto':
+                        assert_selector_probe_marker(proc.stdout,
+                                                     estimate=args.render_estimate,
+                                                     route=args.render_route)
                     if f'[BENCH-SPRITE-PROJECTION] mode={args.sprite_projection}' not in proc.stdout.splitlines():
                         raise RuntimeError('Game did not confirm selected sprite projection mode; rebuild with --build')
                     if expected_timing_marker(args.timing, args.fixed_steps) not in proc.stdout.splitlines():
@@ -557,6 +583,7 @@ def main() -> int:
                                         'sprites_override': args.sprites, 'render_threshold': args.render_threshold,
                 'render_workload': args.render_workload, 'sprite_projection': args.sprite_projection,
                 'render_selection': args.render_selection, 'render_cycle': args.render_cycle,
+                'render_estimate': args.render_estimate, 'render_route': args.render_route,
                                         'broadphase': getattr(args, 'broadphase', 'bruteforce'), 'cell_size': getattr(args, 'cell_size', 2.0), 'colliders_override': getattr(args, 'colliders', None),
                 'timing': args.timing,
                                         'scheduled_fixed_steps': (args.fixed_steps if args.timing == 'deterministic' else 0),

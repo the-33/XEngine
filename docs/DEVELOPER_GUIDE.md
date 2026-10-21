@@ -406,19 +406,21 @@ Use `tools/png_to_ico.py` or its `.bat` / `.sh` wrappers. The optional converter
 
 ```powershell
 py -3 -m pip install Pillow
+.\tools\png_to_ico.bat
+.\tools\png_to_ico.bat --png "C:\Artwork\my icon.png"
 .\tools\png_to_ico.bat "My Game" princess
 ```
 
-The tool reads `games/My Game/assets/icons/princess.png` and writes `.../assets/icons/princess.ico`, containing **16, 24, 32, 48, 64, 128 and 256 px** images with preserved transparency. It does not alter the original PNG.
+With **no arguments**, the tool converts `tools/templates/BlankGame/assets/icons/xengine_icon.png` to `xengine_icon.ico` in the same directory, replacing the template ICO if already present. With **only `--png`**, it accepts any absolute or current-directory-relative PNG path and creates an ICO beside the PNG using the same basename (requires `--force` to overwrite an existing ICO). With the legacy **GAME ICON** arguments, it reads `games/My Game/assets/icons/princess.png` and writes `.../assets/icons/princess.ico`. All modes produce **16, 24, 32, 48, 64, 128 and 256 px** images with preserved transparency and leave the source PNG untouched.
 
 ```powershell
 .\tools\png_to_ico.bat "My Game" blob --png textures/blob.png
 .\tools\png_to_ico.bat "My Game" princess --force --set-config
 ```
 
-`--png` locates a source PNG relative to `assets/`; the ICO always goes under `assets/icons/`. `--force` permits replacing an existing ICO. `--set-config` updates Windows/Linux `project.icon` paths automatically. Linux has the equivalent `./tools/png_to_ico.sh "My Game" princess --set-config`. Use `--help` for all options.
+When GAME ICON are supplied, `--png` instead locates the source relative to that game's `assets/`, and the ICO is always written under its `assets/icons/`. `--force` permits replacing an existing ICO. `--set-config` works only with GAME ICON and updates Windows/Linux `project.icon` paths automatically. Linux supports all three modes through `./tools/png_to_ico.sh`. Use `--help` for all options.
 
-`tools/templates/BlankGame` is the canonical source for `assets/icons/xengine_logo.png` (512×512, Linux) and `assets/icons/xengine_logo.ico` (Windows). The files must be supplied by the project maintainer; patch archives never synthesize/recolor the logo. New projects copy these files locally. **Before every game build**, `tools/build.py` runs `sync_engine_configs.py` and `sync_game_icons.py --game <name>` to synchronize engine settings and reserved default icons. Changed default icons are backed up; custom filenames are untouched. A missing configured custom icon falls back to the game's own default with a console warning. For details, see [Default game icons](DEFAULT_GAME_ICONS.md).
+`tools/templates/BlankGame` is the canonical source for `assets/icons/xengine_icon.png` (512×512, Linux) and `assets/icons/xengine_icon.ico` (Windows). The files must be supplied by the project maintainer; patch archives never synthesize/recolor the artwork. New projects copy these files locally. **Before every game build**, `tools/build.py` runs `sync_engine_configs.py` and `sync_game_icons.py --game <name>` to synchronize engine settings and reserved default icons. Changed default icons are backed up; custom filenames are untouched. A missing configured custom icon falls back to the game's own default with a console warning. The separate README brand logo remains `docs/branding/xengine_logo.svg`. For details, see [Default game icons](DEFAULT_GAME_ICONS.md).
 
 ## Release Distribution
 
@@ -570,6 +572,15 @@ world, debug, and UI draw submissions, texture tint state changes avoided,
 and per-category elapsed times. The threshold counts scene textures and rectangles,
 **not** background tiles or debug primitives. The last frame's eligible count
 controls the next frame's path selection.
+
+To isolate the CPU cost of the selector's weight/viewport estimate without
+changing which render path executes, use
+`tools/sweep_render_selector_cost.py` with `--build-config Debug|Release`.
+It compares scoring off, weighted, and visibility-aware under the same forced
+immediate/recorded route, verifies per-frame equivalence and exports p50/p95/p99
+and tail-frame diagnostics. See [Adaptive render selection](ADAPTIVE_RENDER_SELECTION.md)
+for commands, new CSV fields and limitations. These are benchmark-only switches;
+the default remains `fixed` with an experimental threshold of 1536.
 
 For a repeatable, SDL-independent CPU-only microbenchmark:
 

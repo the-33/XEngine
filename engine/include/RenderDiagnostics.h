@@ -8,7 +8,8 @@
 namespace RenderDiagnostics {
 inline constexpr std::size_t kParallelThreshold = 1536;
 enum class Path : std::uint8_t {
-    Disabled = 0, NoWorkers = 1, BelowThreshold = 2, Parallel = 3
+    Disabled = 0, NoWorkers = 1, BelowThreshold = 2, Parallel = 3,
+    ForcedImmediate = 4 // benchmark-only; do not mislabel a forced path as below-threshold
 };
 inline constexpr const char* Name(Path path) noexcept {
     switch (path) {
@@ -16,6 +17,7 @@ inline constexpr const char* Name(Path path) noexcept {
         case Path::NoWorkers: return "no_workers";
         case Path::BelowThreshold: return "below_threshold";
         case Path::Parallel: return "parallel";
+        case Path::ForcedImmediate: return "forced_immediate";
     }
     return "unknown";
 }
@@ -78,6 +80,11 @@ enum class Selection : std::uint8_t { Fixed, Adaptive };
 inline constexpr const char* Name(Selection mode) noexcept {
     return mode == Selection::Adaptive ? "adaptive" : "fixed";
 }
+// Benchmark-only ablation controls. Auto preserves production behavior:
+// fixed scores weighted units; adaptive also estimates offscreen sprites.
+// No graphics, physics or runtime configuration files depend on these enums.
+enum class WorkEstimate : std::uint8_t { Off = 0, Weighted = 1, Visibility = 2, Auto = 3 };
+enum class RouteOverride : std::uint8_t { Auto = 0, Immediate = 1, Recorded = 2 };
 inline constexpr std::uint64_t SpriteUnits(bool tilted, bool rotated, bool offset) noexcept {
     return kUnit + (tilted ? kXYZTiltExtra : 0) +
            (rotated ? kRotationExtra : 0) + (offset ? kOffsetExtra : 0);

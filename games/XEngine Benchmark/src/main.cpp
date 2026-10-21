@@ -31,7 +31,8 @@ namespace {
                   "[--timing realtime|deterministic] [--fixed-steps N (1..16)] "
                   "[--broadphase bruteforce|grid|auto] [--cell-size N|auto] [--colliders N] "
                   "[--layout static|clustered|spread|alternating|cycling] [--phase-frames N] "
-                  "[--sprites N] [--render-threshold N] [--render-selection fixed|adaptive] [--render-cycle 0|1] [--sprite-projection main|workers] [--render-workload baseline|transforms|tint|culling|mixed|rotations_xyz]");
+                  "[--sprites N] [--render-threshold N] [--render-selection fixed|adaptive] [--render-cycle 0|1] [--sprite-projection main|workers] [--render-workload baseline|transforms|tint|culling|mixed|rotations_xyz] "
+                  "[--render-estimate auto|off|weighted|visibility] [--render-route auto|immediate|recorded]");
     }
 }
 
@@ -44,6 +45,8 @@ int main(int argc, char** argv) {
     unsigned renderThreshold = RenderDiagnostics::kParallelThreshold;
     std::string spriteProjection = "workers";
     std::string renderSelection = "fixed";
+    std::string renderEstimate = "auto";
+    std::string renderRoute = "auto";
     std::string broadphase;
     float cellSize = 2.f;
     bool autoCellSize = false;
@@ -63,6 +66,8 @@ int main(int argc, char** argv) {
         else if (key == "--sprites") { unsigned count; if (!parseUnsigned(value, count) || count > 10000) return 2; opts.spriteOverride = static_cast<int>(count); }
         else if (key == "--render-workload") opts.renderWorkload = value;
         else if (key == "--render-selection") renderSelection = value;
+        else if (key == "--render-estimate") renderEstimate = value;
+        else if (key == "--render-route") renderRoute = value;
         else if (key == "--render-cycle") { unsigned flag; if (!parseUnsigned(value, flag) || flag > 1) return 2; opts.renderCycle = flag != 0; }
         else if (key == "--sprite-projection") spriteProjection = value;
         else if (key == "--render-threshold") { if (!parseUnsigned(value, renderThreshold) || renderThreshold < 1 || renderThreshold > 100000) return 2; }
@@ -91,6 +96,11 @@ int main(int argc, char** argv) {
         !IsKnownRenderWorkload(opts.renderWorkload) ||
         (spriteProjection != "main" && spriteProjection != "workers") ||
         (renderSelection != "fixed" && renderSelection != "adaptive") ||
+        (renderEstimate != "auto" && renderEstimate != "off" &&
+         renderEstimate != "weighted" && renderEstimate != "visibility") ||
+        (renderRoute != "auto" && renderRoute != "immediate" && renderRoute != "recorded") ||
+        (renderSelection == "adaptive" && renderRoute == "auto" && renderEstimate == "off") ||
+        (mode != "parallel" && renderRoute != "auto") ||
         opts.phaseFrames == 0 || opts.phaseFrames > 100000 ||
         opts.frames == 0 || opts.frames > 100000 ||
         opts.warmup > 100000 || opts.frames + opts.warmup > 100000 ||
@@ -194,6 +204,19 @@ int main(int argc, char** argv) {
         Engine::Stop();
         return 2;
     }
+    const auto estimateMode = renderEstimate == "off" ? RenderDiagnostics::WorkEstimate::Off
+        : renderEstimate == "weighted" ? RenderDiagnostics::WorkEstimate::Weighted
+        : renderEstimate == "visibility" ? RenderDiagnostics::WorkEstimate::Visibility
+        : RenderDiagnostics::WorkEstimate::Auto;
+    const auto routeMode = renderRoute == "immediate" ? RenderDiagnostics::RouteOverride::Immediate
+        : renderRoute == "recorded" ? RenderDiagnostics::RouteOverride::Recorded
+        : RenderDiagnostics::RouteOverride::Auto;
+    if (!Engine::ConfigureRenderSelectorProbe(estimateMode, routeMode)) {
+        std::fputs("[BENCH-SELECTOR-PROBE] Invalid selector probe configuration\n", stderr);
+        Engine::Stop();
+        return 2;
+    }
+    std::printf("[BENCH-SELECTOR-PROBE] estimate=%s route=%s\n", renderEstimate.c_str(), renderRoute.c_str());
     std::printf("[BENCH-RENDER] threshold=%u sprites=%u workload=%s selection=%s cycle=%d\n", renderThreshold,
                 opts.spriteOverride >= 0 ? static_cast<unsigned>(opts.spriteOverride) :
                 GetWorkload(opts.scenario).sprites, opts.renderWorkload.c_str(), renderSelection.c_str(), opts.renderCycle);

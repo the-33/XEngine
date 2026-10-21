@@ -60,7 +60,8 @@ int main() {
         render=(ROOT/'engine/src/RenderManager.cpp').read_text()
         for needle in ('RenderDiagnostics::SelectAdaptive(',
                        'mPreviousRenderParallel = record;',
-                       'adaptive ? 1u : mCfg.renderer.parallelMinCommands',
+                       'adaptive || mRouteProbe == RenderDiagnostics::RouteOverride::Recorded',
+                       '? 1u : mCfg.renderer.parallelMinCommands',
                        'render_weighted_units_previous,render_weighted_units_current,',
                        'render_path_switched,render_selection_mode',
                        'mLastWorldWorkUnits = render->mPublicWorldWorkUnitsThisFrame;',

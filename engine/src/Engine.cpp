@@ -550,6 +550,9 @@ int Engine::RunSingleThreadingImpl() noexcept
                 sample.renderParallelExecuted = mRenderParallelExecuted;
                 sample.renderParallelFallback = mRenderParallelFallback;
                 sample.renderExecutedSwitched = mRenderExecutedSwitched;
+                sample.renderWorkEstimateMode = static_cast<unsigned>(mWorkEstimateActive);
+                sample.renderRouteOverride = static_cast<unsigned>(mRouteProbe);
+                sample.renderSelectionMs = mRenderSelectionTime * 1000.f;
             }
             sample.physicsMs = mPhysicsTime * 1000.f;
             sample.collisionsMs = mCollisionTime * 1000.f;
@@ -647,7 +650,8 @@ void Engine::WriteProfiles_() noexcept
            "render_path_switched,render_selection_mode,"
            "render_effective_units_previous,render_effective_units_current,"
            "render_estimated_offscreen_sprites,render_parallel_executed,"
-           "render_parallel_fallback,render_executed_switched\n";
+           "render_parallel_fallback,render_executed_switched,"
+           "render_work_estimate_mode,render_route_override,render_selector_decision_ms\n";
     out << std::fixed << std::setprecision(5);
     for (std::size_t i = 0; i < mProfiles.size(); ++i)
     {
@@ -691,6 +695,8 @@ void Engine::WriteProfiles_() noexcept
             << ',' << r.renderEffectivePrevious << ',' << r.renderEffectiveCurrent
             << ',' << r.renderEstimatedOffscreen << ',' << r.renderParallelExecuted
             << ',' << r.renderParallelFallback << ',' << r.renderExecutedSwitched
+            << ',' << r.renderWorkEstimateMode << ',' << r.renderRouteOverride
+            << ',' << r.renderSelectionMs
             << '\n';
     }
     std::printf("[PROFILE] Saved %zu frame samples: %s\n", mProfiles.size(), path);
@@ -1351,6 +1357,7 @@ void Engine::DoRender_() noexcept
     mLastRenderWeightedPrevious = render->mLastWorldWorkUnits;
     mLastRenderEffectivePrevious = render->mLastEffectiveWorldWorkUnits;
     const bool adaptive = mCfg.renderer.parallelSelection == RenderDiagnostics::Selection::Adaptive;
+    const auto selectionStart = mCfg.profileCsv ? ProfileClock::now() : ProfileClock::time_point{};
     mLastRenderPath = adaptive
         ? RenderDiagnostics::SelectAdaptive(
             mCfg.multiThreading, mCfg.renderer.parallelPreparation,
@@ -1360,6 +1367,12 @@ void Engine::DoRender_() noexcept
             mCfg.multiThreading, mCfg.renderer.parallelPreparation,
             pool ? pool->WorkerCount() : 0, mLastRenderEligiblePrevious,
             mCfg.renderer.parallelMinCommands);
+    if (mCfg.profileCsv) mRenderSelectionTime = ProfileElapsed_(selectionStart);
+    else mRenderSelectionTime = 0.f;
+    if (mRouteProbe == RenderDiagnostics::RouteOverride::Immediate)
+        mLastRenderPath = RenderDiagnostics::Path::ForcedImmediate;
+    else if (mRouteProbe == RenderDiagnostics::RouteOverride::Recorded)
+        mLastRenderPath = RenderDiagnostics::Path::Parallel;
     const bool record = mLastRenderPath == RenderDiagnostics::Path::Parallel;
     mRenderPathSwitched = mRenderPathPrimed && (record != mPreviousRenderParallel) ? 1u : 0u;
     mRenderPathPrimed = true;
@@ -1370,7 +1383,10 @@ void Engine::DoRender_() noexcept
     render->mPublicWorldWorkUnitsThisFrame = 0;
     render->mPublicEffectiveWorldWorkUnitsThisFrame = 0;
     render->mEstimatedOffscreenSprites = 0;
-    render->mEstimateVisibleWork = adaptive;
+    mWorkEstimateActive = mWorkEstimateProbe == RenderDiagnostics::WorkEstimate::Auto
+        ? (adaptive ? RenderDiagnostics::WorkEstimate::Visibility : RenderDiagnostics::WorkEstimate::Weighted)
+        : mWorkEstimateProbe;
+    render->mWorkEstimateMode = mWorkEstimateActive;
     render->mLastRecordedCommands = render->mImmediateCulledCommands = 0;
     render->mBackgroundDraws = render->mWorldDraws = 0;
     render->mDebugDraws = render->mUiDraws = 0;
@@ -1408,7 +1424,8 @@ void Engine::DoRender_() noexcept
         // The adaptive selector has already applied its weighted threshold;
         // do not reject valid complex workloads by raw command count again.
         render->PrepareSnapshot(render->mReusableSnapshot, pool,
-                                adaptive ? 1u : mCfg.renderer.parallelMinCommands);
+                                adaptive || mRouteProbe == RenderDiagnostics::RouteOverride::Recorded
+                                    ? 1u : mCfg.renderer.parallelMinCommands);
         mRenderPrepareTime = render->mLastPrepareMs / 1000.f;
         mRenderWorkerWaitTime = render->mLastWaitMs / 1000.f;
         const auto submitStart = ProfileClock::now();

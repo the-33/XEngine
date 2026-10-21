@@ -1,11 +1,11 @@
 """Regression checks for Windows Debug DLL deployment and benchmark fail-fast."""
 from __future__ import annotations
 
-from argparse import Namespace
 import importlib.util
 import json
 from pathlib import Path
 import shutil
+import sys
 import tempfile
 import unittest
 from unittest import mock
@@ -109,10 +109,18 @@ class WindowsRuntimeTests(unittest.TestCase):
             executable = root / 'benchmark.exe'
             executable.write_bytes(b'placeholder')
             results = root / 'results'
-            args = Namespace(build=False, exe=executable, scenarios=['light', 'render'],
-                             modes=list(runner.MODES), repetitions=3, frames=4,
-                             warmup=1, seed=12345, timeout=3, output=results,
-                             timing='realtime', fixed_steps=1)
+            # Start from real CLI defaults so new render-probe flags do not
+            # make this important stale-binary fail-fast fixture obsolete.
+            with mock.patch.object(sys, 'argv', ['run_benchmark.py']):
+                args = runner.arguments()
+            args.exe = executable
+            args.scenarios = ['light', 'render']
+            args.modes = list(runner.MODES)
+            args.repetitions = 3
+            args.frames = 4
+            args.warmup = 1
+            args.timeout = 3
+            args.output = results
             proc = mock.Mock(returncode=3221225785, stdout='', stderr='DLL entry point missing')
             with mock.patch.object(runner, 'GAME', game), \
                  mock.patch.object(runner, 'arguments', return_value=args), \

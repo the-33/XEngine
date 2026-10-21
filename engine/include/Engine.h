@@ -301,6 +301,10 @@ private:
     bool mRenderPathPrimed = false;
     unsigned mRenderPathSwitched = 0;
     RenderDiagnostics::Path mLastRenderPath = RenderDiagnostics::Path::Disabled;
+    RenderDiagnostics::WorkEstimate mWorkEstimateProbe = RenderDiagnostics::WorkEstimate::Auto;
+    RenderDiagnostics::RouteOverride mRouteProbe = RenderDiagnostics::RouteOverride::Auto;
+    RenderDiagnostics::WorkEstimate mWorkEstimateActive = RenderDiagnostics::WorkEstimate::Weighted;
+    float mRenderSelectionTime = 0.f;
     float mPhysicsTime = 0.f;
     float mCollisionTime = 0.f;
     // Per-frame PhysicsManager::Step totals (each Step resets its own counters).
@@ -343,6 +347,9 @@ private:
         unsigned renderEstimatedOffscreen = 0;
         unsigned renderParallelExecuted = 0, renderParallelFallback = 0;
         unsigned renderExecutedSwitched = 0;
+        unsigned renderWorkEstimateMode = 0;
+        unsigned renderRouteOverride = 0;
+        float renderSelectionMs = 0.f;
         float renderBackgroundMs = 0.f, renderWorldMs = 0.f;
         float renderDebugMs = 0.f, renderUiMs = 0.f;
         float renderSpriteSubmitMs = 0.f;
@@ -459,6 +466,24 @@ public:
             return false;
         engine->mDeterministicFixedStepsPerFrame = steps;
         engine->mAccumulator = 0.f;
+        return true;
+    }
+
+    // Only the dedicated benchmark calls this after StartFromJson and before
+    // Run. Auto/Auto preserves every game/config default. A forced render path
+    // allows equivalent workloads to compare the cost of weight/visibility
+    // scoring without changing whether workers are used.
+    static bool ConfigureRenderSelectorProbe(RenderDiagnostics::WorkEstimate estimate,
+                                             RenderDiagnostics::RouteOverride route) noexcept
+    {
+        auto* engine = GetInstancePtr();
+        if (!engine || !engine->mStarted || engine->mRunning) return false;
+        if (estimate == RenderDiagnostics::WorkEstimate::Off &&
+            route == RenderDiagnostics::RouteOverride::Auto &&
+            engine->mCfg.renderer.parallelSelection == RenderDiagnostics::Selection::Adaptive)
+            return false; // Adaptive needs prior-frame scores to choose a path.
+        engine->mWorkEstimateProbe = estimate;
+        engine->mRouteProbe = route;
         return true;
     }
 

@@ -189,3 +189,73 @@ No new `engine.json` keys or threshold changes are introduced by v16.10.
 Keep `Renderer.parallelMinCommands: 1536` as an experimental reference and
 `parallelSelection: "fixed"` as the production default until actual Windows
 Debug and Release measurements show a reliable improvement without tail cost.
+
+The subsequent validated 2026-10-21 Windows experiment compared seven
+repetitions across four workloads in both Debug and Release: all **56/56**
+fixed/adaptive pairs were equivalent (30,240 compared frames). Adaptive had
+negative median p50/p95/p99 gains in both configurations, particularly
+`culling` p95 in Release. These results support retaining `fixed`, and motivate
+the scoring-cost ablation below rather than changing production thresholds.
+
+## Isolate selector scoring cost without changing the render route (post-v16.11)
+
+`tools/sweep_render_selector_cost.py` performs an independent **three-way
+ablation**. Each variant starts a fresh benchmark process with identical seed,
+physics, sprites, workload, and **forced rendering route**:
+
+| `--render-estimate` | CPU work performed for each world sprite | Units available to selector |
+| --- | --- | --- |
+| `off` | No estimated unit calculation or visibility estimation | 0 (benchmark-only) |
+| `weighted` | Basic sprite transform/rectangle weights | Raw weighted units |
+| `visibility` | Basic weights **plus** conservative viewport rejection | Visibility-adjusted units |
+
+These options are **benchmark-only overrides**, not new `engine.json` keys.
+The `--render-route recorded` option always requests recording and worker
+preparation (dispatcher threshold 1); `immediate` always uses the immediate SDL
+rendering path. The selected policy is otherwise `fixed` for all three variants,
+with benchmark-only `render_path_reason=4` identifying a forced immediate path,
+and the benchmark rejects a run if actual worker participation, render commands,
+physics signatures or submitted draws differ across variants.
+
+Additional frame-profile columns:
+
+- `render_selector_decision_ms`: directly measures the once-per-frame path
+  selection function; **does not include per-sprite scoring**.
+- `render_work_estimate_mode`: 0 = off; 1 = weights; 2 = visibility.
+- `render_route_override`: 0 = automatic; 1 = forced immediate; 2 = forced recorded.
+- Existing `render_world_ms` includes sprite scoring and scene work. A/B
+  differences in this metric estimate scoring cost; `frame_ms` determines
+  whether it matters in the complete game. `render_prepare_ms`,
+  `render_submit_ms`, `render_parallel_executed` and `render_workers` reveal
+  whether unexpected path or submission differences caused tail regressions.
+
+Windows smoke test, for a single recorded-route `culling` workload:
+
+```powershell
+python tools/sweep_render_selector_cost.py --build --build-config Debug --workloads culling --routes recorded --sprites 2048 --threshold 1536 --phase-frames 30 --frames 240 --warmup 30 --repetitions 1
+```
+
+Then replicate on independently rebuilt Debug and Release binaries:
+
+```powershell
+python tools/sweep_render_selector_cost.py --build --build-config Debug --workloads baseline culling mixed rotations_xyz --routes recorded immediate --sprites 2048 --threshold 1536 --phase-frames 60 --frames 480 --warmup 60 --repetitions 7
+python tools/sweep_render_selector_cost.py --build --build-config Release --workloads baseline culling mixed rotations_xyz --routes recorded immediate --sprites 2048 --threshold 1536 --phase-frames 60 --frames 480 --warmup 60 --repetitions 7
+```
+
+The tool alternates the three run orders and exports `paired_cost.csv` (within
+triplet p50/p95/p99), `phase_cost.csv` (55/75/100/65% load), `p99_outliers.csv`
+(frame indices and stage breakdowns), `summary.csv` (medians across independent
+repetitions), `metadata.json`, and `build.log` when `--build` is used. Positive
+`weights_minus_off` or `visibility_minus_weights` values indicate a slower
+scored variant. These are **between-process timing differences**, not exact
+per-sprite durations; the experiment intentionally avoids invasive per-sprite
+clock instrumentation. Quantiles of separate runs are not matched latency
+samples, even though the deterministic workload and game counters are aligned.
+Repeat a session if p95/p99 disagree with another session, and inspect phase
+and outlier exports before attributing tails to visibility calculations.
+
+Finally, rerun `sweep_render_selector.py` with **automatic** paths and both
+strategies. A reduction in scoring cost is not by itself evidence that the
+adaptive selector is faster: real activation thresholds, fallbacks, transitions
+and p95/p99 must still be assessed in that normal A/B comparison. Keep the
+production `fixed`/1536 setting unchanged until such results exist.
