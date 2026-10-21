@@ -154,6 +154,12 @@ Use `--sdk-dir` to choose a custom SDK directory. For a manual alternative, see 
 
 ## Benchmarking and profiling
 
+<p align="center">
+  <a href="docs/BENCHMARK_GAME.md">
+    <img src="docs/branding/xengine_benchmark_logo.svg" alt="XEngine Benchmark logo — a speedometer within a gear" width="136" />
+  </a>
+</p>
+
 `games/XEngine Benchmark/` contains an SDL2 game for repeatable comparisons of collisions, threading and render workloads (including rotation, tint, culling and composite scenes). It is checked into Git; the results generated locally are ignored.
 
 For an interactive overview, toggle the **F3** debug profiler and use **F4** to change pages. When `Engine.profileCsv` is enabled, frame and subsystem timings can be exported for analysis.

@@ -1,5 +1,10 @@
 # XEngine Benchmark
 
+<div align="center">
+  <img src="branding/xengine_benchmark_logo.svg" alt="XEngine Benchmark logo — a speedometer within a gear" width="184" />
+  <p><strong>Reproducible performance tests and profiling on the real XEngine runtime.</strong></p>
+</div>
+
 Independent C++20/SDL2 benchmark game under `games/XEngine Benchmark/`. It uses the engine's actual `Scene`, `GameObject`, `Transform`, `SpriteRenderer`, `Collider2D`, `RigidBody2D` and `Behaviour` components, not a synthetic substitute for the engine's lifecycle.
 
 ## Build
