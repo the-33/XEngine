@@ -24,6 +24,32 @@ The published Legacy tree uses, among other paths:
 
 The Legacy game entry point invokes `Engine::Start(...)` with an old relative config path and may keep game setup, prefab lambdas, global variables and Behaviours in `main.cpp`. Its JSON includes keys such as `Engine.logStats` / `Engine.logErrors` and `Assets.assetsFolderPath`, whose handling must be compared with the modern configuration schema rather than copied blindly.
 
+## Real-world migration case studies
+
+Two games have already been ported **manually** from XEngine-Legacy to the modern engine. These are historical examples of the code and project-structure changes that a proposed generic migration tool should recognize; **they do not mean such a tool already exists**.
+
+### Blob's Quest — Legacy Game1
+
+- **Legacy source:** [`scr/internal/game1/main.cpp`](https://github.com/the-33/XEngine-Legacy/blob/main/scr/internal/game1/main.cpp).
+- **Original local report:** `games/Blob's Quest/MIGRATION.md` (the game is normally Git-ignored).
+- **Public case study:** [Blob's Quest `MIGRATION.md`](migrations/blobs-quest/MIGRATION.md).
+- **Porting decisions:** separate startup and asset registration into `src/main.cpp` and `src/InitCallback.hpp`; move scene composition to `assets/scenes/Level1.hpp`; extract player, enemy, coin, fireball, wall and generic sprite factories; split logic into Behaviours; preserve the asset key mapping and original engine options where compatible.
+- **Intentional changes and caveats:** unify restart/score handling, guard sensitive gameplay pointers, adapt the asset root to `./` and validate with the original texture/audio/font files, which are not distributed with the game migration documentation. The source notes mention intermediate one-off migration tooling that has since been retired.
+
+### My Princess Run — Legacy Game2
+
+- **Legacy source:** [`scr/internal/game2/main.cpp`](https://github.com/the-33/XEngine-Legacy/blob/main/scr/internal/game2/main.cpp).
+- **Original local report:** `games/My Princess Run/MIGRATION.md` (the game is normally Git-ignored).
+- **Public case study:** [My Princess Run `MIGRATION.md`](migrations/my-princess-run/MIGRATION.md).
+- **Porting decisions:** separate initialization, scene creation, gameplay Behaviours, GameState and background/obstacle factories; preserve the source game's runtime configuration where applicable, with asset paths updated to the modern project root.
+- **Intentional changes and caveats:** the original cactus factories overwrote the spawner's chosen position; the port removed that reset. The report lists textures and fonts that must be copied from the original project to run the game. Its multithreaded-rendering note is historical diagnostic advice, not proof that the modern benchmark has a universal gain.
+
+### Public documentation and gameplay previews
+
+The public copies above are snapshots of the corresponding game-root `MIGRATION.md` files provided by the author; the full workspace can hold the original reports even if those games are absent from GitHub. Do not link directly from the public README to `games/<Name>/MIGRATION.md`, because those paths may be missing in public clones.
+
+The original animated previews are hosted in the [XEngine-Legacy gameplay directory](https://github.com/the-33/XEngine-Legacy/tree/main/docs/gameplay): [Blob's Quest](https://github.com/the-33/XEngine-Legacy/blob/main/docs/gameplay/blobs_quest.gif) and [My Princess Run](https://github.com/the-33/XEngine-Legacy/blob/main/docs/gameplay/my_princess_run.gif). They illustrate the **Legacy versions** and are deliberately not copied into the new repository, because together they are over 50 MB.
+
 ## Proposed tool contract
 
 Potential command-line interface (illustrative; **not implemented**):

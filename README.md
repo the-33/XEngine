@@ -16,6 +16,7 @@
     <a href="#features">Features</a> ·
     <a href="#documentation">Documentation</a> ·
     <a href="#benchmarking-and-profiling">Benchmarks</a> ·
+    <a href="#games-migrated-from-xengine-legacy">Migrated games</a> ·
     <a href="#migrating-from-xengine-legacy">Legacy migration</a>
   </p>
 </div>
@@ -160,13 +161,40 @@ python tools/compare_profiles.py --game "XEngine Benchmark"
 
 The parallel collision path has shown measurable advantages in high-contact workloads. **Render preparation parallelism is workload-dependent**: existing measurements do not establish a universal speedup or threshold. See the [benchmark game guide](docs/BENCHMARK_GAME.md), [render calibration](docs/RENDER_THRESHOLD_CALIBRATION.md) and [adaptive broadphase](docs/ADAPTIVE_BROADPHASE.md).
 
+## Games migrated from XEngine-Legacy
+
+**Two playable projects were migrated from the original [XEngine-Legacy](https://github.com/the-33/XEngine-Legacy) (Visual Studio/MSVC) to the current cross-platform XEngine.** They demonstrate how the same SDL2 gameplay can be reorganized into independently buildable C++20 projects, with scenes, reusable GameObject factories, Behaviours and per-game configuration.
+
+| Game | Original game | What the migration demonstrates | Migration notes |
+|:--|:--|:--|:--|
+| **Blob's Quest** | [Legacy Game1](https://github.com/the-33/XEngine-Legacy/blob/main/scr/internal/game1/main.cpp) | Modular player/enemy/coin/projectile factories, physics, collision callbacks, HUD, camera and shared initialization | [Read `MIGRATION.md`](docs/migrations/blobs-quest/MIGRATION.md) |
+| **My Princess Run** | [Legacy Game2](https://github.com/the-33/XEngine-Legacy/blob/main/scr/internal/game2/main.cpp) | Runner gameplay, background/object factories, animation, shared game state and an intentional cactus-spawn fix | [Read `MIGRATION.md`](docs/migrations/my-princess-run/MIGRATION.md) |
+
+The [Legacy migration documentation](docs/LEGACY_MIGRATION_PLAN.md#real-world-migration-case-studies) explains both case studies and how they inform a possible general-purpose migration tool. Each original report also lives at **`games/<Game Name>/MIGRATION.md`** in the complete local workspace. Since personal games are **not published by default**, the links above point to public documentation copies under `docs/`, so they work even when the game's source and assets remain private. The games require their original resource files to build and run as intended.
+
+<details>
+<summary><strong>Watch the original gameplay GIFs (hosted by XEngine-Legacy)</strong></summary>
+
+<p align="center">
+  <strong>Blob's Quest</strong><br />
+  <img src="https://raw.githubusercontent.com/the-33/XEngine-Legacy/main/docs/gameplay/blobs_quest.gif" width="420" alt="Blob's Quest gameplay in the original XEngine-Legacy" />
+</p>
+<p align="center">
+  <strong>My Princess Run</strong><br />
+  <img src="https://raw.githubusercontent.com/the-33/XEngine-Legacy/main/docs/gameplay/my_princess_run.gif" width="420" alt="My Princess Run gameplay in the original XEngine-Legacy" />
+</p>
+
+*These previews show the games in XEngine-Legacy; they are not recordings of a recent modern XEngine build. The original GIFs are large, so they are referenced rather than copied into this repository.*
+
+</details>
+
 ## Migrating from XEngine-Legacy
 
 [XEngine-Legacy](https://github.com/the-33/XEngine-Legacy) is the **earlier Visual Studio/MSVC-based engine**, not an earlier build of this repository. Its projects use a different source layout, startup procedure and configuration paths.
 
 A **general-purpose Legacy → modern XEngine migrator is being evaluated, not yet implemented**. The proposed tool would generate a modern game project, copy assets, translate known configuration keys and produce a report of C++ code requiring manual attention. It should never silently rewrite unknown C++ syntax or modify the original project.
 
-Read the [Legacy migration feasibility and proposed design](docs/LEGACY_MIGRATION_PLAN.md).
+Read the [Legacy migration feasibility and proposed design](docs/LEGACY_MIGRATION_PLAN.md), including the [two completed game migrations](docs/LEGACY_MIGRATION_PLAN.md#real-world-migration-case-studies).
 
 ## Documentation
 
@@ -180,7 +208,9 @@ Read the [Legacy migration feasibility and proposed design](docs/LEGACY_MIGRATIO
 | [Render threshold calibration](docs/RENDER_THRESHOLD_CALIBRATION.md) | Deterministic render scenarios and equivalence checking |
 | [Engine config synchronization](docs/ENGINE_CONFIG_MIGRATION.md) | Canonical settings, backups and safe updates |
 | [Game Git tracking](docs/GAME_GIT_TRACKING.md) | How to include or exclude your games |
-| [Legacy migration plan](docs/LEGACY_MIGRATION_PLAN.md) | Scope and limits of a future Legacy migrator |
+| [Legacy migration plan](docs/LEGACY_MIGRATION_PLAN.md) | Scope and limits of a future Legacy migrator, plus completed game examples |
+| [Blob's Quest migration](docs/migrations/blobs-quest/MIGRATION.md) | Original game migration notes (public copy) |
+| [My Princess Run migration](docs/migrations/my-princess-run/MIGRATION.md) | Original game migration notes (public copy) |
 
 ## Contributing & testing
 
