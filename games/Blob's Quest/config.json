@@ -1,0 +1,19 @@
+{
+  "project": {
+    "name": "Blob's Quest",
+    "version": "0.1.0",
+    "icon": {
+      "windows": "assets/icons/xengine.ico",
+      "linux": "assets/icons/xengine.png"
+    }
+  },
+  "build": {
+    "platform": "auto",
+    "architecture": "x86_64",
+    "configuration": "Release"
+  },
+  "defines": [],
+  "shipping": {
+    "copy_runtime_assets": true
+  }
+}

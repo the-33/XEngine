@@ -4,7 +4,7 @@ XEngine is a lightweight, source-driven **2D game engine built with C++20 and SD
 
 This repository provides a portable **GCC/Clang-based workspace**, a static `libXEngine.a` engine library, game-project templates, example games, and a Python-standard-library build tool. It supports native **Windows x86_64** and **Linux x86_64** builds, plus cross-compilation when a suitable target compiler and SDK are installed. It does **not** use Visual Studio project files, CMake, Ninja, or Make.
 
-**Project background:** See the [original XEngine repository](https://github.com/the-33/XEngine) and its [original engine documentation](https://github.com/the-33/XEngine/blob/main/README.md) for the initial design and its subsystems. This README documents the **current workspace and build process**; older project layouts and setup commands in the original repository may differ.
+**Project background:** See the [original XEngine repository](https://github.com/the-33/XEngine-Legacy) and its [original engine documentation](https://github.com/the-33/XEngine-Legacy/blob/main/README.md) for the initial design and its subsystems. This README documents the **current workspace and build process**; older project layouts and setup commands in the original repository may differ.
 
 > **Current scope:** XEngine still uses SDL2 (SDL2_image, SDL2_mixer and SDL2_ttf) for its desktop backend. Cross-compilation removes the requirement to build on the *target operating system*; it does **not** eliminate target SDL2 development libraries. Android, macOS, iOS and web are not supported build targets yet.
 
@@ -17,7 +17,7 @@ This repository provides a portable **GCC/Clang-based workspace**, a static `lib
 - **Developer APIs:** Reusable math types (`BaseTypes`), C#-style `Property` / `PropertyRO` wrappers, explicit managers and modular C++ gameplay scripts.
 - **Build and distribution:** A shared `tools/build.py` orchestrator, Debug and Release configurations, platform-specific icons, incremental builds, runtime assets and platform-specific distribution packaging.
 
-For a more detailed explanation of the engine architecture, see [Architecture](docs/ARCHITECTURE.md) and the [original project's subsystem documentation](https://github.com/the-33/XEngine#readme).
+For a more detailed explanation of the engine architecture, see [Architecture](docs/ARCHITECTURE.md) and the [original project's subsystem documentation](https://github.com/the-33/XEngine-Legacy#readme).
 
 ## Quick Start
 

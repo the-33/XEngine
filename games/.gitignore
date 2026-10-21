@@ -3,4 +3,6 @@
 # .gitkeep files inside assets/ do NOT enable a game.
 # Do not add private game directories manually below.
 /*/
+!/Blob's Quest/
+!/My Princess Run/
 !/XEngine Benchmark/
