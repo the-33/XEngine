@@ -83,6 +83,10 @@
     ],
     [
       "Renderer",
+      "parallelSelection"
+    ],
+    [
+      "Renderer",
       "vsync"
     ],
     [

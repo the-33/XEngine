@@ -40,6 +40,8 @@ def main():
     # Keep resource directories, but never copy Git opt-in markers from BlankGame.
     # A newly generated game is private until the developer deliberately adds
     # games/<Game Name>/.gitkeep at its root.
+    # Includes the maintainer-supplied xengine_logo.ico / .png by name; their
+    # template copies are the source of truth for subsequent per-game sync.
     shutil.copytree(TEMPLATE, dest, ignore=shutil.ignore_patterns('.gitkeep'))
     for f in dest.rglob('*'):
         if f.is_file() and f.suffix in {'.json','.cpp','.h','.hpp','.md','.bat','.sh'}:

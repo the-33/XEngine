@@ -454,6 +454,8 @@ def _icon_config(configuration: dict, target: str) -> str | None:
     Accepted forms:
       null
       "assets/icons/game.ico"            (legacy: Windows only)
+      "default"                           (Windows and Linux)
+      {"windows": "default", "linux": "default"}
       {"windows": "...ico", "linux": "...png"}
     """
     project = configuration.get('project', {})
@@ -464,7 +466,7 @@ def _icon_config(configuration: dict, target: str) -> str | None:
         return None
     if isinstance(icon, str):
         # Existing projects specifying a Windows ICO must also compile on Linux.
-        return icon if target == 'windows' else None
+        return icon if (target == 'windows' or icon == 'default') else None
     if not isinstance(icon, dict):
         raise BuildError('config.json: project.icon must be null, a Windows .ico path, or an object with windows/linux paths')
     unknown = set(icon) - {'windows', 'linux'}
@@ -483,6 +485,11 @@ def project_icon(game: Path, configuration: dict, target: str = 'windows') -> Pa
     raw = _icon_config(configuration, target)
     if raw is None:
         return None
+    if target not in ('windows', 'linux'):
+        raise BuildError(f'Unsupported icon target: {target}')
+    default_path = game / 'assets' / 'icons' / ('xengine_logo.ico' if target == 'windows' else 'xengine_logo.png')
+    if raw == 'default':
+        raw = 'assets/icons/' + default_path.name
     raw = raw.replace('\\', '/')
     relative = Path(raw)
     if (not raw.strip() or relative.is_absolute() or ':' in raw
@@ -498,7 +505,15 @@ def project_icon(game: Path, configuration: dict, target: str = 'windows') -> Pa
     if not full.is_relative_to(game.resolve()):
         raise BuildError('project.icon cannot point outside the game')
     if not full.is_file():
-        raise BuildError(f'Game icon not found: {full}')
+        # A missing *safe* custom path falls back to the game's own synchronized
+        # default. Do not hide invalid paths, malformed files, or symlink escapes.
+        if full == default_path.resolve():
+            raise BuildError(f'Default game icon not found: {full}; run tools/sync_game_icons.py')
+        log(f'[ICON] WARNING | project.icon.{target} refers to a missing file: {relative}. '
+            f'Using assets/icons/{default_path.name} instead.')
+        full = default_path.resolve()
+        if not full.is_relative_to(game.resolve()) or not full.is_file():
+            raise BuildError(f'Fallback default icon not found: {full}; run tools/sync_game_icons.py')
     data = full.read_bytes()
     if target == 'windows':
         # ICO directory header: reserved=0, type=1, image_count>=1
@@ -588,9 +603,21 @@ def game_sources(game: Path, target: str, generated: Path) -> list[Path]:
         raise BuildError(f'Missing game entry point: {game}/src/main.cpp')
     return sorted(set(sources))
 
+def sync_before_game_build(project: str) -> None:
+    """Always sync game engine settings and default icons before any compilation.
+
+    Each command streams output directly to the terminal (and benchmark tee
+    logs). A nonzero exit aborts immediately, never using an old executable.
+    """
+    for tool in ('sync_engine_configs.py', 'sync_game_icons.py'):
+        log(f'[SYNC] {tool} | {project}')
+        command([sys.executable, str(ROOT / 'tools' / tool), '--game', project], cwd=ROOT)
+
+
 def game_build(project: str, *,target,profile,arch,tooling,run:bool=False) -> Path:
     game=ROOT/'games'/project
     if not game.is_dir(): raise BuildError(f'Game not found: games/{project}')
+    sync_before_game_build(project)
     config=json_file(game/'config.json')
     name=config.get('project',{}).get('name')
     if name!=project: raise BuildError(f'config project.name={name!r} must match directory games/{project}')

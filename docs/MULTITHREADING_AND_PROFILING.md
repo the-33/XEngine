@@ -28,7 +28,7 @@ not a performance guarantee. The physics solver is currently single-threaded.
 The `Renderer.parallelPreparation` setting defaults to `true` but only takes effect
 when `Engine.multiThreading` is also `true`. The main thread keeps all SDL
 renderer calls, SDL_ttf calls, live scene access, texture creation/destruction and
-`SDL_RenderPresent`. When at least **384 world draw commands** were submitted
+`SDL_RenderPresent`. In the default `fixed` selector, when at least **1536 world commands** were submitted
 in the previous frame, the engine records draw commands in their original
 submission order, captures a plain-data camera snapshot, and uses the **same
 persistent CPU worker pool** used for collisions to calculate world-to-screen

@@ -2,7 +2,7 @@
 """Convert a game's PNG icon to a multiresolution Windows ICO.
 
 Usage:
-  python tools/png_to_ico.py "Blob's Quest" xengine
+  python tools/png_to_ico.py "Blob's Quest" xengine_logo
   python tools/png_to_ico.py "My Princess Run" princess --set-config
   python tools/png_to_ico.py "My Princess Run" game --png textures/logo.png
 

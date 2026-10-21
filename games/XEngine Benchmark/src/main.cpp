@@ -31,7 +31,7 @@ namespace {
                   "[--timing realtime|deterministic] [--fixed-steps N (1..16)] "
                   "[--broadphase bruteforce|grid|auto] [--cell-size N|auto] [--colliders N] "
                   "[--layout static|clustered|spread|alternating|cycling] [--phase-frames N] "
-                  "[--sprites N] [--render-threshold N] [--render-workload baseline|transforms|tint|culling|mixed|rotations_xyz]");
+                  "[--sprites N] [--render-threshold N] [--render-selection fixed|adaptive] [--render-cycle 0|1] [--sprite-projection main|workers] [--render-workload baseline|transforms|tint|culling|mixed|rotations_xyz]");
     }
 }
 
@@ -42,6 +42,8 @@ int main(int argc, char** argv) {
     std::string timing = "realtime";
     unsigned fixedSteps = 1;
     unsigned renderThreshold = RenderDiagnostics::kParallelThreshold;
+    std::string spriteProjection = "workers";
+    std::string renderSelection = "fixed";
     std::string broadphase;
     float cellSize = 2.f;
     bool autoCellSize = false;
@@ -60,6 +62,9 @@ int main(int argc, char** argv) {
         else if (key == "--colliders") { unsigned count; if (!parseUnsigned(value, count) || count > 3000) return 2; opts.colliderOverride = static_cast<int>(count); }
         else if (key == "--sprites") { unsigned count; if (!parseUnsigned(value, count) || count > 10000) return 2; opts.spriteOverride = static_cast<int>(count); }
         else if (key == "--render-workload") opts.renderWorkload = value;
+        else if (key == "--render-selection") renderSelection = value;
+        else if (key == "--render-cycle") { unsigned flag; if (!parseUnsigned(value, flag) || flag > 1) return 2; opts.renderCycle = flag != 0; }
+        else if (key == "--sprite-projection") spriteProjection = value;
         else if (key == "--render-threshold") { if (!parseUnsigned(value, renderThreshold) || renderThreshold < 1 || renderThreshold > 100000) return 2; }
         else if (key == "--layout") opts.layout = value;
         else if (key == "--phase-frames") { if (!parseUnsigned(value, opts.phaseFrames)) return 2; }
@@ -84,6 +89,8 @@ int main(int argc, char** argv) {
     if ((mode != "single" && mode != "collision" && mode != "parallel") ||
         !IsKnownScenario(opts.scenario) || !IsKnownLayout(opts.layout) ||
         !IsKnownRenderWorkload(opts.renderWorkload) ||
+        (spriteProjection != "main" && spriteProjection != "workers") ||
+        (renderSelection != "fixed" && renderSelection != "adaptive") ||
         opts.phaseFrames == 0 || opts.phaseFrames > 100000 ||
         opts.frames == 0 || opts.frames > 100000 ||
         opts.warmup > 100000 || opts.frames + opts.warmup > 100000 ||
@@ -163,6 +170,7 @@ int main(int argc, char** argv) {
             return 2;
         }
         config["Renderer"]["parallelMinCommands"] = renderThreshold;
+        config["Renderer"]["parallelSelection"] = renderSelection;
         config["Collision"]["broadphase"] = broadphase;
         config["Collision"]["cellSize"] = autoCellSize ? nlohmann::json("auto") : nlohmann::json(cellSize);
         runtimeConfig = config.dump();
@@ -176,6 +184,8 @@ int main(int argc, char** argv) {
                      configPath.string().c_str());
         return 1;
     }
+    Renderer->SetDeferredSpriteProjection(spriteProjection == "workers");
+    std::printf("[BENCH-SPRITE-PROJECTION] mode=%s\n", spriteProjection.c_str());
     // Deterministic timing is enabled only for this benchmark process, after
     // the mode-specific JSON has initialized the engine and BEFORE Engine::Run.
     const unsigned requestedSteps = timing == "deterministic" ? fixedSteps : 0;
@@ -184,9 +194,9 @@ int main(int argc, char** argv) {
         Engine::Stop();
         return 2;
     }
-    std::printf("[BENCH-RENDER] threshold=%u sprites=%u workload=%s\n", renderThreshold,
+    std::printf("[BENCH-RENDER] threshold=%u sprites=%u workload=%s selection=%s cycle=%d\n", renderThreshold,
                 opts.spriteOverride >= 0 ? static_cast<unsigned>(opts.spriteOverride) :
-                GetWorkload(opts.scenario).sprites, opts.renderWorkload.c_str());
+                GetWorkload(opts.scenario).sprites, opts.renderWorkload.c_str(), renderSelection.c_str(), opts.renderCycle);
     if (autoCellSize)
         std::printf("[BENCH-BROADPHASE] mode=%s cell_size=auto\n", broadphase.c_str());
     else

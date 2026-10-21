@@ -15,13 +15,14 @@
     "vsync": false,
     "hardwareAcceleration": true,
     "parallelPreparation": true,
-    "parallelMinCommands": 384,
+    "parallelMinCommands": 1536,
     "bgColor": [
       11,
       16,
       27,
       255
-    ]
+    ],
+    "parallelSelection": "fixed"
   },
   "Input": {
     "startTextInput": false,

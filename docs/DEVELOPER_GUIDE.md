@@ -398,7 +398,7 @@ The optional `project.icon` setting accepts `null`, an older Windows-only `.ico`
 | Windows | `.ico` (preferably 16, 32, 48 and 256 px inside one file) | Embedded in `.exe` with `windres`; no separate ICO distributed |
 | Linux | Transparent `.png` (preferably 256×256 or 512×512 px) | Copied to `dist/icons/` and referenced by a `.desktop` application launcher |
 
-Missing files and invalid icon formats produce explicit build errors. Updating the Windows ICO forces the executable to be relinked. This **does not** automatically configure an SDL window icon (`SDL_SetWindowIcon`), which is a separate runtime concern.
+Missing **custom** icons fall back to the synchronized project-local default icons, with a warning. Missing template/default icons and invalid icon formats produce explicit build errors. Updating the Windows ICO forces the executable to be relinked. This **does not** automatically configure an SDL window icon (`SDL_SetWindowIcon`), which is a separate runtime concern.
 
 ### Convert PNG to ICO
 
@@ -418,7 +418,7 @@ The tool reads `games/My Game/assets/icons/princess.png` and writes `.../assets/
 
 `--png` locates a source PNG relative to `assets/`; the ICO always goes under `assets/icons/`. `--force` permits replacing an existing ICO. `--set-config` updates Windows/Linux `project.icon` paths automatically. Linux has the equivalent `./tools/png_to_ico.sh "My Game" princess --set-config`. Use `--help` for all options.
 
-`tools/templates/BlankGame` already includes XEngine's default purple logo as `assets/icons/xengine.png` (512×512) and `assets/icons/xengine.ico` (multiple resolutions), referenced by the template config. New projects inherit those icons; existing games are not modified.
+`tools/templates/BlankGame` is the canonical source for `assets/icons/xengine_logo.png` (512×512, Linux) and `assets/icons/xengine_logo.ico` (Windows). The files must be supplied by the project maintainer; patch archives never synthesize/recolor the logo. New projects copy these files locally. **Before every game build**, `tools/build.py` runs `sync_engine_configs.py` and `sync_game_icons.py --game <name>` to synchronize engine settings and reserved default icons. Changed default icons are backed up; custom filenames are untouched. A missing configured custom icon falls back to the game's own default with a console warning. For details, see [Default game icons](DEFAULT_GAME_ICONS.md).
 
 ## Release Distribution
 

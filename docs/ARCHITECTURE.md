@@ -40,8 +40,9 @@ The main thread owns SDL rendering, SDL_ttf and all game state. For larger scene
 state is captured, and `RenderManager::PrepareSnapshot` uses the existing
 `ParallelExecutor` to compute world-to-screen rectangles and conservative
 visibility in CPU workers. `RenderSnapshot` executes the ordered commands on
-the main thread. An adaptive threshold of 384 world draw commands selects the
-recording path; smaller scenes retain immediate rendering. Cached text
+the main thread. A configurable 1536-command reference selects the
+recording path in `fixed` mode; the experimental `adaptive` selector uses
+weighted sprite complexity and hysteresis; smaller scenes retain immediate rendering. Cached text
 textures avoid repeated SDL_ttf rasterization, with eviction after present.
 
 The profiler reports recording, preparation, SDL submission and presentation

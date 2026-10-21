@@ -4,7 +4,7 @@
 
 `Renderer.parallelPreparation=true` enables CPU-side projection/culling only
 when `Engine.multiThreading=true` and the **previous frame** contained at least
-384 eligible scene commands (`DrawTexture` or `DrawRect`). Background tiling,
+1536 eligible scene commands (`DrawTexture` or `DrawRect`). Background tiling,
 UI and debug primitives can generate many SDL draw submissions, but are not
 eligible. `render_path_reason=3` means the snapshot path was selected using
 previous-frame counts; `render_workers=0` is still possible if the current
@@ -14,7 +14,7 @@ frame has too few recorded commands to dispatch to workers. `render_path_reason`
 | --- | --- |
 | 0 | disabled by Engine/Renderer config |
 | 1 | no worker pool available |
-| 2 | below 384 eligible scene commands in previous frame |
+| 2 | below configured threshold (default 1536) in fixed mode, or below weighted boundary in adaptive mode in previous frame |
 | 3 | CPU parallel preparation selected |
 
 `render_immediate_culled` counts offscreen world sprite/rect/line calls
@@ -25,7 +25,7 @@ prepared commands are counted by `render_culled_commands`).
 `render_eligible_current` counts this frame's eligible scene commands. The
 recorded list also includes UI/debug commands and is not equivalent to eligible
 commands. The F3 overlay reports the route and counts; CSV contains per-frame
-details. The first frame normally selects the immediate path.
+details. The first frame normally selects the immediate path. In the opt-in `adaptive` mode, the previous frame’s work units and 15% hysteresis drive selection; see [adaptive selector](ADAPTIVE_RENDER_SELECTION.md).
 
 ## SDL call diagnostics
 

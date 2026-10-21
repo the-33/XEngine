@@ -23,7 +23,7 @@ int main() {
     assert(Select(true,false,3,1000)==Path::Disabled);
     assert(Select(true,true,0,1000)==Path::NoWorkers);
     assert(Select(true,true,3,383)==Path::BelowThreshold);
-    assert(Select(true,true,3,384)==Path::Parallel);
+    assert(Select(true,true,3,1536)==Path::Parallel);
     assert(Name(Path::BelowThreshold)==std::string("below_threshold"));
 }
 '''.replace('#include <cassert>', '#include <cassert>\n#include <string>')

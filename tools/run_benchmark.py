@@ -41,7 +41,10 @@ METRICS = ('frame_ms', 'input_ms', 'fixed_ms', 'update_ms', 'physics_ms',
            'collision_auto_calibration_passes', 'collision_auto_cell_half_passes',
            'collision_auto_cell_base_passes', 'collision_auto_cell_double_passes', 'collision_auto_selector_ms',
            'collision_auto_context_last', 'collision_auto_context_transitions',
-           'render_workers', 'render_eligible_current', 'render_prepared_commands',
+           'render_workers', 'render_parallel_executed', 'render_parallel_fallback',
+           'render_executed_switched', 'render_effective_units_current',
+           'render_estimated_offscreen_sprites',
+           'render_eligible_current', 'render_prepared_commands',
            'render_culled_commands', 'render_immediate_culled',
            'render_world_draws', 'render_recorded_total', 'render_path_reason',
            'render_tint_cache_hits', 'render_tint_updates', 'render_background_draws',
@@ -109,6 +112,40 @@ def expected_timing_marker(timing: str, fixed_steps: int) -> str:
             f'{fixed_steps if timing == "deterministic" else 0}')
 
 
+def assert_render_configuration_marker(stdout: str, *, threshold: int, sprites: int,
+                                       workload: str, selection: str, cycle: bool) -> None:
+    """Fail closed on mismatched render settings without depending on banner layout.
+
+    The game prints a BENCH-RENDER handshake after Engine::StartFromJson.
+    Compare all requested properties, including adaptive selection and load
+    cycling, while allowing additional diagnostic fields in future versions.
+    """
+    prefix = '[BENCH-RENDER] '
+    banners = [line for line in stdout.splitlines() if line.startswith(prefix)]
+    expected = {
+        'threshold': str(threshold), 'sprites': str(sprites),
+        'workload': workload, 'selection': selection, 'cycle': str(int(cycle)),
+    }
+    if len(banners) != 1:
+        raise RuntimeError(f'Expected exactly one {prefix.strip()} configuration banner; '
+                           f'found {len(banners)}. Check executable version and build logs.')
+    observed: dict[str, str] = {}
+    for field in banners[0][len(prefix):].split():
+        key, sep, value = field.partition('=')
+        if sep and key in expected:
+            if key in observed:
+                raise RuntimeError(f'Duplicate {key!r} in render configuration banner: {banners[0]}')
+            observed[key] = value
+    mismatches = {key: (value, observed.get(key, '<missing>'))
+                  for key, value in expected.items() if observed.get(key) != value}
+    if mismatches:
+        details = ', '.join(f'{key}: expected={want}, actual={got}'
+                            for key, (want, got) in mismatches.items())
+        raise RuntimeError(f'Game render configuration handshake mismatch ({details}). '
+                           f'Actual banner: {banners[0]}. Rebuild with --build and '
+                           'verify benchmark flags if needed.')
+
+
 def assert_fixed_workload(path: Path, warmup: int, frames: int, fixed_steps: int) -> None:
     """Verify EVERY profile row including warmup, not just the mean.
 
@@ -162,8 +199,17 @@ def measure(path: Path, warmup: int, frames: int | None = None) -> dict[str, flo
         summary[metric + '_mean'] = statistics.fmean(values)
         summary[metric + '_p50'] = quantile(values, .50)
         summary[metric + '_p95'] = quantile(values, .95)
-    summary['render_parallel_frames'] = sum(
+    summary['render_parallel_requested_frames'] = sum(
         int(float(row['render_path_reason'])) == 3 for row in samples)
+    # Engine v16.10+ separates route selected from actual worker dispatch.
+    # Keep older profile CSVs readable, but never infer active workers solely
+    # from the selected route if the execution metric is available.
+    summary['render_parallel_frames'] = sum(
+        int(float(row['render_parallel_executed'])) if row.get('render_parallel_executed') not in (None,'')
+        else int(float(row.get('render_workers', '0'))) > 0
+        if row.get('render_workers') not in (None, '')
+        else int(float(row['render_path_reason'])) == 3
+        for row in samples)
     # Weighted per-step values (ratio of sums, not average of per-frame ratios).
     # Real-time mode may have zero steps in many frames; deterministic mode
     # must have the same total fixed-step workload for each run.
@@ -236,9 +282,13 @@ def windows_loader_error(returncode: int) -> str | None:
             'and dependencies with a Windows PE dependency viewer.')
 
 
-def executable_default() -> Path:
+def executable_default(build_config: str = 'Debug') -> Path:
     target = 'windows' if sys.platform == 'win32' else 'linux'
     suffix = '.exe' if target == 'windows' else ''
+    if build_config == 'Release':
+        game_config = json.loads((GAME / 'config.json').read_text(encoding='utf-8'))
+        version = str(game_config['project']['version'])
+        return GAME / 'dist' / f'{target}-x86_64' / version / f'XEngine Benchmark{suffix}'
     return (ROOT / 'build' / f'{target}-x86_64' / 'debug' / 'games' /
             'XEngine Benchmark' / f'XEngine Benchmark{suffix}')
 
@@ -256,8 +306,10 @@ def auto_cell_arg(value: str) -> str:
 
 def arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('--exe', type=Path, help='Path to compiled Debug benchmark executable')
-    parser.add_argument('--build', action='store_true', help='Build Debug binary with tools/build.py first')
+    parser.add_argument('--exe', type=Path, help='Path to the selected benchmark executable (optional)')
+    parser.add_argument('--build-config', choices=('Debug','Release'), default='Debug',
+                        help='Debug or packaged Release benchmark (default Debug)')
+    parser.add_argument('--build', action='store_true', help='Build selected configuration with tools/build.py first')
     parser.add_argument('--scenarios', nargs='+', choices=SCENARIOS, default=list(SCENARIOS))
     parser.add_argument('--modes', nargs='+', choices=MODES, default=list(MODES))
     parser.add_argument('--repetitions', type=int, default=3)
@@ -275,8 +327,12 @@ def arguments() -> argparse.Namespace:
                         help='Render stress profile for sprite rotation/tint/culling/primitives')
     parser.add_argument('--sprites', type=int, default=None,
                         help='Override sprite count of selected scenario (0..10000)')
-    parser.add_argument('--render-threshold', type=int, default=384,
-                        help='Minimum eligible/recorded render commands (1..100000; default 384)')
+    parser.add_argument('--render-selection', choices=('fixed','adaptive'), default='fixed')
+    parser.add_argument('--render-cycle', action='store_true', help='Cycle render sprite load through 55/75/100/65%% phases')
+    parser.add_argument('--sprite-projection', choices=('main','workers'), default='workers',
+                        help='A/B sprite XYZ geometry: project on main thread vs CPU render workers')
+    parser.add_argument('--render-threshold', type=int, default=1536,
+                        help='Minimum eligible/recorded render commands (1..100000; default 1536)')
     parser.add_argument('--colliders', type=int, default=None,
                         help='Override collider count of selected scenario (0..3000)')
     parser.add_argument('--compare-broadphase', action='store_true',
@@ -345,19 +401,29 @@ def main() -> int:
         print(f'[ERROR] Benchmark configuration: {exc}', file=sys.stderr)
         return 2
     if args.build:
-        command = [sys.executable, str(ROOT / 'tools/build.py'), 'game', '--project', GAME.name, '--config', 'Debug']
+        command = [sys.executable, str(ROOT / 'tools/build.py'), 'game', '--project', GAME.name, '--config', args.build_config]
         print('[BUILD]', ' '.join(command), flush=True)
         try:
             subprocess.run(command, check=True)
         except (subprocess.CalledProcessError, OSError) as exc:
             print(f'[ERROR] Benchmark build failed: {exc}', file=sys.stderr)
             return 1
-    executable = (args.exe or executable_default()).expanduser().resolve()
+    executable = (args.exe or executable_default(args.build_config)).expanduser().resolve()
     if not executable.is_file():
         print(f'[ERROR] Missing benchmark executable: {executable}\n'
-              'Build first: python tools/build.py game --project "XEngine Benchmark" --config Debug',
+              f'Build first: python tools/build.py game --project "XEngine Benchmark" --config {args.build_config}',
               file=sys.stderr)
         return 2
+    # The Release binary changes cwd to SDL_GetBasePath(), i.e. the packaged
+    # distribution. The Debug binary uses the editable project's assets/.
+    # Never read stale Debug profiles when benchmarking a packaged Release.
+    assets = executable.parent if args.build_config == 'Release' else GAME / 'assets'
+    if args.build_config == 'Release':
+        for mode in args.modes:
+            actual = (assets / 'config' / f'{mode}.json')
+            if not actual.is_file() or hashlib.sha256(actual.read_bytes()).hexdigest() != configs[mode]['sha256']:
+                print(f'[ERROR] Release assets differ from source config: {actual}; rebuild with --build', file=sys.stderr)
+                return 2
     output = (args.output or (GAME / 'results' / datetime.now().strftime('%Y%m%d_%H%M%S_%f'))).resolve()
     if output.exists() and any(output.iterdir()):
         print(f'[ERROR] Output directory is not empty (refusing to overwrite results): {output}', file=sys.stderr)
@@ -366,7 +432,8 @@ def main() -> int:
     raw_results: list[dict[str, object]] = []
     failures: list[str] = []
     loader_failure: str | None = None
-    metadata = {'executable': str(executable), 'os': platform.platform(),
+    metadata = {'executable': str(executable), 'build_config': args.build_config,
+                'runtime_assets': str(assets), 'os': platform.platform(),
                 'python': platform.python_version(), 'seed': args.seed,
                 'frames': args.frames, 'warmup': args.warmup,
                 'broadphase': getattr(args, 'broadphase', 'bruteforce'), 'cell_size': getattr(args, 'cell_size', 2.0),
@@ -376,12 +443,13 @@ def main() -> int:
                                                   if args.timing == 'deterministic' else None),
                 'colliders_override': getattr(args, 'colliders', None),
                 'sprites_override': args.sprites, 'render_threshold': args.render_threshold,
-                'render_workload': args.render_workload,
+                'render_workload': args.render_workload, 'sprite_projection': args.sprite_projection,
+                'render_selection': args.render_selection, 'render_cycle': args.render_cycle,
                 'layout': args.layout, 'phase_frames': args.phase_frames,
                 'repetitions': args.repetitions, 'scenarios': args.scenarios,
                 'modes': args.modes, 'vsync': False, 'runtime_configurations': configs,
                 'timestamp': datetime.now().astimezone().isoformat(),
-                'note': 'Each test is a separate engine process. Path reason=3 means parallel render preparation.'}
+                'note': 'Each test is a separate engine process. Path reason=3 means recorded route requested; render_parallel_executed confirms actual worker preparation.'}
     (output / 'metadata.json').write_text(json.dumps(metadata, indent=2) + '\n', encoding='utf-8')
 
     for scenario in args.scenarios:
@@ -396,7 +464,9 @@ def main() -> int:
                            '--broadphase', getattr(args, 'broadphase', 'bruteforce'),
                            '--cell-size', str(getattr(args, 'cell_size', 2.0)),
                            '--render-threshold', str(args.render_threshold),
-                           '--render-workload', args.render_workload]
+                           '--render-selection', args.render_selection, '--render-cycle', str(int(args.render_cycle)),
+                           '--render-workload', args.render_workload,
+                           '--sprite-projection', args.sprite_projection]
                 if args.sprites is not None:
                     command += ['--sprites', str(args.sprites)]
                 if getattr(args, 'colliders', None) is not None:
@@ -437,9 +507,12 @@ def main() -> int:
                     expected_sprites = (args.sprites if args.sprites is not None else
                                         {'light': 120, 'render': 2200, 'collision': 220,
                                          'balanced': 1300, 'stress': 2600}[scenario])
-                    marker = f'[BENCH-RENDER] threshold={args.render_threshold} sprites={expected_sprites} workload={args.render_workload}'
-                    if marker not in proc.stdout.splitlines():
-                        raise RuntimeError('Game did not confirm the render threshold and sprite workload; rebuild with --build')
+                    assert_render_configuration_marker(
+                        proc.stdout, threshold=args.render_threshold, sprites=expected_sprites,
+                        workload=args.render_workload, selection=args.render_selection,
+                        cycle=args.render_cycle)
+                    if f'[BENCH-SPRITE-PROJECTION] mode={args.sprite_projection}' not in proc.stdout.splitlines():
+                        raise RuntimeError('Game did not confirm selected sprite projection mode; rebuild with --build')
                     if expected_timing_marker(args.timing, args.fixed_steps) not in proc.stdout.splitlines():
                         raise RuntimeError('Game did not confirm the expected physics schedule; '
                                            'rebuild it with --build')
@@ -482,7 +555,8 @@ def main() -> int:
                     raw_results.append({'scenario': scenario, 'mode': mode,
                                         'layout': args.layout, 'phase_frames': args.phase_frames,
                                         'sprites_override': args.sprites, 'render_threshold': args.render_threshold,
-                'render_workload': args.render_workload,
+                'render_workload': args.render_workload, 'sprite_projection': args.sprite_projection,
+                'render_selection': args.render_selection, 'render_cycle': args.render_cycle,
                                         'broadphase': getattr(args, 'broadphase', 'bruteforce'), 'cell_size': getattr(args, 'cell_size', 2.0), 'colliders_override': getattr(args, 'colliders', None),
                 'timing': args.timing,
                                         'scheduled_fixed_steps': (args.fixed_steps if args.timing == 'deterministic' else 0),

@@ -174,7 +174,7 @@ of **measured broadphase cost**, instead of overall frame-time noise) and
 sampled count and mode). Neither is silently applied as a fixed threshold.
 
 **Other existing fixed thresholds:** worker dispatch at 192 colliders and
-parallel render preparation at 384 eligible commands are unchanged. They need
+the historical parallel-render preparation gate at 384 eligible commands were unchanged in that version (see current [adaptive render selector](ADAPTIVE_RENDER_SELECTION.md)). They need
 separate targeted experiments and should not be described as learned by this
 broadphase calibrator. A Windows/SDL2 benchmark is needed to validate actual
 v12 runtime performance and equivalence beyond unit and syntax tests.

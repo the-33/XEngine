@@ -4,7 +4,7 @@
     "version": "0.1.0",
     "icon": {
       "windows": "assets/icons/icon.ico",
-      "linux": "assets/icons/xengine.png"
+      "linux": "default"
     }
   },
   "build": {

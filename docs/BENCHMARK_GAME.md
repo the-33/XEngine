@@ -27,7 +27,7 @@ precedence individually.
 
 The launcher validates each requested configuration **before building or running** (multiThreading, parallelPreparation, vsync off, profiling on); it also requires all other settings to match between modes, records the SHA-256 of each configuration in `metadata.json` and rejects changes midway through a session. After startup, each game prints a `[BENCH-CONFIG]` confirmation; the launcher requires this confirmation before accepting a profile. Thus a comparison cannot be mislabeled merely because the command-line `--mode` and JSON disagree.
 
-The normal `games/XEngine Benchmark/build.bat` and `build.sh` wrappers also work. The benchmark is built through the same toolchain and static engine library as every other XEngine game. Running the profiler requires a **Debug** build; a Release configuration may not include profiler instrumentation.
+The normal `games/XEngine Benchmark/build.bat` and `build.sh` wrappers also work. The benchmark is built through the same toolchain and static engine library as every other XEngine game. The benchmark enables CSV profiling through its verified runtime mode JSON in both Debug and Release. The packaged Release executable reads and writes its runtime files beside the executable; the runner supports `--build-config Release` for this mode.
 
 ## Interactive run
 
@@ -104,7 +104,7 @@ v6 figures without normalization.
 
 The renderer and collision worker paths remain **adaptive**: the JSON selects permission to run in parallel, **not evidence that a worker actually processed a given frame**. The profile now includes `collision_parallel_steps` (number of fixed-step collision passes per frame that actually dispatched parallel candidate evaluation). Worker count only tells us whether a pool exists; this new metric records whether the collision path was used. `render_parallel_frames` counts actual parallel render preparation frames. The runner checks for unexpected workers in `single` and unexpected parallel render frames in `single`/`collision`, and warns if `parallel` never actually prepares render commands in parallel or if a requested worker pool cannot be created.
 
-The render path is **adaptive** and may remain immediate when there are fewer than 384 eligible world commands. The collision path requires at least 192 active colliders before dispatching worker tasks. A mode selection does **not** guarantee that the adaptive parallel route was used for every frame. Check `render_parallel_frames` and `render_path_reason` in the captured CSV.
+The render path is **adaptive** and may remain immediate when there are fewer than the configured eligible command threshold (default 1536 for v16.9 fixed mode). The collision path requires at least 192 active colliders before dispatching worker tasks. A mode selection does **not** guarantee that the adaptive parallel route was used for every frame. Check `render_parallel_frames` and `render_path_reason` in the captured CSV.
 
 ## Automatic runner
 
@@ -206,4 +206,18 @@ la prueba anterior continúa utilizando el layout `static`.
 
 ## Render threshold calibration (v16)
 
-For the paired render-worker experiment, see [`RENDER_THRESHOLD_CALIBRATION.md`](RENDER_THRESHOLD_CALIBRATION.md). The benchmark supports `--sprites N` and `--render-threshold N` overrides, and `tools/sweep_render_threshold.py` compares immediate vs recorded/parallel rendering at controlled loads. The production threshold remains 384 pending real Windows measurements.
+For the paired render-worker experiment, see [`RENDER_THRESHOLD_CALIBRATION.md`](RENDER_THRESHOLD_CALIBRATION.md). The benchmark supports `--sprites N` and `--render-threshold N` overrides, and `tools/sweep_render_threshold.py` compares immediate vs recorded/parallel rendering at controlled loads. v16.9 uses a provisional fixed reference of 1536 and offers an opt-in weighted selector; see [adaptive selector](ADAPTIVE_RENDER_SELECTION.md).
+
+
+## Render selector Debug/Release verification (v16.10)
+
+Use `tools/sweep_render_selector.py --build --build-config Debug` or
+`--build-config Release` to compare selected and actual render paths across
+cycling sprite workloads. Release uses the packaged executable and assets; the
+Python runner verifies the packaged configuration hashes. New CSV columns
+`render_parallel_executed` and `render_parallel_fallback` distinguish actual
+worker dispatch from a selected recorded path. See
+[Adaptive render selection](ADAPTIVE_RENDER_SELECTION.md) for the complete
+methodology, smoke and replicated commands. Both engine and game build messages
+stream live to console and `build.log` during the sweep; a nonzero build aborts
+all measurements before launching an old binary.

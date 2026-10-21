@@ -54,7 +54,11 @@ class WindowsRuntimeTests(unittest.TestCase):
                                           arch='x86_64', tooling=toolchain, run=False)
             self.assertEqual(output, executable)
             copy_dll.assert_called_once_with(out, executable, tooling=toolchain)
-            command.assert_not_called()
+            # The pre-build synchronizers now run even when compilation is cached.
+            # No compiler/linker invocation should occur for this cached binary.
+            self.assertEqual(command.call_count, 2)
+            self.assertTrue(command.call_args_list[0].args[0][1].endswith('sync_engine_configs.py'))
+            self.assertTrue(command.call_args_list[1].args[0][1].endswith('sync_game_icons.py'))
 
     def test_windows_debug_replaces_old_dll_and_closes_transitive_imports(self):
         """A stale DLL next to an .exe must not shadow the selected UCRT toolchain."""

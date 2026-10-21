@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="uuid-3db7d187-78c5-4547-ab53-4499583e3780" data-name="Capa 1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1920 1080">
+  <defs>
+    <style>
+      .uuid-30ba0855-2660-4a2e-85a1-fd8772b2fca2 {
+        fill: #3a3e47;
+      }
+
+      .uuid-30ba0855-2660-4a2e-85a1-fd8772b2fca2, .uuid-5939c4aa-0056-49b6-a61e-99f8583adb74, .uuid-4cbb9f32-53cf-4a8e-aa1b-5ce729420c2a, .uuid-9c517d18-96a0-4995-957d-ef2354a58237 {
+        stroke-width: 0px;
+      }
+
+      .uuid-5939c4aa-0056-49b6-a61e-99f8583adb74 {
+        fill: url(#uuid-5f52984b-7656-4657-a34f-77b58f92c96b);
+      }
+
+      .uuid-4cbb9f32-53cf-4a8e-aa1b-5ce729420c2a {
+        fill: url(#uuid-feb2a1a7-4a3e-4d67-8a2a-4177c18fc299);
+      }
+
+      .uuid-9c517d18-96a0-4995-957d-ef2354a58237 {
+        fill: #22252c;
+      }
+    </style>
+    <linearGradient id="uuid-feb2a1a7-4a3e-4d67-8a2a-4177c18fc299" data-name="Degradado sin nombre 8" x1="713.9" y1="786.93" x2="1117.52" y2="507.08" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#6d28d9"/>
+      <stop offset="1" stop-color="#c084fc"/>
+    </linearGradient>
+    <linearGradient id="uuid-5f52984b-7656-4657-a34f-77b58f92c96b" data-name="Degradado sin nombre 10" x1="696.07" y1="761.21" x2="1099.69" y2="481.36" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#6d28d9"/>
+      <stop offset="1" stop-color="#c084fc"/>
+    </linearGradient>
+  </defs>
+  <polygon class="uuid-4cbb9f32-53cf-4a8e-aa1b-5ce729420c2a" points="906 686.69 814.47 774 703.22 774 849.67 636 906 686.69"/>
+  <path class="uuid-9c517d18-96a0-4995-957d-ef2354a58237" d="m853.5,391.5c116-13,306,156,305,266,31.5-4.07,48-26,35-72-6-24,2.97-41.64,23-53l-26-45c-50,19-87-27-58-67l-41-36c-32,35-92,5-71-47l-51-20c-8.72,23.72-28,34-54.57,30-38.53-4.98-59.75,8.87-61.43,44Z"/>
+  <path class="uuid-5939c4aa-0056-49b6-a61e-99f8583adb74" d="m1112,490l-110.57,3-97.43,91.7c17.85,19.73,36.82,34.63,57,49.3l151-144Z"/>
+  <path class="uuid-30ba0855-2660-4a2e-85a1-fd8772b2fca2" d="m803.5,347.5c-241.86,150.78,273.6,601.06,405.5,353.5-150.15,80.01-461.48-183.23-405.5-353.5Z"/>
+</svg>

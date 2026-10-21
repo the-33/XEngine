@@ -33,3 +33,6 @@ games/XEngine Benchmark/assets/xengine_profile_*.csv
 
 # Backups from template-driven runtime configuration synchronization
 .xengine-config-backups/
+
+# Backups for synchronized template icons
+.xengine-icon-backups/

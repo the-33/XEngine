@@ -6,6 +6,8 @@
 #include <cstdint>
 #include "ParallelExecutor.h"
 #include "RenderDiagnostics.h"
+#include "SpriteProjection.h"
+#include "RenderPreparation.h"
 
 #include "SDL.h"
 
@@ -85,6 +87,15 @@ private:
     unsigned mLastAttemptedWorldCommands = 0;
     unsigned mLastRecordedCommands = 0, mImmediateCulledCommands = 0;
     unsigned mPublicWorldCommandsThisFrame = 0;
+    std::uint64_t mLastWorldWorkUnits = 0;
+    std::uint64_t mPublicWorldWorkUnitsThisFrame = 0;
+    std::uint64_t mLastEffectiveWorldWorkUnits = 0;
+    std::uint64_t mPublicEffectiveWorldWorkUnitsThisFrame = 0;
+    unsigned mEstimatedOffscreenSprites = 0;
+    bool mEstimateVisibleWork = false;
+    RenderDiagnostics::View mSelectorView{};
+    std::uint64_t mSpriteWorkOverride = 0;
+    std::uint64_t mSpriteEffectiveWorkOverride = 0;
     enum class DrawPhase : std::uint8_t { World, Background, Debug, UI };
     DrawPhase mDrawPhase = DrawPhase::World;
     unsigned mBackgroundDraws = 0, mWorldDraws = 0;
@@ -93,6 +104,9 @@ private:
     float mBackgroundMs = 0.f, mDebugMs = 0.f;
     float mSpriteSubmitMs = 0.f; // world textures only, measured when CSV profiling is enabled
     bool mMeasureSpriteSubmissions = false;
+    // Comparison switch: both variants record commands; only workers mode
+    // defers sprite XYZ projection until CPU geometry preparation.
+    bool mDeferSpriteProjection = true;
     std::unordered_map<SDL_Texture*, Color> mTextureTintCache;
     void ApplyTextureTint_(SDL_Texture* texture, Color color) noexcept;
     void InvalidateTextureTint_(SDL_Texture* texture) noexcept;
@@ -196,6 +210,13 @@ public:
     // - Si mRecording == false -> llama a Immediate_
     // ===============================
 
+    // Diagnostic A/B switch. `true` (production default) offloads sprite XYZ
+    // projection with render preparation; `false` projects on the main thread.
+    // This is not an additional renderer configuration field.
+    void SetDeferredSpriteProjection(bool enabled) noexcept {
+        mDeferSpriteProjection = enabled;
+    }
+
     // Debug
     void DrawDebugLine(float x1, float y1, float x2, float y2, Color color) noexcept;
     void DrawDebugRect(const Rect& worldRect, Color color, bool filled = false) noexcept;
@@ -241,6 +262,11 @@ private:
     // - SOLO SDL draw calls
     // - NUNCA graban comandos
     // ===============================
+
+    // Called exclusively by SpriteRenderer; all live-scene reads happen before
+    // this method, and worker preparation sees only SpriteProjection::Pose.
+    void DrawSprite_(const Texture& tex, const SpriteProjection::Pose& pose,
+                     const Rect& srcPx, Color tint, bool flipX, bool flipY) noexcept;
 
     void DrawTexturePrepared_(const DrawCmd& cmd) noexcept;
 

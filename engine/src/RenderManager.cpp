@@ -87,6 +87,10 @@ void RenderManager::Begin(const Camera2D& cam) noexcept
     mTextureTintCache.clear();
     ++mTextCacheFrame;
     mActiveCam = &cam;
+    const Vec2 view = cam.GetViewBase();
+    const float zoom = cam.GetZoom();
+    const Vec2 center = cam.GetCenter();
+    mSelectorView = {center.x, center.y, view.x / zoom, view.y / zoom};
 
     if (mWindow) {
         const Vec2I drawable = mWindow->GetDrawableSize();
@@ -337,6 +341,12 @@ void RenderManager::PrepareSnapshot(Snapshot& snapshot, ParallelExecutor* worker
         DrawCmd& command = snapshot.cmds[index];
         if (command.type != DrawCmd::Type::WorldTex &&
             command.type != DrawCmd::Type::WorldRect) return;
+        // All sprite geometry is projected from an immutable value snapshot.
+        // No live scene objects, textures, rendering APIs or mutable camera access here.
+        if (command.type == DrawCmd::Type::WorldTex && command.hasDeferredSpritePose) {
+            const auto projected = SpriteProjection::Project(snapshot.spritePoses[command.spritePoseIndex]);
+            command.dstWorld = {projected.x, projected.y, projected.w, projected.h};
+        }
         const Rect& r = (command.type == DrawCmd::Type::WorldTex)
                           ? command.dstWorld : command.worldRect;
         const auto result = RenderPreparation::Prepare(camera,
@@ -444,6 +454,7 @@ void RenderManager::BeginRecord(const Camera2D* cam, Snapshot& out) noexcept
 {
     out.valid = false;
     out.cmds.clear();
+    out.spritePoses.clear();
 
     if (mWindow)
     {
@@ -467,6 +478,9 @@ void RenderManager::BeginRecord(const Camera2D* cam, Snapshot& out) noexcept
     out.cam.baseViewW = cam->mBaseViewWidth;
     out.cam.baseViewH = cam->mBaseViewHeight;
     out.cam.zoom = cam->mZoom;
+    mSelectorView = {out.cam.centerX, out.cam.centerY,
+                     out.cam.baseViewW / out.cam.zoom,
+                     out.cam.baseViewH / out.cam.zoom};
 
     // activar recording
     snapRecord = &out;
@@ -479,9 +493,73 @@ void RenderManager::EndRecord() noexcept
 }
 
 
+void RenderManager::DrawSprite_(const Texture& tex, const SpriteProjection::Pose& pose,
+                                const Rect& srcPx, Color tint,
+                                bool flipX, bool flipY) noexcept
+{
+    if (snapRecord && mDeferSpriteProjection) {
+        if (mDrawPhase != DrawPhase::Debug) {
+            ++mPublicWorldCommandsThisFrame;
+            const auto units = RenderDiagnostics::SpriteUnits(
+                pose.rotationX != 0.f || pose.rotationY != 0.f,
+                pose.rotationZ != 0.f,
+                pose.offsetX != 0.f || pose.offsetY != 0.f);
+            mPublicWorldWorkUnitsThisFrame += units;
+            const bool offscreen = mEstimateVisibleWork &&
+                RenderDiagnostics::DefinitelyOffscreenSprite(mSelectorView,
+                    pose.x, pose.y, pose.width, pose.height,
+                    pose.scaleX, pose.scaleY, pose.offsetX, pose.offsetY,
+                    pose.pivotX, pose.pivotY);
+            mPublicEffectiveWorldWorkUnitsThisFrame +=
+                RenderDiagnostics::EffectiveUnits(units, offscreen);
+            mEstimatedOffscreenSprites += offscreen ? 1u : 0u;
+        }
+        DrawCmd& c = snapRecord->cmds.emplace_back();
+        c.type = DrawCmd::Type::WorldTex;
+        c.tex = &tex;
+        c.hasSrc = true;
+        c.srcPx = srcPx;
+        c.rotationDeg = pose.rotationZ;
+        c.pivot01 = {pose.pivotX, pose.pivotY};
+        c.color = tint;
+        c.flipX = flipX;
+        c.flipY = flipY;
+        c.hasDeferredSpritePose = true;
+        c.spritePoseIndex = static_cast<std::uint32_t>(snapRecord->spritePoses.size());
+        snapRecord->spritePoses.push_back(pose);
+        return;
+    }
+    // Immediate draw and A/B 'main' mode use the exact same pure CPU
+    // projection as workers mode. This isolates deferral in the benchmark.
+    const auto projected = SpriteProjection::Project(pose);
+    const Rect dst{projected.x, projected.y, projected.w, projected.h};
+    mSpriteWorkOverride = RenderDiagnostics::SpriteUnits(
+        pose.rotationX != 0.f || pose.rotationY != 0.f,
+        pose.rotationZ != 0.f,
+        pose.offsetX != 0.f || pose.offsetY != 0.f);
+    const bool offscreen = mEstimateVisibleWork &&
+        RenderDiagnostics::DefinitelyOffscreenSprite(mSelectorView,
+            pose.x, pose.y, pose.width, pose.height,
+            pose.scaleX, pose.scaleY, pose.offsetX, pose.offsetY,
+            pose.pivotX, pose.pivotY);
+    mSpriteEffectiveWorkOverride = RenderDiagnostics::EffectiveUnits(mSpriteWorkOverride, offscreen);
+    mEstimatedOffscreenSprites += offscreen ? 1u : 0u;
+    DrawTexture(tex, dst, &srcPx, pose.rotationZ,
+                {pose.pivotX, pose.pivotY}, tint, flipX, flipY);
+    mSpriteWorkOverride = 0;
+    mSpriteEffectiveWorkOverride = 0;
+}
+
 void RenderManager::DrawTexture(const Texture& tex, const Rect& dstWorld, const Rect* srcPixels, float rotationDeg, Vec2 pivot01, Color tint, bool flipX, bool flipY) noexcept
 {
-    if (mDrawPhase != DrawPhase::Debug) ++mPublicWorldCommandsThisFrame;
+    if (mDrawPhase != DrawPhase::Debug) {
+        ++mPublicWorldCommandsThisFrame;
+        const auto units = mSpriteWorkOverride ? mSpriteWorkOverride :
+            RenderDiagnostics::RectangleUnits(rotationDeg != 0.f);
+        mPublicWorldWorkUnitsThisFrame += units;
+        mPublicEffectiveWorldWorkUnitsThisFrame += mSpriteWorkOverride ?
+            mSpriteEffectiveWorkOverride : units;
+    }
 	// --- RECORDING MODE ---
     if (snapRecord)
     {
@@ -510,7 +588,12 @@ void RenderManager::DrawRect(const Rect& worldRect, const Color color, const boo
 
 void RenderManager::DrawRect(const Rect& worldRect, float rotationDeg, Vec2 pivot01, Color color, bool filled) noexcept
 {
-    if (mDrawPhase != DrawPhase::Debug) ++mPublicWorldCommandsThisFrame;
+    if (mDrawPhase != DrawPhase::Debug) {
+        ++mPublicWorldCommandsThisFrame;
+        const auto units = RenderDiagnostics::RectangleUnits(rotationDeg != 0.f);
+        mPublicWorldWorkUnitsThisFrame += units;
+        mPublicEffectiveWorldWorkUnitsThisFrame += units;
+    }
     // --- RECORDING MODE ---
     if (snapRecord)
     {

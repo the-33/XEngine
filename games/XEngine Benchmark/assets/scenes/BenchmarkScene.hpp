@@ -4,6 +4,7 @@
 #include "BenchmarkDistribution.hpp"
 #include "BenchmarkRenderExercise.hpp"
 #include "BenchmarkAxisRotations.hpp"
+#include "BenchmarkRenderCycle.hpp"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -22,6 +23,7 @@ namespace XEngineBenchmark {
         int spriteOverride = -1; // -1 = scenario default
         std::string layout = "static";
         std::string renderWorkload = "baseline";
+        bool renderCycle = false;
         unsigned phaseFrames = 120;
     };
     struct StateData {
@@ -84,6 +86,8 @@ namespace XEngineBenchmark {
         const bool tint = opts.renderWorkload == "tint" || opts.renderWorkload == "mixed";
         const bool culling = opts.renderWorkload == "culling" || opts.renderWorkload == "mixed";
         const unsigned all = std::max(load.sprites, load.colliders);
+        std::vector<GameObject*> renderCycleObjects;
+        if (opts.renderCycle) renderCycleObjects.reserve(load.sprites);
         std::vector<std::pair<GameObject*, Vec3>> colliderObjects;
         if (opts.layout != "static") colliderObjects.reserve(load.colliders);
         for (unsigned i = 0; i < all; ++i) {
@@ -106,6 +110,8 @@ namespace XEngineBenchmark {
             }
             GameObject* object = scene->CreateObject(hasCollision ? "Collider" : "Sprite");
             object->transform->position = position;
+            if (opts.renderCycle && i < load.sprites && !hasCollision)
+                renderCycleObjects.push_back(object);
             if (i < load.sprites) {
                 const Texture* tex = textures[i % textures.size()];
                 if (tex) {
@@ -159,6 +165,10 @@ namespace XEngineBenchmark {
             // Motion is excluded from physics-controlled objects.
             if (!stressRender && i >= load.bodies && i < load.moving)
                 object->AddComponent<BenchmarkMotion>(position, 0.121f * float(i));
+        }
+        if (opts.renderCycle) {
+            auto* cycle = scene->CreateObject("BenchmarkRenderCycle");
+            cycle->AddComponent<BenchmarkRenderCycle>(std::move(renderCycleObjects), opts.phaseFrames);
         }
         if (opts.renderWorkload == "mixed") {
             auto* renderExercise = scene->CreateObject("BenchmarkRenderExercise");

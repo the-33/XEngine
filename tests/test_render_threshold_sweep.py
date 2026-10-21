@@ -24,9 +24,9 @@ class RenderThresholdSweepTests(unittest.TestCase):
 #include <cassert>
 using namespace RenderDiagnostics;
 int main() {
-    assert(kParallelThreshold == 384);
+    assert(kParallelThreshold == 1536);
     assert(Select(true,true,3,383) == Path::BelowThreshold);
-    assert(Select(true,true,3,384) == Path::Parallel);
+    assert(Select(true,true,3,1536) == Path::Parallel);
     assert(Select(true,true,3,64,1) == Path::Parallel);
     assert(Select(true,true,3,64,128) == Path::BelowThreshold);
     assert(Select(false,true,3,4096,1) == Path::Disabled);

@@ -5,7 +5,7 @@ The immediate baseline is `collision` (collision workers enabled, immediate SDL
 rendering). `parallel` has exactly the same simulation and collision settings,
 but records and prepares render commands with a controllable threshold. This
 measures the COMPLETE render-path tradeoff, not just worker CPU time. The tool
-never silently rewrites the game's default 384-command threshold.
+never silently rewrites the game's default 1536-command reference.
 """
 from __future__ import annotations
 
@@ -157,7 +157,7 @@ def arguments(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument('--workloads', nargs='+', choices=('baseline','transforms','tint','culling','mixed','rotations_xyz'),
                    default=['baseline'], help='Compare distinct render workloads; baseline retained for historical comparability')
     p.add_argument('--render-threshold', type=int, default=1,
-                   help='Force recorded+worker path for calibration (default 1; production remains 384)')
+                   help='Force recorded+worker path for calibration (default 1; fixed production reference 1536)')
     p.add_argument('--repetitions', type=int, default=3)
     p.add_argument('--frames', type=int, default=360)
     p.add_argument('--warmup', type=int, default=90)
@@ -166,6 +166,31 @@ def arguments(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument('--build', action='store_true')
     p.add_argument('--output', type=Path)
     return p.parse_args(argv)
+
+
+def run_build_with_live_log(command: list[str], *, cwd: Path, log_path: Path) -> int:
+    """Stream engine AND game build output while also saving an identical log.
+
+    Do not redirect stdout to the log file alone: benchmarks started with
+    --build must show incremental compiler, cache, linker and error messages.
+    """
+    print('[BUILD]', ' '.join(command), flush=True)
+    with log_path.open('w', encoding='utf-8') as log:
+        try:
+            with subprocess.Popen(command, cwd=cwd, stdout=subprocess.PIPE,
+                                  stderr=subprocess.STDOUT, text=True,
+                                  bufsize=1, errors='replace') as proc:
+                assert proc.stdout is not None
+                for line in proc.stdout:
+                    print(line, end='', flush=True)
+                    log.write(line)
+                    log.flush()
+                return proc.wait()
+        except OSError as exc:
+            message = f'[ERROR] Could not start benchmark build: {exc}\n'
+            print(message, end='', file=sys.stderr, flush=True)
+            log.write(message)
+            return 1
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -184,7 +209,7 @@ def main(argv: list[str] | None = None) -> int:
     metadata = {'counts': sorted(args.counts), 'workloads': args.workloads, 'repetitions': args.repetitions,
                 'warmup': args.warmup, 'frames': args.frames,
                 'render_threshold': args.render_threshold,
-                'production_default_threshold': 384,
+                'production_default_threshold': 1536,
                 'modes': ['collision', 'parallel'], 'scenario': 'render',
                 'colliders': 0, 'timing': 'deterministic', 'fixed_steps_per_frame': 1,
                 'seed': args.seed,
@@ -193,17 +218,9 @@ def main(argv: list[str] | None = None) -> int:
     (output / 'metadata.json').write_text(json.dumps(metadata, indent=2)+'\n', encoding='utf-8')
     if args.build:
         command = [sys.executable, str(ROOT/'tools/build.py'), 'game', '--project', GAME.name, '--config', 'Debug']
-        print('[BUILD]', ' '.join(command), flush=True)
-        with (output/'build.log').open('w', encoding='utf-8') as log:
-            proc = subprocess.Popen(command, cwd=ROOT, stdout=subprocess.PIPE,
-                                    stderr=subprocess.STDOUT, text=True, bufsize=1, errors='replace')
-            assert proc.stdout is not None
-            for line in proc.stdout:
-                print(line, end='', flush=True)
-                log.write(line)
-            rc = proc.wait()
+        rc = run_build_with_live_log(command, cwd=ROOT, log_path=output/'build.log')
         if rc:
-            print(f'[FAIL] Build failed ({rc})', file=sys.stderr)
+            print(f'[FAIL] Build failed ({rc}); see {output / "build.log"}', file=sys.stderr)
             return 1
     paired, runs, equivalent = [], [], []
     failures = []

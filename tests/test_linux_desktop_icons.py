@@ -136,8 +136,8 @@ class LinuxDesktopIconTests(unittest.TestCase):
     def test_blank_game_template_has_cross_platform_icon_fields(self):
         config = json.loads((ROOT / 'tools/templates/BlankGame/config.json').read_text())
         self.assertEqual(config['project']['icon'], {
-            'windows': 'assets/icons/xengine.ico',
-            'linux': 'assets/icons/xengine.png',
+            'windows': 'default',
+            'linux': 'default',
         })
 
 

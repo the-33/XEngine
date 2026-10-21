@@ -241,7 +241,7 @@ class SyncEngineConfigsTests(unittest.TestCase):
                                         sync.leaf_paths(template))
         self.assertTrue(exists)
         self.assertTrue(sync.leaf_paths(template).issubset(known))
-        self.assertEqual(template['Renderer']['parallelMinCommands'], 384)
+        self.assertEqual(template['Renderer']['parallelMinCommands'], 1536)
         self.assertIn(('Renderer', 'parallelMinCommands'), known)
 
 

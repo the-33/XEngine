@@ -1,7 +1,5 @@
 #include "SpriteRenderer.h"
 
-#include <cmath>
-
 #include "ErrorHandler.h"
 #include "Transform.h"
 #include "RenderManager.h"
@@ -84,53 +82,18 @@ void SpriteRenderer::Render()
     const float baseW = pxW / (ppu > 0.f ? ppu : 100.f);
     const float baseH = pxH / (ppu > 0.f ? ppu : 100.f);
 
-    // 3) World pose (with three rotation axes)
-    const Vec3 wp = t->position;  // requires public methods on Transform
+    // 3) Snapshot the transform's numeric values while still on the main
+    // thread. Parallel render preparation projects them without reading the
+    // live Transform, Texture, or scene object.
+    const Vec3 wp = t->position;
     const Vec2 sc = t->scale;
-    const Vec3 rot = t->rotation;  // x,y for pseudo-3D; z rotates the sprite
-    const float rotZ = rot.z;
+    const Vec3 rot = t->rotation;
+    const SpriteProjection::Pose pose{
+        wp.x, wp.y, sc.x, sc.y, rot.x, rot.y, rot.z,
+        baseW, baseH, offset_.x, offset_.y, pivot01_.x, pivot01_.y};
+    const Rect srcPx{(float)srcX, (float)srcY, (float)pxW, (float)pxH};
+    RenderManager::GetInstance().DrawSprite_(
+        *texture, pose, srcPx, tint_, flipX_, flipY_);
 
-    // 4) Pseudo-3D: rotY -> comprime X, rotX -> comprime Y (coseno)
-    auto DegToRad = [](float d) { return d * 3.14159265358979323846f / 180.f; };
-    const float minFac = 0.f; // evita colapsar a 0
-    const float fx = std::max(minFac, std::cos(DegToRad(rot.y))); // tilt Y -> escala X
-    const float fy = std::max(minFac, std::cos(DegToRad(rot.x))); // tilt X -> escala Y
-    const float k = 1.0f; // effect intensity (0..1).
-
-    const float sx = sc.x * ((1.0f - k) + k * fx);
-    const float sy = sc.y * ((1.0f - k) + k * fy);
-
-    // 5) Final world-space size
-    const float wWorld = baseW * sx;
-    const float hWorld = baseH * sy;
-
-    // 6) Local offset that rotates around Z
-    const float radZ = DegToRad(rotZ);
-    const float offX = offset_.x * sc.x;
-    const float offY = offset_.y * sc.y;
-    const float offRotX = offX * std::cos(radZ) - offY * std::sin(radZ);
-    const float offRotY = offX * std::sin(radZ) + offY * std::cos(radZ);
-
-    // 7) World destination adjusted for pivot
-    Rect dstWorld;
-    dstWorld.x = wp.x + offRotX - wWorld * pivot01_.x;
-    dstWorld.y = wp.y + offRotY - hWorld * pivot01_.y;
-    dstWorld.w = wWorld;
-    dstWorld.h = hWorld;
-
-    // 8) Source in pixels
-    Rect srcPx{ (float)srcX, (float)srcY, (float)pxW, (float)pxH };
-
-    // 9) Drawing (RenderManager handles camera/culling/rotation)
-    RenderManager::GetInstance().DrawTexture(
-        *texture,
-        dstWorld,
-        &srcPx,
-        rotZ,
-        pivot01_,
-        tint_,
-        flipX_,
-        flipY_
-    );
 }
 

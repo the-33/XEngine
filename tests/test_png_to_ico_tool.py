@@ -96,17 +96,19 @@ class TemplateIconTests(unittest.TestCase):
         template = PROJECT_ROOT/'tools/templates/BlankGame'
         data = json.loads((template/'config.json').read_text())
         self.assertEqual(data['project']['icon'], {
-            'windows': 'assets/icons/xengine.ico',
-            'linux': 'assets/icons/xengine.png',
+            'windows': 'default',
+            'linux': 'default',
         })
-        for path in data['project']['icon'].values():
-            self.assertTrue((template/path).is_file(), path)
+        # Brand assets are supplied by the project maintainer and are not
+        # replaced by synthetic icons in patch archives.
+        if not (template/'assets/icons/xengine_logo.png').is_file() or not (template/'assets/icons/xengine_logo.ico').is_file():
+            self.skipTest('Maintainer must provide new xengine_logo.png / .ico assets')
         if Image:
-            with Image.open(template/'assets/icons/xengine.png') as im:
+            with Image.open(template/'assets/icons/xengine_logo.png') as im:
                 self.assertEqual(im.size, (512, 512))
                 self.assertEqual(im.mode, 'RGBA')
                 self.assertEqual(im.getpixel((0,0))[3], 0)
-            with Image.open(template/'assets/icons/xengine.ico') as im:
+            with Image.open(template/'assets/icons/xengine_logo.ico') as im:
                 self.assertGreaterEqual(len(im.ico.sizes()), 4)
 
 

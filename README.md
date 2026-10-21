@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="docs/branding/xengine-logo.png" alt="XEngine logo — purple X and silver gear" width="176" />
+  <img src="docs/branding/xengine_logo.svg" alt="XEngine logo — purple X and silver gear" width="176" />
   <h1>XEngine</h1>
   <p><strong>A lightweight, cross-platform 2D game engine built with C++20 and SDL2.</strong></p>
   <p><em>Build 2D games in C++. Understand the engine. Own your code.</em></p>
@@ -93,7 +93,8 @@ XEngine/
 │   ├── templates/BlankGame/ # Starting point for new games
 │   ├── new_project.py       # Create a game
 │   ├── build.py             # Native and cross-platform build driver
-│   └── sync_engine_configs.py
+│   ├── sync_engine_configs.py
+│   └── sync_game_icons.py
 ├── docs/                     # Architecture and advanced guides
 ├── tests/                    # Regression tests
 └── README.md
@@ -110,7 +111,9 @@ python tools/sync_engine_configs.py --check  # Preview changes
 python tools/sync_engine_configs.py          # Apply without replacing custom values
 ```
 
-See [Engine configuration migration](docs/ENGINE_CONFIG_MIGRATION.md). The renderer's `parallelMinCommands` currently defaults to **384**; this is a compatibility default, **not an experimentally established optimal threshold**.
+**Every game build automatically runs both the engine configuration and default-icon synchronizers before compilation**. No manual sync command is required when building; these commands are useful for checking your workspace beforehand. Neither operation replaces custom game settings or custom icon filenames.
+
+For icons, put your original `xengine_logo.ico` (Windows) and 512×512 `xengine_logo.png` (Linux) in the BlankGame template and use `"default"` in `config.json` for either platform. A missing configured custom icon is reported and falls back to the synchronized *game-local* default. Run `python tools/sync_game_icons.py --check` to inspect changes and `python tools/sync_game_icons.py --apply` to sync all games outside a build. See [Default game icons](docs/DEFAULT_GAME_ICONS.md) and [Engine configuration migration](docs/ENGINE_CONFIG_MIGRATION.md). The render selector has a **single global threshold** (`parallelMinCommands`, experimental default **1536**) and two strategies: `fixed` (default) and opt-in `adaptive` (weighted projection cost with hysteresis). Existing custom values are preserved by configuration synchronization. See the [adaptive render selector guide](docs/ADAPTIVE_RENDER_SELECTION.md).
 
 ### Which games are published?
 
@@ -159,7 +162,9 @@ For an interactive overview, toggle the **F3** debug profiler and use **F4** to 
 python tools/compare_profiles.py --game "XEngine Benchmark"
 ```
 
-The parallel collision path has shown measurable advantages in high-contact workloads. **Render preparation parallelism is workload-dependent**: existing measurements do not establish a universal speedup or threshold. See the [benchmark game guide](docs/BENCHMARK_GAME.md), [render calibration](docs/RENDER_THRESHOLD_CALIBRATION.md) and [adaptive broadphase](docs/ADAPTIVE_BROADPHASE.md).
+The parallel collision path has shown measurable advantages in high-contact workloads. **Render preparation parallelism is workload-dependent**: existing measurements do not establish a universal speedup or threshold. See the [benchmark game guide](docs/BENCHMARK_GAME.md), [render calibration](docs/RENDER_THRESHOLD_CALIBRATION.md), [adaptive render selector](docs/ADAPTIVE_RENDER_SELECTION.md) and [adaptive broadphase](docs/ADAPTIVE_BROADPHASE.md).
+
+**v16.8:** Sprite X/Y/Z projection now skips unnecessary trigonometry and can run on the CPU render workers without touching SDL. The [sprite projection optimization and A/B procedure](docs/SPRITE_PROJECTION_OPTIMIZATION.md) distinguishes main-thread vs worker-side geometry within the same recorded render path. No performance gain is asserted until platform benchmarks confirm it.
 
 ## Games migrated from XEngine-Legacy
 
@@ -206,6 +211,7 @@ Read the [Legacy migration feasibility and proposed design](docs/LEGACY_MIGRATIO
 | [Multithreading and profiling](docs/MULTITHREADING_AND_PROFILING.md) | Worker scheduling, profiler and tradeoffs |
 | [Benchmark game](docs/BENCHMARK_GAME.md) | Reproducible game-integrated performance tests |
 | [Render threshold calibration](docs/RENDER_THRESHOLD_CALIBRATION.md) | Deterministic render scenarios and equivalence checking |
+| [Adaptive render selector](docs/ADAPTIVE_RENDER_SELECTION.md) | Fixed vs weighted cost selection, hysteresis and variable-load calibration |
 | [Engine config synchronization](docs/ENGINE_CONFIG_MIGRATION.md) | Canonical settings, backups and safe updates |
 | [Game Git tracking](docs/GAME_GIT_TRACKING.md) | How to include or exclude your games |
 | [Legacy migration plan](docs/LEGACY_MIGRATION_PLAN.md) | Scope and limits of a future Legacy migrator, plus completed game examples |

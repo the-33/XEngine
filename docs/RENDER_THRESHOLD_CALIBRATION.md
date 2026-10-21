@@ -1,5 +1,12 @@
 # Render Worker Threshold Calibration (v16)
 
+> **Current policy (v16.9):** This document preserves the historical 384-command
+> experiment. The new *experimental* fixed reference is **1536**, the
+> opt-in complexity-aware strategy is `Renderer.parallelSelection: "adaptive"`,
+> and automatic transitions must be validated separately. See
+> [Adaptive render selector](ADAPTIVE_RENDER_SELECTION.md). Earlier statements
+> about the "current" 384 default below describe the older builds.
+
 ## Goal and scope
 
 Measure the *full* SDL frame-time tradeoff of immediate rendering against the
@@ -269,3 +276,14 @@ A Windows SDL2 run is needed to confirm there is no route-specific culling
 problem for the new near-edge projections. Timing results are compiler,
 hardware, and workload specific; preserve per-profile results and compare
 measured `render_eligible_current`, not just requested sprite count.
+
+
+## Follow-up: XYZ projection offload (v16.8)
+
+The v16.8 renderer optionally moves the numerical XYZ sprite projection from
+the recording thread to the parallel CPU-preparation workers. This is a
+separate change from the render-command threshold, which stays at 384.
+For a controlled A/B comparison using the same recorded/worker path on both
+sides, see [Sprite projection optimization](SPRITE_PROJECTION_OPTIMIZATION.md)
+and use `python tools/sweep_sprite_projection.py --help`. No new runtime JSON
+field was added.

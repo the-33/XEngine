@@ -117,7 +117,7 @@ def report(single: list[dict[str, float]], parallel: list[dict[str, float]]) -> 
                     for rows in (single, parallel))
             result.append(f"  {label:<30} {a:>8.1f} | {b:>8.1f}")
     result.extend(("", "WARNING: VSync can cap both results; compare the same workload, resolution and hardware.",
-                   "Parallel collision uses 192+ colliders; parallel render preparation uses 384+ commands.",
+                   "Parallel collision uses 192+ colliders; parallel render preparation uses the configured threshold (default 1536).",
                    "Render preparation includes worker waiting; do not add them as independent phases."))
     return "\n".join(result)
 

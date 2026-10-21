@@ -3,8 +3,8 @@
     "name": "XEngine Benchmark",
     "version": "0.1.0",
     "icon": {
-      "windows": "assets/icons/xengine.ico",
-      "linux": "assets/icons/xengine.png"
+      "windows": "default",
+      "linux": "default"
     }
   },
   "build": {

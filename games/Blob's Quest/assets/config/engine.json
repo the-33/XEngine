@@ -21,7 +21,8 @@
       0,
       0,
       255
-    ]
+    ],
+    "parallelSelection": "fixed"
   },
   "Input": {
     "startTextInput": false,

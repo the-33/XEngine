@@ -173,6 +173,9 @@ bool Engine::StartImpl(const std::string configPath, bool inlineJson) noexcept
     printf("Configuration loaded.\n\n");
 
     mCfg = cfg;
+    mPreviousRenderParallel = false;
+    mRenderPathPrimed = false;
+    mLastRenderWeightedPrevious = 0;
     mFixedDt = mCfg.time.fixedDt;
     mLogStats = mCfg.logStats;
 #if defined(XENGINE_RELEASE)
@@ -537,6 +540,16 @@ int Engine::RunSingleThreadingImpl() noexcept
                 sample.renderSpriteSubmitMs = r->mSpriteSubmitMs;
                 sample.renderEligiblePrevious = mLastRenderEligiblePrevious;
                 sample.renderPathReason = static_cast<unsigned>(mLastRenderPath);
+                sample.renderWeightedPrevious = mLastRenderWeightedPrevious;
+                sample.renderWeightedCurrent = r->mPublicWorldWorkUnitsThisFrame;
+                sample.renderPathSwitched = mRenderPathSwitched;
+                sample.renderSelectionMode = mCfg.renderer.parallelSelection == RenderDiagnostics::Selection::Adaptive ? 1u : 0u;
+                sample.renderEffectivePrevious = mLastRenderEffectivePrevious;
+                sample.renderEffectiveCurrent = r->mPublicEffectiveWorldWorkUnitsThisFrame;
+                sample.renderEstimatedOffscreen = r->mEstimatedOffscreenSprites;
+                sample.renderParallelExecuted = mRenderParallelExecuted;
+                sample.renderParallelFallback = mRenderParallelFallback;
+                sample.renderExecutedSwitched = mRenderExecutedSwitched;
             }
             sample.physicsMs = mPhysicsTime * 1000.f;
             sample.collisionsMs = mCollisionTime * 1000.f;
@@ -629,7 +642,12 @@ void Engine::WriteProfiles_() noexcept
            "collision_grid_cell_size_last,collision_auto_calibration_passes,"
            "collision_auto_cell_half_passes,collision_auto_cell_base_passes,"
            "collision_auto_cell_double_passes,collision_auto_selector_ms,"
-           "collision_auto_context_last,collision_auto_context_transitions\n";
+           "collision_auto_context_last,collision_auto_context_transitions,"
+           "render_weighted_units_previous,render_weighted_units_current,"
+           "render_path_switched,render_selection_mode,"
+           "render_effective_units_previous,render_effective_units_current,"
+           "render_estimated_offscreen_sprites,render_parallel_executed,"
+           "render_parallel_fallback,render_executed_switched\n";
     out << std::fixed << std::setprecision(5);
     for (std::size_t i = 0; i < mProfiles.size(); ++i)
     {
@@ -668,6 +686,11 @@ void Engine::WriteProfiles_() noexcept
             << ',' << r.collisionAutoSelectorMs
             << ',' << r.collisionAutoContextLast
             << ',' << r.collisionAutoContextTransitions
+            << ',' << r.renderWeightedPrevious << ',' << r.renderWeightedCurrent
+            << ',' << r.renderPathSwitched << ',' << r.renderSelectionMode
+            << ',' << r.renderEffectivePrevious << ',' << r.renderEffectiveCurrent
+            << ',' << r.renderEstimatedOffscreen << ',' << r.renderParallelExecuted
+            << ',' << r.renderParallelFallback << ',' << r.renderExecutedSwitched
             << '\n';
     }
     std::printf("[PROFILE] Saved %zu frame samples: %s\n", mProfiles.size(), path);
@@ -1063,13 +1086,20 @@ bool Engine::LoadConfigFromJson(const std::string& text, const std::string& orig
                 out.renderer.hardwareAcceleration = r["hardwareAcceleration"].get<bool>();
             if (r.contains("parallelPreparation") && r["parallelPreparation"].is_boolean())
                 out.renderer.parallelPreparation = r["parallelPreparation"].get<bool>();
-            // Optional threshold for controlled render experiments; 384 stays the default.
+            // Global crossover reference; selection strategy is independent.
             if (r.contains("parallelMinCommands")) {
                 if (!r["parallelMinCommands"].is_number_unsigned() &&
                     !r["parallelMinCommands"].is_number_integer()) return false;
                 const auto value = r["parallelMinCommands"].get<std::int64_t>();
                 if (value < 1 || value > 100000) return false;
                 out.renderer.parallelMinCommands = static_cast<std::size_t>(value);
+            }
+            if (r.contains("parallelSelection")) {
+                if (!r["parallelSelection"].is_string()) return false;
+                const auto value = r["parallelSelection"].get<std::string>();
+                if (value == "fixed") out.renderer.parallelSelection = RenderDiagnostics::Selection::Fixed;
+                else if (value == "adaptive") out.renderer.parallelSelection = RenderDiagnostics::Selection::Adaptive;
+                else return false;
             }
             if (r.contains("bgColor"))
                 out.renderer.bgColor = JsonColorOrDefault(r["bgColor"], out.renderer.bgColor);
@@ -1318,14 +1348,29 @@ void Engine::DoRender_() noexcept
     // Last frame's world command count is used to avoid snapshot overhead
     // when threading would almost certainly be slower.
     mLastRenderEligiblePrevious = render->mLastAttemptedWorldCommands;
-    mLastRenderPath = RenderDiagnostics::Select(
-        mCfg.multiThreading, mCfg.renderer.parallelPreparation,
-        pool ? pool->WorkerCount() : 0, mLastRenderEligiblePrevious,
-        mCfg.renderer.parallelMinCommands);
+    mLastRenderWeightedPrevious = render->mLastWorldWorkUnits;
+    mLastRenderEffectivePrevious = render->mLastEffectiveWorldWorkUnits;
+    const bool adaptive = mCfg.renderer.parallelSelection == RenderDiagnostics::Selection::Adaptive;
+    mLastRenderPath = adaptive
+        ? RenderDiagnostics::SelectAdaptive(
+            mCfg.multiThreading, mCfg.renderer.parallelPreparation,
+            pool ? pool->WorkerCount() : 0, mLastRenderEffectivePrevious,
+            mCfg.renderer.parallelMinCommands, mPreviousRenderParallel)
+        : RenderDiagnostics::Select(
+            mCfg.multiThreading, mCfg.renderer.parallelPreparation,
+            pool ? pool->WorkerCount() : 0, mLastRenderEligiblePrevious,
+            mCfg.renderer.parallelMinCommands);
     const bool record = mLastRenderPath == RenderDiagnostics::Path::Parallel;
+    mRenderPathSwitched = mRenderPathPrimed && (record != mPreviousRenderParallel) ? 1u : 0u;
+    mRenderPathPrimed = true;
+    mPreviousRenderParallel = record;
     mRenderWorldTime = 0.f;
     mRenderUiTime = 0.f;
     render->mPublicWorldCommandsThisFrame = 0;
+    render->mPublicWorldWorkUnitsThisFrame = 0;
+    render->mPublicEffectiveWorldWorkUnitsThisFrame = 0;
+    render->mEstimatedOffscreenSprites = 0;
+    render->mEstimateVisibleWork = adaptive;
     render->mLastRecordedCommands = render->mImmediateCulledCommands = 0;
     render->mBackgroundDraws = render->mWorldDraws = 0;
     render->mDebugDraws = render->mUiDraws = 0;
@@ -1360,8 +1405,10 @@ void Engine::DoRender_() noexcept
         render->EndRecord();
         render->mLastRecordedCommands = static_cast<unsigned>(render->mReusableSnapshot.cmds.size());
         mRenderRecordTime = ProfileElapsed_(recordStart);
+        // The adaptive selector has already applied its weighted threshold;
+        // do not reject valid complex workloads by raw command count again.
         render->PrepareSnapshot(render->mReusableSnapshot, pool,
-                                mCfg.renderer.parallelMinCommands);
+                                adaptive ? 1u : mCfg.renderer.parallelMinCommands);
         mRenderPrepareTime = render->mLastPrepareMs / 1000.f;
         mRenderWorkerWaitTime = render->mLastWaitMs / 1000.f;
         const auto submitStart = ProfileClock::now();
@@ -1371,6 +1418,8 @@ void Engine::DoRender_() noexcept
         render->End();
         mRenderPresentTime = ProfileElapsed_(presentStart);
         render->mLastAttemptedWorldCommands = render->mPublicWorldCommandsThisFrame;
+        render->mLastWorldWorkUnits = render->mPublicWorldWorkUnitsThisFrame;
+        render->mLastEffectiveWorldWorkUnits = render->mPublicEffectiveWorldWorkUnitsThisFrame;
     }
     else
     {
@@ -1394,7 +1443,18 @@ void Engine::DoRender_() noexcept
         render->End();
         mRenderPresentTime = ProfileElapsed_(presentStart);
         render->mLastAttemptedWorldCommands = render->mPublicWorldCommandsThisFrame;
+        render->mLastWorldWorkUnits = render->mPublicWorldWorkUnitsThisFrame;
+        render->mLastEffectiveWorldWorkUnits = render->mPublicEffectiveWorldWorkUnitsThisFrame;
     }
+    // Selection can request recording but the CURRENT frame may fall below
+    // the fixed dispatcher threshold (e.g. a sudden scene-load drop).
+    // Do not confuse that fallback with worker execution in the profiler.
+    mRenderParallelExecuted = render->mLastWorkers > 0 ? 1u : 0u;
+    mRenderParallelFallback = (record && !mRenderParallelExecuted) ? 1u : 0u;
+    mRenderExecutedSwitched = mExecutedPathPrimed &&
+        (bool(mRenderParallelExecuted) != mPreviousExecutedParallel) ? 1u : 0u;
+    mPreviousExecutedParallel = bool(mRenderParallelExecuted);
+    mExecutedPathPrimed = true;
     mRenderTime = ProfileElapsed_(renderStart);
 }
 
@@ -1479,7 +1539,11 @@ void Engine::DrawStatsOverlay_() noexcept
         mStatsLines.push_back(SPrintf_(" * Render Prepared/Culled: %u / %u",
             render->mLastPreparedCount, render->mLastCulledCount));
         mStatsLines.push_back(SPrintf_(" * Immediate Culled: %u", render->mImmediateCulledCommands));
-        mStatsLines.push_back(SPrintf_(" * Adaptive path:    %s", RenderDiagnostics::Name(mLastRenderPath)));
+        mStatsLines.push_back(SPrintf_(" * Render selector:  %s (%s)",
+            RenderDiagnostics::Name(mCfg.renderer.parallelSelection), RenderDiagnostics::Name(mLastRenderPath)));
+        mStatsLines.push_back(SPrintf_(" * Work units prev/current: %llu / %llu",
+            static_cast<unsigned long long>(mLastRenderWeightedPrevious),
+            static_cast<unsigned long long>(render->mPublicWorldWorkUnitsThisFrame)));
         mStatsLines.push_back(SPrintf_(" * Eligible (prev/current): %u / %u",
             mLastRenderEligiblePrevious, render->mPublicWorldCommandsThisFrame));
         mStatsLines.push_back(SPrintf_(" * SDL calls: bg=%u world=%u debug=%u UI=%u",

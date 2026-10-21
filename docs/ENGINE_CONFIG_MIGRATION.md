@@ -6,7 +6,7 @@
 tools/templates/BlankGame/assets/config/engine.json
 ```
 
-No hand-maintained list of current settings is required. When the template changes, run the script from the repository root:
+No hand-maintained list of current settings is required. **Every game build now invokes the synchronization automatically before any engine or game compilation**, limited to that game with `--game <Name>`. To inspect or reconcile all games manually, run the script from the repository root:
 
 ```bash
 python tools/sync_engine_configs.py

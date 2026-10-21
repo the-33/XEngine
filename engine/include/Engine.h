@@ -8,6 +8,7 @@
 #include <string>
 
 #include "BaseTypes.h"
+#include "SpriteProjection.h"
 #include "Property.h"
 #include "Singleton.h"
 #include "Assets.h"
@@ -65,6 +66,9 @@ struct DrawCmd
     Rect dstWorld{};
     Rect srcPx{};
     bool hasSrc = false;
+    // Immutable CPU-only sprite pose; projected by workers if populated.
+    bool hasDeferredSpritePose = false;
+    std::uint32_t spritePoseIndex = 0;
     float rotationDeg = 0.f;
     Vec2  pivot01{ 0.5f,0.5f };
     bool flipX = false;
@@ -103,6 +107,8 @@ struct Snapshot
 
     CameraState cam;
     std::vector<DrawCmd> cmds;
+    // Compact sidecar: avoids inflating every command (UI, world rect, etc).
+    std::vector<SpriteProjection::Pose> spritePoses;
 };
 
 class Engine : public Singleton<Engine>
@@ -139,6 +145,7 @@ private:
             bool hardwareAcceleration = true;
             bool parallelPreparation = true;
             std::size_t parallelMinCommands = RenderDiagnostics::kParallelThreshold;
+            RenderDiagnostics::Selection parallelSelection = RenderDiagnostics::Selection::Fixed;
             Color bgColor = { 0, 0, 0, 255 };
 
 			Renderer() noexcept = default;
@@ -283,6 +290,16 @@ private:
     float mRenderWorldTime = 0.f;
     float mRenderUiTime = 0.f;
     unsigned mLastRenderEligiblePrevious = 0;
+    std::uint64_t mLastRenderWeightedPrevious = 0;
+    std::uint64_t mLastRenderEffectivePrevious = 0;
+    bool mPreviousExecutedParallel = false;
+    bool mExecutedPathPrimed = false;
+    unsigned mRenderExecutedSwitched = 0;
+    unsigned mRenderParallelExecuted = 0;
+    unsigned mRenderParallelFallback = 0;
+    bool mPreviousRenderParallel = false;
+    bool mRenderPathPrimed = false;
+    unsigned mRenderPathSwitched = 0;
     RenderDiagnostics::Path mLastRenderPath = RenderDiagnostics::Path::Disabled;
     float mPhysicsTime = 0.f;
     float mCollisionTime = 0.f;
@@ -319,6 +336,13 @@ private:
         unsigned renderDebugDraws = 0, renderUiDraws = 0;
         unsigned renderTintCacheHits = 0, renderTintUpdates = 0;
         unsigned renderPathReason = 0;
+        std::uint64_t renderWeightedPrevious = 0, renderWeightedCurrent = 0;
+        unsigned renderPathSwitched = 0;
+        unsigned renderSelectionMode = 0;
+        std::uint64_t renderEffectivePrevious = 0, renderEffectiveCurrent = 0;
+        unsigned renderEstimatedOffscreen = 0;
+        unsigned renderParallelExecuted = 0, renderParallelFallback = 0;
+        unsigned renderExecutedSwitched = 0;
         float renderBackgroundMs = 0.f, renderWorldMs = 0.f;
         float renderDebugMs = 0.f, renderUiMs = 0.f;
         float renderSpriteSubmitMs = 0.f;
