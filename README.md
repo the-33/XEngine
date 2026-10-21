@@ -3,6 +3,7 @@
   <h1>XEngine</h1>
   <p><strong>A lightweight, cross-platform 2D game engine built with C++20 and SDL2.</strong></p>
   <p><em>Build 2D games in C++. Understand the engine. Own your code.</em></p>
+  <p><small>Modern successor to <a href="https://github.com/the-33/XEngine-Legacy">XEngine-Legacy</a> (Visual Studio / MSVC)</small></p>
   <p>
     <a href="https://en.cppreference.com/w/cpp/20"><img alt="C++20" src="https://img.shields.io/badge/C%2B%2B-20-00599C?logo=cplusplus&amp;logoColor=white" /></a>
     <a href="https://www.libsdl.org/"><img alt="SDL2" src="https://img.shields.io/badge/SDL-2-1E6D83" /></a>
@@ -26,6 +27,8 @@
 XEngine is a **source-driven** 2D engine with a familiar **Scene → GameObject → Component / Behaviour** model. It takes inspiration from engines such as Unity without requiring a proprietary editor or scripting runtime: games and engine systems are regular, readable C++.
 
 The project includes a portable build tool, a ready-to-use game template and an actual SDL2 benchmark game. The engine targets native **Windows** and **Linux** development, with optional cross-compilation when the corresponding target toolchain and SDL2 SDK are available.
+
+> **Project origins:** XEngine is the modern, cross-platform evolution of [XEngine-Legacy](https://github.com/the-33/XEngine-Legacy), the original SDL2 engine developed using **Visual Studio and MSVC**. This version has a reorganized game structure and a portable **GCC/Clang** build workflow. Legacy game projects are not directly compatible; see the [migration plan](docs/LEGACY_MIGRATION_PLAN.md).
 
 > **Scope:** XEngine uses SDL2, SDL2_image, SDL2_mixer and SDL2_ttf. Android, macOS, iOS and web are **not supported build targets** at present. Multithreading is optional; it does not promise faster rendering for every scene.
 
