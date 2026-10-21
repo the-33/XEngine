@@ -1,38 +1,38 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg id="uuid-3db7d187-78c5-4547-ab53-4499583e3780" data-name="Capa 1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1920 1080">
+<svg id="uuid-d016253c-0500-471f-9f0c-f91b43742230" data-name="Capa 1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1848.18 1848.18">
   <defs>
     <style>
-      .uuid-30ba0855-2660-4a2e-85a1-fd8772b2fca2 {
+      .uuid-81decbd1-92d6-47b4-9854-2227a2bfb6f4 {
         fill: #3a3e47;
       }
 
-      .uuid-30ba0855-2660-4a2e-85a1-fd8772b2fca2, .uuid-5939c4aa-0056-49b6-a61e-99f8583adb74, .uuid-4cbb9f32-53cf-4a8e-aa1b-5ce729420c2a, .uuid-9c517d18-96a0-4995-957d-ef2354a58237 {
+      .uuid-81decbd1-92d6-47b4-9854-2227a2bfb6f4, .uuid-f6e65156-a38e-4a01-9a61-3874919419a6, .uuid-93c4753b-a3e9-4c8a-82b7-afb579a3e9ba, .uuid-3c36da65-acae-4024-bbf8-0db6131ff853 {
         stroke-width: 0px;
       }
 
-      .uuid-5939c4aa-0056-49b6-a61e-99f8583adb74 {
-        fill: url(#uuid-5f52984b-7656-4657-a34f-77b58f92c96b);
+      .uuid-f6e65156-a38e-4a01-9a61-3874919419a6 {
+        fill: url(#uuid-cb508a97-7915-4727-bc2d-4a2692bc6ce5);
       }
 
-      .uuid-4cbb9f32-53cf-4a8e-aa1b-5ce729420c2a {
-        fill: url(#uuid-feb2a1a7-4a3e-4d67-8a2a-4177c18fc299);
-      }
-
-      .uuid-9c517d18-96a0-4995-957d-ef2354a58237 {
+      .uuid-93c4753b-a3e9-4c8a-82b7-afb579a3e9ba {
         fill: #22252c;
       }
+
+      .uuid-3c36da65-acae-4024-bbf8-0db6131ff853 {
+        fill: url(#uuid-dbd6d4ef-f8a0-4177-a000-93e9201468eb);
+      }
     </style>
-    <linearGradient id="uuid-feb2a1a7-4a3e-4d67-8a2a-4177c18fc299" data-name="Degradado sin nombre 8" x1="713.9" y1="786.93" x2="1117.52" y2="507.08" gradientUnits="userSpaceOnUse">
+    <linearGradient id="uuid-dbd6d4ef-f8a0-4177-a000-93e9201468eb" data-name="Degradado sin nombre 8" x1="38.55" y1="1791.97" x2="1491.6" y2="784.48" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#6d28d9"/>
       <stop offset="1" stop-color="#c084fc"/>
     </linearGradient>
-    <linearGradient id="uuid-5f52984b-7656-4657-a34f-77b58f92c96b" data-name="Degradado sin nombre 10" x1="696.07" y1="761.21" x2="1099.69" y2="481.36" gradientUnits="userSpaceOnUse">
+    <linearGradient id="uuid-cb508a97-7915-4727-bc2d-4a2692bc6ce5" data-name="Degradado sin nombre 10" x1="-25.57" y1="1699.72" x2="1427.46" y2="692.24" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#6d28d9"/>
       <stop offset="1" stop-color="#c084fc"/>
     </linearGradient>
   </defs>
-  <polygon class="uuid-4cbb9f32-53cf-4a8e-aa1b-5ce729420c2a" points="906 686.69 814.47 774 703.22 774 849.67 636 906 686.69"/>
-  <path class="uuid-9c517d18-96a0-4995-957d-ef2354a58237" d="m853.5,391.5c116-13,306,156,305,266,31.5-4.07,48-26,35-72-6-24,2.97-41.64,23-53l-26-45c-50,19-87-27-58-67l-41-36c-32,35-92,5-71-47l-51-20c-8.72,23.72-28,34-54.57,30-38.53-4.98-59.75,8.87-61.43,44Z"/>
-  <path class="uuid-5939c4aa-0056-49b6-a61e-99f8583adb74" d="m1112,490l-110.57,3-97.43,91.7c17.85,19.73,36.82,34.63,57,49.3l151-144Z"/>
-  <path class="uuid-30ba0855-2660-4a2e-85a1-fd8772b2fca2" d="m803.5,347.5c-241.86,150.78,273.6,601.06,405.5,353.5-150.15,80.01-461.48-183.23-405.5-353.5Z"/>
+  <polygon class="uuid-3c36da65-acae-4024-bbf8-0db6131ff853" points="730.14 1431.15 400.57 1745.25 0 1745.25 527.33 1248.78 730.14 1431.15"/>
+  <path class="uuid-93c4753b-a3e9-4c8a-82b7-afb579a3e9ba" d="m541.11,369.16c417.69-46.77,1101.83,561.23,1098.23,956.97,113.42-14.65,172.84-93.54,126.03-259.03-21.6-86.34,10.68-149.8,82.82-190.67l-93.62-161.89c-180.04,68.35-313.27-97.14-208.84-241.04l-147.63-129.51c-115.22,125.92-331.27,17.99-255.65-169.09l-183.64-71.95c-31.41,85.34-100.82,122.32-196.48,107.93-138.73-17.92-215.15,31.92-221.21,158.3Z"/>
+  <path class="uuid-f6e65156-a38e-4a01-9a61-3874919419a6" d="m1471.9,723.52l-398.13,10.79-350.83,329.91c64.29,71,132.57,124.58,205.24,177.36l543.71-518.06Z"/>
+  <path class="uuid-81decbd1-92d6-47b4-9854-2227a2bfb6f4" d="m361.07,210.86c-870.89,542.46,985.17,2162.39,1460.11,1271.76C1280.51,1770.46,159.51,823.41,361.07,210.86Z"/>
 </svg>
