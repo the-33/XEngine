@@ -36,3 +36,7 @@ games/XEngine Benchmark/assets/xengine_profile_*.csv
 
 # Backups for synchronized template icons
 .xengine-icon-backups/
+
+# Illustrator files
+*.ai
+**/gude-*.log
