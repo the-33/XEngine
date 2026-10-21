@@ -1,0 +1,6 @@
+# XEngine game version-control policy. Managed by tools/sync_game_gitignore.py.
+# A game is public only with games/<Game Name>/.gitkeep at its root.
+# .gitkeep files inside assets/ do NOT enable a game.
+# Do not add private game directories manually below.
+/*/
+!/XEngine Benchmark/

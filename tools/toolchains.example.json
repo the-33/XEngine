@@ -1,0 +1,49 @@
+{
+  "linux": {
+    "windows": {
+      "cxx": "x86_64-w64-mingw32-g++",
+      "ar": "x86_64-w64-mingw32-ar",
+      "windres": "x86_64-w64-mingw32-windres",
+      "objdump": "x86_64-w64-mingw32-objdump",
+      "pkg_config": "pkg-config",
+      "pkg_config_libdir": "~/.local/share/xengine/windows-sdk/lib/pkgconfig",
+      "dll_dirs": [
+        "~/.local/share/xengine/windows-sdk/bin"
+      ],
+      "lib_dirs": [
+        "~/.local/share/xengine/windows-sdk/lib"
+      ]
+    }
+  },
+  "windows": {
+    "linux": {
+      "cxx": "clang++",
+      "ar": "llvm-ar",
+      "readelf": "llvm-readelf",
+      "cxxflags": [
+        "--target=x86_64-linux-gnu",
+        "-fuse-ld=lld",
+        "-isystemC:/xengine-cross/linux-x86_64/sysroot/usr/include/c++/12",
+        "-isystemC:/xengine-cross/linux-x86_64/sysroot/usr/include/x86_64-linux-gnu/c++/12",
+        "-isystemC:/xengine-cross/linux-x86_64/sysroot/usr/include/x86_64-linux-gnu"
+      ],
+      "ldflags": [
+        "-fuse-ld=lld",
+        "-BC:/xengine-cross/linux-x86_64/sysroot/usr/lib/gcc/x86_64-linux-gnu/12",
+        "-LC:/xengine-cross/linux-x86_64/sysroot/usr/lib/gcc/x86_64-linux-gnu/12"
+      ],
+      "sysroot": "C:/xengine-cross/linux-x86_64/sysroot",
+      "pkg_config": "pkg-config",
+      "pkg_config_libdir": [
+        "C:/xengine-cross/linux-x86_64/sysroot/usr/lib/x86_64-linux-gnu/pkgconfig",
+        "C:/xengine-cross/linux-x86_64/sysroot/usr/share/pkgconfig"
+      ],
+      "lib_dirs": [
+        "C:/xengine-cross/linux-x86_64/sysroot/usr/lib/x86_64-linux-gnu",
+        "C:/xengine-cross/linux-x86_64/sysroot/lib/x86_64-linux-gnu",
+        "C:/xengine-cross/linux-x86_64/sysroot/usr/lib/gcc/x86_64-linux-gnu/12"
+      ],
+      "pkg_config_sysroot_dir": ""
+    }
+  }
+}

@@ -1,0 +1,35 @@
+# GCC build outputs
+/build/
+**/dist/
+*.o
+*.a
+*.d
+*.sha256
+*.exe
+*.dll
+*.so
+
+# Editors / python
+.vscode/
+.idea/
+__pycache__/
+*.py[cod]
+.DS_Store
+
+# Sensitive or local user configuration
+.env
+.env.*
+
+# Local machine-specific cross-toolchain configuration
+/tools/toolchains.local.json
+/tools/toolchains.local.json.*.bak
+
+# Backups created by tools/migrate_documentation.py
+.xengine-legacy-docs/
+
+# Generated benchmark data
+games/XEngine Benchmark/results/
+games/XEngine Benchmark/assets/xengine_profile_*.csv
+
+# Backups from template-driven runtime configuration synchronization
+.xengine-config-backups/

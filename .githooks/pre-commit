@@ -1,0 +1,13 @@
+#!/bin/sh
+# Opt-in game synchronization for contributors who enabled core.hooksPath.
+root=$(git rev-parse --show-toplevel) || exit 1
+if command -v py >/dev/null 2>&1; then
+    exec py -3 "$root/tools/sync_game_gitignore.py" --stage --quiet
+elif command -v python3 >/dev/null 2>&1; then
+    exec python3 "$root/tools/sync_game_gitignore.py" --stage --quiet
+elif command -v python >/dev/null 2>&1; then
+    exec python "$root/tools/sync_game_gitignore.py" --stage --quiet
+else
+    echo '[ERROR] Python 3 required for XEngine game tracking hook' >&2
+    exit 1
+fi

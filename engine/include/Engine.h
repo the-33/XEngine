@@ -1,0 +1,570 @@
+#pragma once
+
+#include <functional>
+#include <array>
+#include <array>
+#include <vector>
+#include <cstdint>
+#include <string>
+
+#include "BaseTypes.h"
+#include "Property.h"
+#include "Singleton.h"
+#include "Assets.h"
+#include "StatsOverlayLayout.h"
+#include "RenderDiagnostics.h"
+#include "BuildConfig.h"
+#include "Platform.h"
+#include "SDL_stdinc.h"
+
+// forward declarations
+class WindowManager;
+class TimeManager;
+class InputManager;
+class AssetManager;
+class SoundManager;
+class RenderManager;
+class CollisionManager;
+class UIManager;
+class SceneManager;
+class PhysicsManager;
+class RandomManager;
+class Camera2D;
+class Collider2D;
+struct SDL_mutex;
+
+struct CameraState
+{
+    float centerX = 0.f;
+    float centerY = 0.f;
+    float baseViewW = 0.f;
+    float baseViewH = 0.f;
+    float zoom = 1.f;
+};
+
+struct DrawCmd
+{
+    enum class Type
+    {
+        WorldTex,
+        WorldRect,
+        WorldLine,
+
+        ScreenRect,
+        ScreenImage,
+        ScreenText,
+    };
+
+    Type type;
+
+    // Common
+    Color color{ 255,255,255,255 };
+
+    // WorldTex
+    const Texture* tex = nullptr;
+    Rect dstWorld{};
+    Rect srcPx{};
+    bool hasSrc = false;
+    float rotationDeg = 0.f;
+    Vec2  pivot01{ 0.5f,0.5f };
+    bool flipX = false;
+    bool flipY = false;
+
+    // WorldRect
+    Rect worldRect{};
+    bool filled = true;
+
+    // WorldLine
+    float x1 = 0, y1 = 0, x2 = 0, y2 = 0;
+
+    bool debugDraw = false; // Keeps debug statistics intact when recording commands.
+
+    // Optional CPU-only precomputed geometry for the recorded render path.
+    bool hasPreparedGeometry = false;
+    bool preparedVisible = true;
+    Rect preparedScreen{};
+    Vec2 preparedPivot{};
+
+    // ScreenRect / ScreenImage / ScreenText
+    Rect dstScreen{};
+
+    // ScreenImage uses tex + srcPx/hasSrc + flips + tint in color
+    // ScreenText
+    const Font* font = nullptr;
+    std::string text;
+    float textX = 0.f, textY = 0.f; // px
+};
+
+struct Snapshot
+{
+    bool valid = false;
+    int winW = 0;
+    int winH = 0;
+
+    CameraState cam;
+    std::vector<DrawCmd> cmds;
+};
+
+class Engine : public Singleton<Engine>
+{
+    friend class Singleton<Engine>;
+private:
+    struct Config
+    {
+        bool multiThreading = false;
+        bool profileCsv = false;
+		bool logStats = false;
+        bool logErrors = true;
+
+        struct Window
+        {
+            int width = 1280;
+            int height = 720;
+            bool fullscreen = false;
+            const char* title = "Game";
+
+			Window() noexcept = default;
+        } window;
+
+        struct Collision
+        {
+            std::string broadphase = "bruteforce";
+            float cellSize = 2.f;
+            bool autoCellSize = false;
+        } collision;
+
+        struct Renderer
+        {
+            bool vsync = true;
+            bool hardwareAcceleration = true;
+            bool parallelPreparation = true;
+            std::size_t parallelMinCommands = RenderDiagnostics::kParallelThreshold;
+            Color bgColor = { 0, 0, 0, 255 };
+
+			Renderer() noexcept = default;
+        } renderer;
+
+        struct Input
+        {
+            bool startTextInput = false;
+            bool startMouseLocked = false;
+            bool startMouseHidden = false;
+
+			Input() noexcept = default;
+        } input;
+
+        struct Time
+        {
+            float fixedDt = 1.0f / 60.0f;
+
+			Time() noexcept = default;
+        } time;
+
+        struct Assets
+        {
+            std::string assetsFolderPath = "./assets/";
+            std::string defaultFontRelativePath = "fonts/ui_default.ttf";
+
+			Assets() noexcept = default;
+        } assets;
+
+        struct Sound {
+            int   sfxChannels = 32;
+            float masterVolume = 1.0f;
+            bool  enableDucking = false;
+            float duckVolume = 0.6f;
+            float duckAttackSec = 0.02f;
+            float duckReleaseSec = 0.25f;
+
+			Sound() noexcept = default;
+        } sound;
+
+        struct UIStyle
+        {
+            Color text{ 240,240,240,255 };
+            Color btn{ 60,60,60,255 };
+            Color btnHot{ 80,80,80,255 };
+            Color btnActive{ 40,40,40,255 };
+            Color outline{ 200,200,200,255 };
+            float padding = 6.f;
+            std::string defaultFontKey = "ui_default";
+            int defaultFontptSize = 24;
+
+			UIStyle() noexcept = default;
+
+            UIStyle& operator= (const UIStyle& other) noexcept
+            {
+                text = other.text;
+                btn = other.btn;
+                btnHot = other.btnHot;
+                btnActive = other.btnActive;
+                outline = other.outline;
+                padding = other.padding;
+                defaultFontKey = other.defaultFontKey;
+                return *this;
+            }
+        } uiStyle;
+
+        struct Physics
+        {
+            Vec2 baseGravity = { 0.f, 9.81f };
+            float penetrationSlop = 0.01f;
+            float penetrationPercent = 0.8f;
+            int maxSubsteps = 8;
+            float ccdMinSizeFactor = 0.5f;
+        } physics;
+
+        Config() noexcept = default;
+    };
+
+    friend class Collider2D;
+
+	const std::string kDefaultConfigPath = "./XEngineConfig.json";
+    static bool LoadConfigFromFile(const std::string& path, Config& out) noexcept;
+    static bool LoadConfigFromJson(const std::string& text, const std::string& origin, Config& out) noexcept;
+
+    void FrameTick_() noexcept;
+    void PollInput_() noexcept;
+    void DoFixedUpdates_(float dt) noexcept;
+    void DoUpdate_(float dt) noexcept;
+    void DoRender_() noexcept;
+
+
+	void DrawStatsOverlay_() noexcept;
+    bool mShowStatsOverlay = false;
+
+    double mStatsNextRefresh = 0.0;
+    std::vector<std::string> mStatsLines;
+    // On-screen profiler pages are rebuilt only when values or viewport change.
+    struct StatsDisplayRow
+    {
+        std::string label;
+        std::string value;
+        bool heading = false;
+        // Text clipping and metrics are cached at the overlay's 4 Hz refresh.
+        std::string visibleLabel;
+        std::string visibleValue;
+        float visibleValueWidth = 0.f;
+    };
+    std::vector<StatsDisplayRow> mStatsDisplayRows;
+    XEngineStatsOverlay::Layout mStatsLayout;
+    std::size_t mStatsPage = 0;
+    Vec2I mStatsViewport = Vec2I::Zero();
+    float mStatsColumnWidth = 0.f;
+    float mStatsLineHeight = 0.f;
+
+    void ManageSceneQueues_() noexcept;
+    void ManageSceneChanges_() noexcept;
+
+    Config mCfg;
+
+    bool mLogStats = true;
+    bool mLogErrors = true;
+
+    float mFixedDt = 1/60.f;
+    bool mStarted = false;
+    bool mRunning = false;
+    bool SafeToQuit = true;
+    float mAccumulator = 0.f;
+    // 0: regular real-time accumulator. Nonzero: exactly N fixed steps per frame.
+    // Intended for controlled benchmarks, independent of frame wall time.
+    unsigned mDeterministicFixedStepsPerFrame = 0;
+
+
+    float mPollInputTime = 0.f;
+	float mUpdateTime = 0.f;
+	float mFixedUpdateTime = 0.f;
+    float mRenderTime = 0.f;
+    float mRenderRecordTime = 0.f;
+    float mRenderPrepareTime = 0.f;
+    float mRenderSubmitTime = 0.f;
+    float mRenderPresentTime = 0.f;
+    float mRenderWorkerWaitTime = 0.f;
+    float mRenderWorldTime = 0.f;
+    float mRenderUiTime = 0.f;
+    unsigned mLastRenderEligiblePrevious = 0;
+    RenderDiagnostics::Path mLastRenderPath = RenderDiagnostics::Path::Disabled;
+    float mPhysicsTime = 0.f;
+    float mCollisionTime = 0.f;
+    // Per-frame PhysicsManager::Step totals (each Step resets its own counters).
+    double mFramePhysicsStepSec = 0.0;
+    double mFramePhysicsIntegrateSec = 0.0;
+    double mFramePhysicsBuildContactsSec = 0.0;
+    double mFramePhysicsSolveSec = 0.0;
+    std::uint64_t mFramePhysicsContactsProcessed = 0;
+    unsigned mFramePhysicsSubsteps = 0;
+
+    float mFrameTime = 0.f;
+    std::array<float, 512> mFrameHistory{};
+    std::size_t mFrameHistoryCount = 0;
+    std::size_t mFrameHistoryIndex = 0;
+    struct FrameProfile
+    {
+        float frameMs = 0.f;
+        float inputMs = 0.f;
+        float fixedMs = 0.f;
+        float updateMs = 0.f;
+        float renderMs = 0.f;
+        float renderRecordMs = 0.f;
+        float renderPrepareMs = 0.f;
+        float renderSubmitMs = 0.f;
+        float renderPresentMs = 0.f;
+        float renderWorkerWaitMs = 0.f;
+        unsigned renderPreparedCommands = 0;
+        unsigned renderCulledCommands = 0;
+        unsigned renderWorkers = 0;
+        unsigned renderEligiblePrevious = 0, renderEligibleCurrent = 0;
+        unsigned renderTotalRecorded = 0, renderImmediateCulled = 0;
+        unsigned renderBackgroundDraws = 0, renderWorldDraws = 0;
+        unsigned renderDebugDraws = 0, renderUiDraws = 0;
+        unsigned renderTintCacheHits = 0, renderTintUpdates = 0;
+        unsigned renderPathReason = 0;
+        float renderBackgroundMs = 0.f, renderWorldMs = 0.f;
+        float renderDebugMs = 0.f, renderUiMs = 0.f;
+        float renderSpriteSubmitMs = 0.f;
+        float physicsMs = 0.f;
+        float collisionsMs = 0.f;
+        float collisionSnapshotMs = 0.f;
+        float collisionCandidatesMs = 0.f;
+        float collisionMergeMs = 0.f;
+        float collisionGridBuildMs = 0.f;
+        float collisionAutoSelectorMs = 0.f;
+        unsigned collisionBroadphaseMode = 0;
+        unsigned collisionGridPasses = 0;
+        unsigned collisionBruteforcePasses = 0;
+        float collisionGridCellSizeLast = 0.f;
+        unsigned collisionAutoCalibrationPasses = 0;
+        unsigned collisionAutoContextLast = 0;
+        unsigned collisionAutoContextTransitions = 0;
+        unsigned collisionAutoCellHalfPasses = 0;
+        unsigned collisionAutoCellBasePasses = 0;
+        unsigned collisionAutoCellDoublePasses = 0;
+        std::uint64_t collisionContactSignature = 0;
+        int fixedSteps = 0;
+        std::uint64_t broadphaseTests = 0;
+        std::uint64_t narrowphaseTests = 0;
+        std::uint64_t contactsBuilt = 0;
+        unsigned collisionPasses = 0;
+        unsigned collisionParallelPasses = 0;
+        double physicsStepMs = 0.0;
+        double physicsIntegrateMs = 0.0;
+        double physicsBuildContactsMs = 0.0;
+        double physicsSolveMs = 0.0;
+        std::uint64_t physicsContactsProcessed = 0;
+        unsigned physicsSubsteps = 0;
+        unsigned deterministicStepsPerFrame = 0;
+        unsigned workers = 0;
+        unsigned collisionParallelSteps = 0;
+    };
+    std::vector<FrameProfile> mProfiles;
+    void WriteProfiles_() noexcept;
+    int fixedUpdatesDoneThisFrame = 0;
+    unsigned mCollisionParallelStepsThisFrame = 0;
+    int averageFixedUpdatesPerFrame = 0;
+    float lastAccumulator = 0.f;
+    float averageFps = 0.f;
+
+    float mAspectRatio = 0.f;
+    Vec2I  mAspectRatioAsFraction = Vector2::Zero;
+
+    std::function<void(Engine&)> mOnInit;
+    std::function<void(float)> mOnUpdate;
+    std::function<void(float)> mOnFixedUpdate;
+
+    Engine(const Engine&) = delete;
+    Engine& operator=(const Engine&) = delete;
+
+    Engine() noexcept;
+    ~Engine();
+
+    bool StartImpl(const std::string cfg, bool inlineJson = false) noexcept;      // inicializa singletons
+	int RunSingleThreadingImpl() noexcept;               // bucle principal singlethread
+	int RunMultiThreadingImpl() noexcept;                // bucle principal multithread
+    void StopImpl() noexcept;                            // marks end of loop
+
+    bool ApplyStartingScene() const noexcept;
+
+public:
+    // --- High-level static API ---
+    static bool Start(const std::string& configPath = "./") noexcept
+    {
+        if (!CreateSingleton()) return false;
+        return GetInstance().StartImpl(configPath);
+    }
+
+    static bool StartFromJson(const std::string& jsonText) noexcept
+    {
+        if (!CreateSingleton()) return false;
+        return GetInstance().StartImpl(jsonText, true);
+    }
+
+    static int Run() noexcept
+    {
+        if (auto* e = GetInstancePtr())
+        {
+            // Optional user initialization callback
+            if (e->mOnInit)
+                e->mOnInit(*e);
+
+            if (!(e->ApplyStartingScene())) Stop();
+
+            if (!e->mCfg.multiThreading)
+                return e->RunSingleThreadingImpl();
+            else
+				return e->RunMultiThreadingImpl();
+        }
+        return -1;
+    }
+
+    static void Stop() noexcept
+    {
+        if (auto* e = GetInstancePtr())
+        {
+            e->StopImpl();
+            DestroySingleton();    // Destroy the Engine here; Stop shuts down SDL, singletons, etc.
+        }
+    }
+
+    // Benchmark-only override: set before Run(). 0 restores normal real-time
+    // physics; 1..16 executes exactly that many fixed updates per rendered frame.
+    // Does not alter the threading mode or production game configurations.
+    static bool ConfigureDeterministicFixedSteps(unsigned steps) noexcept
+    {
+        auto* engine = GetInstancePtr();
+        if (!engine || !engine->mStarted || engine->mRunning || steps > 16u)
+            return false;
+        engine->mDeterministicFixedStepsPerFrame = steps;
+        engine->mAccumulator = 0.f;
+        return true;
+    }
+
+    static void SetInitCallback(std::function<void(Engine&)> cb) noexcept 
+    { 
+        if (auto* e = GetInstancePtr())
+            e->mOnInit = std::move(cb); 
+    }
+    static void SetUpdateCallback(std::function<void(float)> cb) noexcept 
+    { 
+        if (auto* e = GetInstancePtr())
+            e->mOnUpdate = std::move(cb);
+    }
+    static void SetFixedUpdateCallback(std::function<void(float)> cb) noexcept 
+    { 
+        if (auto* e = GetInstancePtr())
+            e->mOnFixedUpdate = std::move(cb);
+    }
+
+private:
+    static bool IsRunning() noexcept
+    {
+        if (auto* e = GetInstancePtr())
+            return e->mRunning;
+        return false;
+    }
+
+    static WindowManager* Window() noexcept;
+    static TimeManager* Time() noexcept;
+    static InputManager* Input() noexcept;
+    static AssetManager* Assets() noexcept;
+    static SoundManager* Sound() noexcept;
+    static UIManager* UI() noexcept;
+    static SceneManager* Scenes() noexcept;
+    static PhysicsManager* Physics() noexcept;
+    static RandomManager* Random() noexcept;
+
+    static Camera2D* GetCamera() noexcept;
+
+    static inline float FixedDelta() noexcept 
+    {
+        if (auto* e = GetInstancePtr())
+            return e->mFixedDt;
+        return 0.f;
+    }
+
+    static bool GetLogErrors() noexcept
+    {
+        if (auto* e = GetInstancePtr())
+            return e->mLogErrors;
+        return false;
+    }
+
+    static inline float GetFPS() noexcept;
+    static inline float GetAspectRatio() noexcept;
+    static inline Vec2I GetAspectRatioAsFraction() noexcept;
+
+private:
+    // -------- Property getters (NON-static) --------
+    bool IsRunning_() const noexcept { return mRunning; }
+
+    WindowManager* Window_()  const noexcept { return Engine::Window(); }
+    TimeManager* Time_()    const noexcept { return Engine::Time(); }
+    InputManager* Input_()   const noexcept { return Engine::Input(); }
+    AssetManager* Assets_()  const noexcept { return Engine::Assets(); }
+    SoundManager* Sound_()   const noexcept { return Engine::Sound(); }
+    UIManager* UI_()      const noexcept { return Engine::UI(); }
+    SceneManager* Scenes_()  const noexcept { return Engine::Scenes(); }
+    PhysicsManager* Physics_() const noexcept { return Engine::Physics(); }
+    RandomManager* Random_() const noexcept { return Engine::Random(); }
+
+    Camera2D* Camera_() const noexcept { return Engine::GetCamera(); }
+
+    float FixedDelta_() const noexcept { return mFixedDt; }
+    bool  LogErrors_()  const noexcept { return mLogErrors; }
+
+    float GetFPS_() const noexcept;
+    float GetAspectRatio_() const noexcept;
+    Vec2I GetAspectRatioAsFraction_() const noexcept;
+
+public:
+    // ======================================================
+    // PropertyROs (lectura)
+    // ======================================================
+
+    using IsRunningProperty = PropertyRO<Engine, bool, &Engine::IsRunning_>;
+    IsRunningProperty isRunning{ this };
+
+    using WindowProperty = PropertyRO<Engine, WindowManager*, &Engine::Window_>;
+    WindowProperty window{ this };
+
+    using TimeProperty = PropertyRO<Engine, TimeManager*, &Engine::Time_>;
+    TimeProperty time{ this };
+
+    using InputProperty = PropertyRO<Engine, InputManager*, &Engine::Input_>;
+    InputProperty input{ this };
+
+    using AssetsProperty = PropertyRO<Engine, AssetManager*, &Engine::Assets_>;
+    AssetsProperty assets{ this };
+
+    using SoundProperty = PropertyRO<Engine, SoundManager*, &Engine::Sound_>;
+    SoundProperty sound{ this };
+
+    using UIProperty = PropertyRO<Engine, UIManager*, &Engine::UI_>;
+    UIProperty ui{ this };
+
+    using ScenesProperty = PropertyRO<Engine, SceneManager*, &Engine::Scenes_>;
+    ScenesProperty scenes{ this };
+
+    using PhysicsProperty = PropertyRO<Engine, PhysicsManager*, &Engine::Physics_>;
+    PhysicsProperty physics{ this };
+
+    using RandomProperty = PropertyRO<Engine, RandomManager*, &Engine::Random_>;
+    RandomProperty random{ this };
+
+    using CameraProperty = PropertyRO<Engine, Camera2D*, &Engine::Camera_>;
+    CameraProperty camera{ this };
+
+    using FixedDeltaProperty = PropertyRO<Engine, float, &Engine::FixedDelta_>;
+    FixedDeltaProperty fixedDelta{ this };
+
+    using LogErrorsProperty = PropertyRO<Engine, bool, &Engine::LogErrors_>;
+    LogErrorsProperty logErrors{ this };
+
+    using FPSProperty = PropertyRO<Engine, float, &Engine::GetFPS_>;
+    FPSProperty fps{ this };
+
+    using AspectRatioProperty = PropertyRO<Engine, float, &Engine::GetAspectRatio_>;
+    AspectRatioProperty aspectRatio{ this };
+
+    using AspectRatioFractionProperty = PropertyRO<Engine, Vec2I, &Engine::GetAspectRatioAsFraction_>;
+    AspectRatioFractionProperty aspectRatioFraction{ this };
+};

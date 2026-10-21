@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# Generated for each Linux Release. Re-run after relocating the dist directory.
+set -euo pipefail
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+NAME=__NAME__
+APP_ID=__APP_ID__
+ICON_REL=__ICON_REL__
+
+# A loose Release copied via Windows may lose its POSIX executable bits.
+# The menu entry executes run.sh directly, so restore that bit here.
+if [[ ! -x "$HERE/run.sh" ]]; then
+    if ! chmod u+x -- "$HERE/run.sh"; then
+        printf '[ERROR] Cannot make run.sh executable: %s\n' "$HERE/run.sh" >&2
+        exit 1
+    fi
+fi
+
+# Encode a path as one argument in a Desktop Entry Exec= field.
+# % is doubled because Desktop Entry interprets % as a field-code prefix.
+desktop_arg() {
+    local s="$1"
+    s=${s//\\/\\\\}
+    s=${s//\"/\\\"}
+    s=${s//\$/\\\$}
+    s=${s//\`/\\\`}
+    s=${s//%/%%}
+    printf '"%s"' "$s"
+}
+
+LOCAL_DESKTOP="$HERE/$NAME.desktop"
+{
+    printf '%s\n' '[Desktop Entry]' 'Type=Application' 'Version=1.0'
+    printf 'Name=%s\n' "$NAME"
+    printf 'Exec=%s\n' "$(desktop_arg "$HERE/run.sh")"
+    printf 'Path=%s\n' "$HERE"
+    if [[ -n "$ICON_REL" ]]; then
+        printf 'Icon=%s\n' "$HERE/$ICON_REL"
+    else
+        printf '%s\n' 'Icon=applications-games'
+    fi
+    printf '%s\n' 'Terminal=false' 'Categories=Game;'
+} > "$LOCAL_DESKTOP"
+chmod 644 "$LOCAL_DESKTOP"
+printf '[DESKTOP] Updated %s\n' "$LOCAL_DESKTOP"
+
+if [[ "${1:-}" == '--install' ]]; then
+    XDG_APPS="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
+    mkdir -p "$XDG_APPS"
+    cp "$LOCAL_DESKTOP" "$XDG_APPS/$APP_ID.desktop"
+    printf '[DESKTOP] Installed %s\n' "$XDG_APPS/$APP_ID.desktop"
+elif [[ "${1:-}" != '' ]]; then
+    echo 'Usage: ./setup_desktop.sh [--install]' >&2
+    exit 2
+fi
