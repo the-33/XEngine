@@ -345,6 +345,7 @@ private:
         unsigned renderSelectionMode = 0;
         std::uint64_t renderEffectivePrevious = 0, renderEffectiveCurrent = 0;
         unsigned renderEstimatedOffscreen = 0;
+        unsigned renderVisibilitySkipped = 0;
         unsigned renderParallelExecuted = 0, renderParallelFallback = 0;
         unsigned renderExecutedSwitched = 0;
         unsigned renderWorkEstimateMode = 0;

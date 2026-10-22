@@ -30,7 +30,7 @@ METRICS = ('frame_ms', 'render_world_ms', 'render_record_ms', 'render_prepare_ms
 REQUIRED = (*METRICS, 'render_parallel_executed', 'render_workers',
             'render_work_estimate_mode', 'render_route_override',
             'render_path_reason', 'render_estimated_offscreen_sprites',
-            'render_eligible_current')
+            'render_visibility_skipped_sprites', 'render_eligible_current')
 ESTIMATE_CODES = {'off': 0, 'weighted': 1, 'visibility': 2}
 ROUTE_CODES = {'immediate': (1, 4, 0), 'recorded': (2, 3, 1)}
 
@@ -83,6 +83,10 @@ def load_checked(path: Path, warmup: int, frames: int, estimate: str,
             raise ValueError(f'{path}: disabled scoring still ran visibility estimation at frame {index}')
         if estimate == 'weighted' and float(row['render_estimated_offscreen_sprites']) != 0:
             raise ValueError(f'{path}: weighted-only scoring still ran visibility estimation at frame {index}')
+        # Forced scoring probes must do the FULL evaluation so historical
+        # weighted-vs-visibility A/B/C cost estimates remain comparable.
+        if float(row['render_visibility_skipped_sprites']) != 0:
+            raise ValueError(f'{path}: forced scoring probe skipped visibility at frame {index}')
     return all_rows, measured
 
 
@@ -161,19 +165,34 @@ def run(argv: list[str] | None = None) -> int:
                    'Forced routes isolate scoring from path switching. p95/p99 are independent distribution quantiles.',
     }, indent=2) + '\n', encoding='utf-8')
 
+    expected_triplets = len(args.workloads) * len(args.routes) * args.repetitions
+    expected_runs = expected_triplets * len(ESTIMATES)
+    validated_runs = 0
+    pairs: list[dict[str, object]] = []
+    phases: list[dict[str, object]] = []
+    outliers: list[dict[str, object]] = []
+
+    def print_final_summary(errors: int) -> None:
+        equivalent_frames = sum(int(pair['equivalent_frames']) for pair in pairs)
+        print(f'[SELECTOR-COST] triplets={len(pairs)}/{expected_triplets} '
+              f'equivalent_frames={equivalent_frames} '
+              f'runs_validated={validated_runs}/{expected_runs} '
+              f'errors={errors} output={output}', flush=True)
+
+    def abort(message: str) -> int:
+        (output / 'failures.txt').write_text(message + '\n', encoding='utf-8')
+        print('[FAIL]', message, file=sys.stderr, flush=True)
+        print_final_summary(errors=1)
+        return 1
+
     if args.build:
         cmd = [sys.executable, str(ROOT / 'tools/build.py'), 'game',
                '--project', GAME.name, '--config', args.build_config]
         rc = run_build_with_live_log(cmd, cwd=ROOT, log_path=output / 'build.log')
         if rc:
             message = f'Build failed ({rc}); benchmark aborted without executing any game binary.'
-            (output / 'failures.txt').write_text(message + '\n', encoding='utf-8')
-            print('[FAIL]', message, file=sys.stderr, flush=True)
-            return 1
+            return abort(message)
 
-    pairs: list[dict[str, object]] = []
-    phases: list[dict[str, object]] = []
-    outliers: list[dict[str, object]] = []
     for workload in args.workloads:
         for route in args.routes:
             for repetition in range(1, args.repetitions + 1):
@@ -191,17 +210,16 @@ def run(argv: list[str] | None = None) -> int:
                            '--repetitions', '1', '--frames', str(args.frames), '--warmup', str(args.warmup),
                            '--seed', str(args.seed), '--timeout', str(args.timeout), '--output', str(dest)]
                     print(f'[SELECTOR-COST] {workload}/{route} r={repetition} estimate={estimate}', flush=True)
-                    rc = subprocess.call(cmd, cwd=ROOT)
                     try:
+                        rc = subprocess.call(cmd, cwd=ROOT)
                         if rc:
                             raise ValueError(f'benchmark process exited {rc}; see {dest}')
                         captures[estimate] = load_checked(dest / 'render_parallel_run01.csv',
                                                           args.warmup, args.frames, estimate, route)
                     except (OSError, KeyError, ValueError) as exc:
                         failure = f'{workload}/{route}/r{repetition}/{estimate}: {exc}'
-                        (output / 'failures.txt').write_text(failure + '\n', encoding='utf-8')
-                        print('[FAIL]', failure, file=sys.stderr, flush=True)
-                        return 1
+                        return abort(failure)
+                    validated_runs += 1
                 try:
                     first = captures['off'][0]
                     for estimate in ('weighted', 'visibility'):
@@ -213,7 +231,6 @@ def run(argv: list[str] | None = None) -> int:
                     add_deltas(record, {estimate: stats(rows) for estimate, rows in measured.items()})
                     record['offscreen_visibility_median'] = median(measured['visibility'], 'render_estimated_offscreen_sprites')
                     record['worker_frames'] = sum(int(float(row['render_parallel_executed'])) for row in measured['off'])
-                    pairs.append(record)
                     for phase in range(4):
                         for estimate in ESTIMATES:
                             rows = [row for i, row in enumerate(measured[estimate], args.warmup)
@@ -238,18 +255,20 @@ def run(argv: list[str] | None = None) -> int:
                                                  'worker_count': int(float(row['render_workers']))})
                 except (KeyError, ValueError, ZeroDivisionError) as exc:
                     failure = f'{workload}/{route}/r{repetition}: failed parity/cost analysis: {exc}'
-                    (output / 'failures.txt').write_text(failure + '\n', encoding='utf-8')
-                    print('[FAIL]', failure, file=sys.stderr, flush=True)
-                    return 1
+                    return abort(failure)
+                pairs.append(record)
                 print(f'[EQUIV] {workload}/{route} r{repetition}: {len(first)} equivalent frames; '
                       f'visibility weight cost (world p50) '
                       f'{record["visibility_minus_weights_render_world_ms_p50_ms"]:+.5f} ms', flush=True)
 
-    write_csv(output / 'paired_cost.csv', pairs)
-    write_csv(output / 'phase_cost.csv', phases)
-    write_csv(output / 'p99_outliers.csv', outliers)
-    write_csv(output / 'summary.csv', summarize(pairs))
-    print(f'[SELECTOR-COST] {len(pairs)} equivalent triplets; outputs at {output}', flush=True)
+    try:
+        write_csv(output / 'paired_cost.csv', pairs)
+        write_csv(output / 'phase_cost.csv', phases)
+        write_csv(output / 'p99_outliers.csv', outliers)
+        write_csv(output / 'summary.csv', summarize(pairs))
+    except (OSError, ValueError) as exc:
+        return abort(f'Cannot export selector-cost results: {exc}')
+    print_final_summary(errors=0)
     return 0
 
 

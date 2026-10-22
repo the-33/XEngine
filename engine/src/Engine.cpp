@@ -547,6 +547,7 @@ int Engine::RunSingleThreadingImpl() noexcept
                 sample.renderEffectivePrevious = mLastRenderEffectivePrevious;
                 sample.renderEffectiveCurrent = r->mPublicEffectiveWorldWorkUnitsThisFrame;
                 sample.renderEstimatedOffscreen = r->mEstimatedOffscreenSprites;
+                sample.renderVisibilitySkipped = r->mSkippedVisibilitySprites;
                 sample.renderParallelExecuted = mRenderParallelExecuted;
                 sample.renderParallelFallback = mRenderParallelFallback;
                 sample.renderExecutedSwitched = mRenderExecutedSwitched;
@@ -649,7 +650,7 @@ void Engine::WriteProfiles_() noexcept
            "render_weighted_units_previous,render_weighted_units_current,"
            "render_path_switched,render_selection_mode,"
            "render_effective_units_previous,render_effective_units_current,"
-           "render_estimated_offscreen_sprites,render_parallel_executed,"
+           "render_estimated_offscreen_sprites,render_visibility_skipped_sprites,render_parallel_executed,"
            "render_parallel_fallback,render_executed_switched,"
            "render_work_estimate_mode,render_route_override,render_selector_decision_ms\n";
     out << std::fixed << std::setprecision(5);
@@ -693,7 +694,8 @@ void Engine::WriteProfiles_() noexcept
             << ',' << r.renderWeightedPrevious << ',' << r.renderWeightedCurrent
             << ',' << r.renderPathSwitched << ',' << r.renderSelectionMode
             << ',' << r.renderEffectivePrevious << ',' << r.renderEffectiveCurrent
-            << ',' << r.renderEstimatedOffscreen << ',' << r.renderParallelExecuted
+            << ',' << r.renderEstimatedOffscreen << ',' << r.renderVisibilitySkipped
+            << ',' << r.renderParallelExecuted
             << ',' << r.renderParallelFallback << ',' << r.renderExecutedSwitched
             << ',' << r.renderWorkEstimateMode << ',' << r.renderRouteOverride
             << ',' << r.renderSelectionMs
@@ -1383,10 +1385,15 @@ void Engine::DoRender_() noexcept
     render->mPublicWorldWorkUnitsThisFrame = 0;
     render->mPublicEffectiveWorldWorkUnitsThisFrame = 0;
     render->mEstimatedOffscreenSprites = 0;
+    render->mSkippedVisibilitySprites = 0;
     mWorkEstimateActive = mWorkEstimateProbe == RenderDiagnostics::WorkEstimate::Auto
         ? (adaptive ? RenderDiagnostics::WorkEstimate::Visibility : RenderDiagnostics::WorkEstimate::Weighted)
         : mWorkEstimateProbe;
     render->mWorkEstimateMode = mWorkEstimateActive;
+    render->mSaturateEffectiveWork = adaptive &&
+        mWorkEstimateProbe == RenderDiagnostics::WorkEstimate::Auto;
+    render->mSelectorEntryBoundary = RenderDiagnostics::EntryBoundary(
+        mCfg.renderer.parallelMinCommands);
     render->mLastRecordedCommands = render->mImmediateCulledCommands = 0;
     render->mBackgroundDraws = render->mWorldDraws = 0;
     render->mDebugDraws = render->mUiDraws = 0;

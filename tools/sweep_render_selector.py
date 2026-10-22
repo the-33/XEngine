@@ -18,6 +18,7 @@ import sys
 
 from sweep_render_threshold import (ROOT, GAME, VERIFY, read_profile,
                                     compare_profiles, write_csv, run_build_with_live_log)
+from render_selector_tails import analyze_run, analyze_phase_run
 
 
 def arguments(argv: list[str] | None = None) -> argparse.Namespace:
@@ -33,6 +34,8 @@ def arguments(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument('--seed', type=int, default=12345)
     p.add_argument('--timeout', type=int, default=300)
     p.add_argument('--build', action='store_true')
+    p.add_argument('--show', action='append', choices=('warnings', 'commands'), default=[],
+                   help='Show compiler warnings or commands during --build')
     p.add_argument('--build-config', choices=('Debug','Release'), default='Debug')
     p.add_argument('--output', type=Path)
     return p.parse_args(argv)
@@ -73,13 +76,17 @@ def main(argv: list[str] | None = None) -> int:
     }, indent=2)+'\n', encoding='utf-8')
     if args.build:
         cmd = [sys.executable,str(ROOT/'tools/build.py'),'game','--project',GAME.name,'--config', args.build_config]
+        cmd.extend(['--raw-log', str(output/'build.log')])
+        for detail in args.show:
+            cmd.extend(['--show', detail])
         rc = run_build_with_live_log(cmd,cwd=ROOT,log_path=output/'build.log')
         if rc:
             print(f'[FAIL] Build failed ({rc}); benchmark aborted; see {output / "build.log"}',file=sys.stderr)
             return 1
     # One binary/configuration per sweep; the runner resolves the Release
     # packaged assets alongside the Release executable, not Debug assets/.
-    pairs=[]; phases=[]; failures=[]
+    pairs=[]; phases=[]; tail_frames=[]; tail_summaries=[]
+    phase_tail_frames=[]; phase_tail_summaries=[]; failures=[]
     for workload in args.workloads:
         for rep in range(1,args.repetitions+1):
             # Alternate order to reduce temperature/drift bias.
@@ -117,6 +124,18 @@ def main(argv: list[str] | None = None) -> int:
                     expected=1 if mode=='adaptive' else 0
                     if any(int(float(row['render_selection_mode']))!=expected for row in rows):
                         raise ValueError(f'{mode}: selector mode profiler mismatch')
+                    if any('render_visibility_skipped_sprites' not in row for row in rows):
+                        raise ValueError(f'{mode}: missing visibility fast-path telemetry; rebuild the benchmark')
+                    frame_tail, tail_summary = analyze_run(
+                        rows, build=args.build_config, workload=workload,
+                        repetition=rep, mode=mode, phase_frames=args.phase_frames)
+                    tail_frames.extend(frame_tail)
+                    tail_summaries.extend(tail_summary)
+                    phase_frame_tail, phase_tail_summary = analyze_phase_run(
+                        rows, build=args.build_config, workload=workload,
+                        repetition=rep, mode=mode, phase_frames=args.phase_frames)
+                    phase_tail_frames.extend(phase_frame_tail)
+                    phase_tail_summaries.extend(phase_tail_summary)
                     for phase in range(4):
                         # Note: phase boundaries include warmup; use actual profile row number.
                         window=[row for i,row in enumerate(rows,args.warmup)
@@ -130,6 +149,7 @@ def main(argv: list[str] | None = None) -> int:
                             'parallel_fallback_frames':sum(int(float(r['render_parallel_fallback'])) for r in window),
                             'execution_switches':sum(int(float(r['render_executed_switched'])) for r in window),
                             'definitely_offscreen_median':median(window,'render_estimated_offscreen_sprites'),
+                            'visibility_checks_skipped_median':median(window,'render_visibility_skipped_sprites'),
                             'effective_work_units_median':median(window,'render_effective_units_current'),
                             'frame_p95_ms':percentile(window,'frame_ms',.95),
                             'frame_p99_ms':percentile(window,'frame_ms',.99),
@@ -146,6 +166,7 @@ def main(argv: list[str] | None = None) -> int:
                     'adaptive_parallel_frames':sum(int(float(r['render_parallel_executed'])) for r in adSamples),
                     'adaptive_parallel_requested_frames':sum(int(float(r['render_path_reason']))==3 for r in adSamples),
                     'adaptive_fallback_frames':sum(int(float(r['render_parallel_fallback'])) for r in adSamples),
+                    'adaptive_visibility_checks_skipped':sum(int(float(r['render_visibility_skipped_sprites'])) for r in adSamples),
                     'fixed_frame_p95_ms':percentile(fixSamples,'frame_ms',.95),
                     'adaptive_frame_p95_ms':percentile(adSamples,'frame_ms',.95),
                     'fixed_frame_p99_ms':percentile(fixSamples,'frame_ms',.99),
@@ -159,10 +180,16 @@ def main(argv: list[str] | None = None) -> int:
                 failures.append(f'{workload}/{rep}: {exc}')
     write_csv(output/'paired_comparisons.csv',pairs)
     write_csv(output/'phase_results.csv',phases)
+    write_csv(output/'tail_frames.csv',tail_frames)
+    write_csv(output/'tail_summary.csv',tail_summaries)
+    write_csv(output/'phase_tail_frames.csv',phase_tail_frames)
+    write_csv(output/'phase_tail_summary.csv',phase_tail_summaries)
     if failures:
         (output/'failures.txt').write_text('\n'.join(failures)+'\n',encoding='utf-8')
         for failure in failures:print('[FAIL]',failure,file=sys.stderr)
-    print(f'[SWEEP] pairs={len(pairs)} errors={len(failures)} output={output}',flush=True)
+    print(f'[SWEEP] pairs={len(pairs)} tail_frames={len(tail_frames)} '
+          f'tail_summaries={len(tail_summaries)} phase_tail_summaries={len(phase_tail_summaries)} '
+          f'errors={len(failures)} output={output}',flush=True)
     return 1 if failures else 0
 
 

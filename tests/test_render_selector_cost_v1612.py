@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import csv
+from contextlib import redirect_stderr, redirect_stdout
 import importlib.util
+import io
 from pathlib import Path
 import shutil
 import subprocess
@@ -18,7 +20,8 @@ import run_benchmark as benchmark
 from sweep_render_threshold import FIELDS, VERIFY
 
 
-def profile(path: Path, *, estimate: str, route: str = 'recorded', altered: bool = False) -> None:
+def profile(path: Path, *, estimate: str, route: str = 'recorded',
+            altered: bool = False, skipped: bool = False) -> None:
     columns = sorted(set(FIELDS) | set(VERIFY) | set(cost.REQUIRED))
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open('w', newline='', encoding='utf-8') as handle:
@@ -41,6 +44,7 @@ def profile(path: Path, *, estimate: str, route: str = 'recorded', altered: bool
                 'render_parallel_executed': '1' if route == 'recorded' else '0',
                 'render_work_estimate_mode': str(cost.ESTIMATE_CODES[estimate]),
                 'render_estimated_offscreen_sprites': '10' if estimate == 'visibility' else '0',
+                'render_visibility_skipped_sprites': '1' if skipped else '0',
             })
             writer.writerow(row)
 
@@ -84,10 +88,18 @@ class SelectorCostTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'incorrect selector'):
                 cost.load_checked(path, 1, 8, 'off', 'recorded')
 
+    def test_full_cost_probe_rejects_adaptive_shortcut(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / 'inexact.csv'
+            profile(path, estimate='visibility', skipped=True)
+            with self.assertRaisesRegex(ValueError, 'skipped visibility'):
+                cost.load_checked(path, 1, 8, 'visibility', 'recorded')
+
     def test_full_mock_sweep_writes_all_exports(self):
         with tempfile.TemporaryDirectory() as temp:
             output = Path(temp) / 'output'
             calls = []
+            stdout = io.StringIO()
 
             def fake_call(argv, *, cwd):
                 self.assertEqual(cwd, ROOT)
@@ -98,11 +110,13 @@ class SelectorCostTests(unittest.TestCase):
                 calls.append(estimate)
                 return 0
 
-            with mock.patch.object(cost.subprocess, 'call', side_effect=fake_call):
+            with mock.patch.object(cost.subprocess, 'call', side_effect=fake_call), redirect_stdout(stdout):
                 self.assertEqual(cost.run(['--workloads', 'baseline', '--routes', 'recorded',
                                            '--frames', '8', '--warmup', '1', '--phase-frames', '2',
                                            '--repetitions', '1', '--output', str(output)]), 0)
             self.assertEqual(calls, list(cost.ESTIMATES))
+            self.assertIn('[SELECTOR-COST] triplets=1/1 equivalent_frames=9 '
+                          'runs_validated=3/3 errors=0 output=', stdout.getvalue())
             for file in ('paired_cost.csv', 'phase_cost.csv', 'p99_outliers.csv',
                          'summary.csv', 'metadata.json'):
                 self.assertTrue((output / file).is_file(), file)
@@ -113,12 +127,57 @@ class SelectorCostTests(unittest.TestCase):
 
     def test_release_build_failure_aborts_without_running_stale_binary(self):
         with tempfile.TemporaryDirectory() as temp:
+            stdout, stderr = io.StringIO(), io.StringIO()
             with mock.patch.object(cost, 'run_build_with_live_log', return_value=17) as build, \
-                 mock.patch.object(cost.subprocess, 'call', side_effect=AssertionError('stale executable')):
+                 mock.patch.object(cost.subprocess, 'call', side_effect=AssertionError('stale executable')), \
+                 redirect_stdout(stdout), redirect_stderr(stderr):
                 result = cost.run(['--build', '--build-config', 'Release', '--output', temp])
             self.assertEqual(result, 1)
             self.assertIn('Release', build.call_args.args[0])
             self.assertIn('Build failed', (Path(temp) / 'failures.txt').read_text())
+            self.assertIn('[SELECTOR-COST] triplets=0/24 equivalent_frames=0 '
+                          'runs_validated=0/72 errors=1 output=', stdout.getvalue())
+            self.assertIn('[FAIL] Build failed (17)', stderr.getvalue())
+
+    def test_benchmark_process_failure_reports_final_summary(self):
+        with tempfile.TemporaryDirectory() as temp:
+            output = Path(temp) / 'output'
+            stdout, stderr = io.StringIO(), io.StringIO()
+            with mock.patch.object(cost.subprocess, 'call', return_value=23) as runner, \
+                 redirect_stdout(stdout), redirect_stderr(stderr):
+                result = cost.run(['--workloads', 'baseline', '--routes', 'recorded',
+                                   '--frames', '8', '--warmup', '1', '--phase-frames', '2',
+                                   '--repetitions', '1', '--output', str(output)])
+            self.assertEqual(result, 1)
+            runner.assert_called_once()
+            self.assertIn('benchmark process exited 23', (output / 'failures.txt').read_text())
+            self.assertIn('errors=1', stdout.getvalue())
+            self.assertIn('triplets=0/1 equivalent_frames=0 runs_validated=0/3', stdout.getvalue())
+            self.assertIn('[FAIL]', stderr.getvalue())
+
+    def test_non_equivalent_triplet_reports_final_summary(self):
+        with tempfile.TemporaryDirectory() as temp:
+            output = Path(temp) / 'output'
+            stdout, stderr = io.StringIO(), io.StringIO()
+
+            def fake_call(argv, *, cwd):
+                estimate = argv[argv.index('--render-estimate') + 1]
+                destination = Path(argv[argv.index('--output') + 1])
+                profile(destination / 'render_parallel_run01.csv', estimate=estimate,
+                        altered=(estimate == 'visibility'))
+                return 0
+
+            with mock.patch.object(cost.subprocess, 'call', side_effect=fake_call), \
+                 redirect_stdout(stdout), redirect_stderr(stderr):
+                result = cost.run(['--workloads', 'baseline', '--routes', 'recorded',
+                                   '--frames', '8', '--warmup', '1', '--phase-frames', '2',
+                                   '--repetitions', '1', '--output', str(output)])
+            self.assertEqual(result, 1)
+            self.assertIn('Non-equivalent physics or render submissions',
+                          (output / 'failures.txt').read_text())
+            self.assertIn('triplets=0/1 equivalent_frames=0 runs_validated=3/3 errors=1',
+                          stdout.getvalue())
+            self.assertIn('[FAIL]', stderr.getvalue())
 
     @unittest.skipUnless(shutil.which('g++'), 'g++ unavailable')
     def test_new_enum_defaults_compile_without_sdl(self):

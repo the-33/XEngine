@@ -226,3 +226,27 @@ worker dispatch from a selected recorded path. See
 methodology, smoke and replicated commands. Both engine and game build messages
 stream live to console and `build.log` during the sweep; a nonzero build aborts
 all measurements before launching an old binary.
+
+The latest experimental adaptive optimization also caches viewport bounds
+once per frame and stops visibility scoring once the accumulated work is
+provably above the entry threshold. The CSV field
+`render_visibility_skipped_sprites` records the omitted checks. See the
+**Visibility fast path and saturated adaptive scoring** section of
+[Adaptive render selection](ADAPTIVE_RENDER_SELECTION.md) for the important
+counter semantics and Debug/Release verification commands.
+
+For investigating latency regressions, each successful real
+`sweep_render_selector.py` sweep now also exports `tail_frames.csv` and
+`tail_summary.csv`, separating input/fixed/update/whole-render time from
+*nested* render work, worker preparation and SDL presentation. An existing
+sweep ZIP can be re-analyzed without rebuilding the game:
+
+```powershell
+python tools/render_selector_tails.py --input "C:\path\to\results.zip" --output "C:\path\to\tail_diagnostics"
+```
+
+Review per-frame route telemetry alongside p95/p99 before blaming the
+adaptive selector: independent-run percentile differences alone do not
+identify the cause of a slow frame. The full Windows investigation and the
+centered-pivot `culling` shortcut are documented in
+[Adaptive render selection](ADAPTIVE_RENDER_SELECTION.md).

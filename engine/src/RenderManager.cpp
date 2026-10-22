@@ -90,7 +90,9 @@ void RenderManager::Begin(const Camera2D& cam) noexcept
     const Vec2 view = cam.GetViewBase();
     const float zoom = cam.GetZoom();
     const Vec2 center = cam.GetCenter();
-    mSelectorView = {center.x, center.y, view.x / zoom, view.y / zoom};
+    if (mWorkEstimateMode == RenderDiagnostics::WorkEstimate::Visibility)
+        mSelectorViewBounds = RenderDiagnostics::MakeViewBounds(
+            {center.x, center.y, view.x / zoom, view.y / zoom});
 
     if (mWindow) {
         const Vec2I drawable = mWindow->GetDrawableSize();
@@ -478,9 +480,11 @@ void RenderManager::BeginRecord(const Camera2D* cam, Snapshot& out) noexcept
     out.cam.baseViewW = cam->mBaseViewWidth;
     out.cam.baseViewH = cam->mBaseViewHeight;
     out.cam.zoom = cam->mZoom;
-    mSelectorView = {out.cam.centerX, out.cam.centerY,
-                     out.cam.baseViewW / out.cam.zoom,
-                     out.cam.baseViewH / out.cam.zoom};
+    if (mWorkEstimateMode == RenderDiagnostics::WorkEstimate::Visibility)
+        mSelectorViewBounds = RenderDiagnostics::MakeViewBounds(
+            {out.cam.centerX, out.cam.centerY,
+             out.cam.baseViewW / out.cam.zoom,
+             out.cam.baseViewH / out.cam.zoom});
 
     // activar recording
     snapRecord = &out;
@@ -506,13 +510,15 @@ void RenderManager::DrawSprite_(const Texture& tex, const SpriteProjection::Pose
                     pose.rotationZ != 0.f,
                     pose.offsetX != 0.f || pose.offsetY != 0.f);
                 mPublicWorldWorkUnitsThisFrame += units;
-                const bool offscreen = mWorkEstimateMode == RenderDiagnostics::WorkEstimate::Visibility &&
-                    RenderDiagnostics::DefinitelyOffscreenSprite(mSelectorView,
+                const bool checkVisibility = NeedsVisibilityEstimate_();
+                const bool offscreen = checkVisibility &&
+                    RenderDiagnostics::DefinitelyOffscreenSprite(mSelectorViewBounds,
                         pose.x, pose.y, pose.width, pose.height,
                         pose.scaleX, pose.scaleY, pose.offsetX, pose.offsetY,
                         pose.pivotX, pose.pivotY);
-                mPublicEffectiveWorldWorkUnitsThisFrame +=
-                    RenderDiagnostics::EffectiveUnits(units, offscreen);
+                mSkippedVisibilitySprites +=
+                    mWorkEstimateMode == RenderDiagnostics::WorkEstimate::Visibility && !checkVisibility ? 1u : 0u;
+                AccumulateEffectiveWork_(RenderDiagnostics::EffectiveUnits(units, offscreen));
                 mEstimatedOffscreenSprites += offscreen ? 1u : 0u;
             }
         }
@@ -540,11 +546,14 @@ void RenderManager::DrawSprite_(const Texture& tex, const SpriteProjection::Pose
             pose.rotationX != 0.f || pose.rotationY != 0.f,
             pose.rotationZ != 0.f,
             pose.offsetX != 0.f || pose.offsetY != 0.f);
-        const bool offscreen = mWorkEstimateMode == RenderDiagnostics::WorkEstimate::Visibility &&
-            RenderDiagnostics::DefinitelyOffscreenSprite(mSelectorView,
+        const bool checkVisibility = NeedsVisibilityEstimate_();
+        const bool offscreen = checkVisibility &&
+            RenderDiagnostics::DefinitelyOffscreenSprite(mSelectorViewBounds,
                 pose.x, pose.y, pose.width, pose.height,
                 pose.scaleX, pose.scaleY, pose.offsetX, pose.offsetY,
                 pose.pivotX, pose.pivotY);
+        mSkippedVisibilitySprites +=
+            mWorkEstimateMode == RenderDiagnostics::WorkEstimate::Visibility && !checkVisibility ? 1u : 0u;
         mSpriteEffectiveWorkOverride = RenderDiagnostics::EffectiveUnits(mSpriteWorkOverride, offscreen);
         mEstimatedOffscreenSprites += offscreen ? 1u : 0u;
     }
@@ -562,8 +571,7 @@ void RenderManager::DrawTexture(const Texture& tex, const Rect& dstWorld, const 
             const auto units = mSpriteWorkOverride ? mSpriteWorkOverride :
                 RenderDiagnostics::RectangleUnits(rotationDeg != 0.f);
             mPublicWorldWorkUnitsThisFrame += units;
-            mPublicEffectiveWorldWorkUnitsThisFrame += mSpriteWorkOverride ?
-                mSpriteEffectiveWorkOverride : units;
+            AccumulateEffectiveWork_(mSpriteWorkOverride ? mSpriteEffectiveWorkOverride : units);
         }
     }
 	// --- RECORDING MODE ---
@@ -599,7 +607,7 @@ void RenderManager::DrawRect(const Rect& worldRect, float rotationDeg, Vec2 pivo
         if (mWorkEstimateMode != RenderDiagnostics::WorkEstimate::Off) {
             const auto units = RenderDiagnostics::RectangleUnits(rotationDeg != 0.f);
             mPublicWorldWorkUnitsThisFrame += units;
-            mPublicEffectiveWorldWorkUnitsThisFrame += units;
+            AccumulateEffectiveWork_(units);
         }
     }
     // --- RECORDING MODE ---

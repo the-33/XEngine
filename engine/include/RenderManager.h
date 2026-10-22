@@ -92,10 +92,27 @@ private:
     std::uint64_t mLastEffectiveWorldWorkUnits = 0;
     std::uint64_t mPublicEffectiveWorldWorkUnitsThisFrame = 0;
     unsigned mEstimatedOffscreenSprites = 0;
+    unsigned mSkippedVisibilitySprites = 0;
     RenderDiagnostics::WorkEstimate mWorkEstimateMode = RenderDiagnostics::WorkEstimate::Weighted;
-    RenderDiagnostics::View mSelectorView{};
+    RenderDiagnostics::ViewBounds mSelectorViewBounds{};
+    // Active only for actual automatic adaptive selection, not a forced
+    // scoring-cost probe. The published effective count is then capped.
+    bool mSaturateEffectiveWork = false;
+    std::uint64_t mSelectorEntryBoundary = 0;
     std::uint64_t mSpriteWorkOverride = 0;
     std::uint64_t mSpriteEffectiveWorkOverride = 0;
+    bool NeedsVisibilityEstimate_() const noexcept {
+        return mWorkEstimateMode == RenderDiagnostics::WorkEstimate::Visibility &&
+               (!mSaturateEffectiveWork ||
+                mPublicEffectiveWorldWorkUnitsThisFrame < mSelectorEntryBoundary);
+    }
+    void AccumulateEffectiveWork_(std::uint64_t units) noexcept {
+        if (mSaturateEffectiveWork)
+            mPublicEffectiveWorldWorkUnitsThisFrame = RenderDiagnostics::CappedEffectiveSum(
+                mPublicEffectiveWorldWorkUnitsThisFrame, units, mSelectorEntryBoundary);
+        else
+            mPublicEffectiveWorldWorkUnitsThisFrame += units;
+    }
     enum class DrawPhase : std::uint8_t { World, Background, Debug, UI };
     DrawPhase mDrawPhase = DrawPhase::World;
     unsigned mBackgroundDraws = 0, mWorldDraws = 0;

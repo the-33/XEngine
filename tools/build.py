@@ -20,6 +20,7 @@ import tarfile
 import zipfile
 from typing import NamedTuple
 from pathlib import Path
+from typing import TextIO
 
 ROOT = Path(__file__).resolve().parent.parent
 ENGINE_SRC = ROOT / 'engine' / 'src'
@@ -28,14 +29,121 @@ ENGINE_HEADERS = ROOT / 'engine' / 'include'
 class BuildError(Exception):
     pass
 
+_raw_log: TextIO | None = None
+_raw_log_path: Path | None = None
+_show_warnings = False
+_show_commands = False
+_warning_count = 0
+_diagnostic_re = re.compile(r'^(.*?):(\d+)(?::(\d+))?:\s*(fatal error|error|warning|note):\s*(.*)$')
+
+
+def _raw(message: str) -> None:
+    if _raw_log is not None:
+        _raw_log.write(message)
+        _raw_log.flush()
+
+
 def log(message: str) -> None:
     print(message, flush=True)
+    _raw(message + '\n')
 
-def command(args: list[str], *, cwd: Path | None = None, capture: bool = False) -> str:
+
+def _short_path(value: str) -> str:
+    normalized = value.replace('\\', '/')
+    root = str(ROOT).replace('\\', '/')
+    if normalized.startswith(root + '/'):
+        return normalized[len(root) + 1:]
+    for segment in ('/engine/', '/games/', '/tools/'):
+        at = normalized.lower().find(segment)
+        if at >= 0:
+            return normalized[at + 1:]
+    return '/'.join(normalized.split('/')[-2:])
+
+
+def _diagnostic_header(line: str) -> str:
+    match = _diagnostic_re.match(line.strip())
+    if not match:
+        return line.strip()
+    path, row, column, severity, message = match.groups()
+    location = f'{_short_path(path)}:{row}' + (f':{column}' if column else '')
+    return f'{location}: {severity}: {message}'
+
+
+def _print_warnings(lines: list[str]) -> None:
+    """Show GCC warnings as grouped, indented diagnostics, not template backtraces."""
+    showing = False
+    snippets = 0
+    for line in lines:
+        clean = line.rstrip('\r\n')
+        if ': warning:' in clean or clean.lstrip().startswith('warning:'):
+            print('    [WARN] ' + _diagnostic_header(clean), flush=True)
+            showing, snippets = True, 0
+        elif showing and ': note:' in clean:
+            print('      ' + _diagnostic_header(clean), flush=True)
+            snippets = 0
+        elif showing and re.match(r'^\s*(\d+\s*\||\|)', clean) and snippets < 6:
+            print('      ' + clean.strip(), flush=True)
+            snippets += 1
+        elif not clean.strip():
+            showing = False
+
+
+def _command_stage(args: list[str]) -> tuple[str, bool]:
+    """Return a human-readable build action and whether its output is diagnostics."""
+    if '-c' in args:
+        source = args[args.index('-c') + 1]
+        return f'[COMPILE] {_short_path(source)}', True
+    first = Path(args[0].replace('\\', '/')).name.lower()
+    if 'windres' in first:
+        return '[RESOURCE] Windows executable icon', True
+    if len(args) > 1 and args[1] == 'rcs':
+        return f'[ARCHIVE] {_short_path(args[2])}', True
+    if '-o' in args:
+        destination = args[args.index('-o') + 1]
+        return f'[LINK] {_short_path(destination)}', True
+    if len(args) > 1 and args[1].endswith(('sync_engine_configs.py', 'sync_game_icons.py')):
+        return f'[SYNC] {Path(args[1]).name}', False
+    return '[RUN] ' + _short_path(args[0]), False
+
+def command(args: list[str], *, cwd: Path | None = None, capture: bool = False,
+            interactive: bool = False) -> str:
+    global _warning_count
+    full_command = '> ' + ' '.join(shlex.quote(str(s)) for s in args)
     if not capture:
-        log('> ' + ' '.join(shlex.quote(str(s)) for s in args))
-    result = subprocess.run(args, cwd=cwd, text=True, stdout=subprocess.PIPE if capture else None,
-                            stderr=subprocess.PIPE if capture else None, check=False)
+        stage, diagnostic_command = _command_stage(args)
+        log(stage)
+        _raw(full_command + '\n')
+        if _show_commands:
+            print('    ' + full_command, flush=True)
+    if interactive:
+        result = subprocess.run(args, cwd=cwd, check=False)
+    else:
+        result = subprocess.run(args, cwd=cwd, text=True,
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE if capture else subprocess.STDOUT,
+                                errors='replace', check=False)
+    if not capture and not interactive:
+        output = result.stdout or ''
+        _raw(output)
+        lines = output.splitlines()
+        warnings = sum(': warning:' in line or line.lstrip().startswith('warning:')
+                       for line in lines)
+        _warning_count += warnings
+        if diagnostic_command:
+            if result.returncode:
+                # On a failed toolchain command, do not risk losing the error
+                # or its include/linker context through a fragile text parser.
+                print(f'    [ERROR] Command failed (exit {result.returncode}):', flush=True)
+                for line in lines:
+                    print('      ' + _diagnostic_header(line), flush=True)
+            elif _show_warnings:
+                _print_warnings(lines)
+            elif any(': error:' in line or 'fatal error:' in line for line in lines):
+                for line in lines:
+                    print('    [ERROR] ' + _diagnostic_header(line), flush=True)
+        else:
+            for line in lines:
+                print(line, flush=True)
     if result.returncode != 0:
         msg = result.stderr.strip() if capture else ''
         if os.name == 'nt' and result.returncode in (0xC0000139, -1073741511):
@@ -610,7 +718,6 @@ def sync_before_game_build(project: str) -> None:
     logs). A nonzero exit aborts immediately, never using an old executable.
     """
     for tool in ('sync_engine_configs.py', 'sync_game_icons.py'):
-        log(f'[SYNC] {tool} | {project}')
         command([sys.executable, str(ROOT / 'tools' / tool), '--game', project], cwd=ROOT)
 
 
@@ -663,7 +770,7 @@ def game_build(project: str, *,target,profile,arch,tooling,run:bool=False) -> Pa
         packaged = package_game(game, project, str(version), target, arch, output, tooling=tooling)
         log(f'[SHIP] {packaged}')
         if run:
-            command([str(packaged / filename)], cwd=packaged)
+            command([str(packaged / filename)], cwd=packaged, interactive=True)
     else:
         # A successful link does NOT make a MinGW Debug binary runnable.  The
         # loader first looks beside the executable and otherwise searches PATH,
@@ -676,7 +783,7 @@ def game_build(project: str, *,target,profile,arch,tooling,run:bool=False) -> Pa
             log(f'[RUNTIME] Synchronized {len(dlls)} MinGW/SDL2 DLLs '
                 'next to the Debug executable (including --build without --run)')
         if run:
-            command([str(output)], cwd=game / 'assets')
+            command([str(output)], cwd=game / 'assets', interactive=True)
     return output
 
 def package_game(game:Path, project:str,version:str,target:str,arch:str,output:Path, *, tooling: Toolchain | None = None) -> Path:
@@ -1045,6 +1152,8 @@ def write_linux_run(stage: Path, filename: str) -> None:
     script.chmod(0o755)
 
 def main():
+    global _raw_log, _raw_log_path, _show_warnings, _show_commands, _warning_count
+    status = 1
     parser=argparse.ArgumentParser(description='Direct GCC/MinGW XEngine build (no CMake)')
     commands=parser.add_subparsers(dest='action',required=True)
     for action in ('engine','game'):
@@ -1052,6 +1161,13 @@ def main():
         p.add_argument('--platform',default=None)
         p.add_argument('--config','--configuration',dest='configuration',default=None)
         p.add_argument('--arch',default=None)
+        p.add_argument('--show', action='append', choices=('warnings', 'commands'),
+                       default=[], metavar='{warnings,commands}',
+                       help='Show compiler warnings and/or full commands in the console')
+        p.add_argument('--show-warnings', action='store_true',
+                       help='Alias for --show warnings')
+        p.add_argument('--raw-log', type=Path,
+                       help='Save all commands and unfiltered compiler output to this file')
         if action=='game':
             x=p.add_mutually_exclusive_group(required=True)
             x.add_argument('--project')
@@ -1071,6 +1187,13 @@ def main():
         target=resolve_platform(args.platform,bc.get('platform','auto'))
         profile=normalize_profile(args.configuration or bc.get('configuration','Debug'))
         arch=normalized_arch(args.arch or bc.get('architecture','auto'))
+        _show_warnings = args.show_warnings or 'warnings' in args.show
+        _show_commands = 'commands' in args.show
+        _warning_count = 0
+        _raw_log_path = (args.raw_log or ROOT/'build'/f'{target}-{arch}'/profile/'logs'/
+                         f'{args.project if game else "XEngine"}.log').resolve()
+        _raw_log_path.parent.mkdir(parents=True, exist_ok=True)
+        _raw_log = _raw_log_path.open('w', encoding='utf-8')
         log(f'[BUILD] {args.action} {args.project if game else "XEngine"} | {target}-{arch} | {profile}')
         if args.action == 'game' and not isinstance(bc,dict):
             raise BuildError('config.json: build must be an object')
@@ -1082,10 +1205,25 @@ def main():
         else:
             lib=create_engine(target=target,profile=profile,arch=arch,tooling=tooling)
             log(f'[OK] {lib}')
+        status = 0
         return 0
     except (BuildError,OSError,subprocess.SubprocessError) as e:
-        print(f'[ERROR] {e}',file=sys.stderr)
+        message = f'[ERROR] {e}'
+        print(message,file=sys.stderr,flush=True)
+        _raw(message+'\n')
         return 1
+    finally:
+        if _raw_log is not None:
+            if _warning_count:
+                message = (f'[WARN] {_warning_count} compiler warning(s) '
+                           f'{"shown" if _show_warnings else "hidden"}' +
+                           ('' if _show_warnings else ' (use --show warnings)'))
+                log(message)
+            log(f'[SUMMARY] status={"ok" if status == 0 else "failed"} '
+                f'errors={status} warnings={_warning_count}')
+            log(f'[LOG] Full compiler output: {_raw_log_path}')
+            _raw_log.close()
+            _raw_log = None
 
 if __name__=='__main__':
     raise SystemExit(main())
