@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Logo" xmlns="http://www.w3.org/2000/svg" width="4000" height="4000" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 4000 4000">
+  <defs>
+    <linearGradient id="Degradado_sin_nombre_3" data-name="Degradado sin nombre 3" x1="83.428" y1="3878.338" x2="3228.249" y2="1697.848" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8b3cf0"/>
+      <stop offset="1" stop-color="#c084fc"/>
+    </linearGradient>
+    <linearGradient id="Degradado_sin_nombre_2" data-name="Degradado sin nombre 2" x1="-63.543" y1="3685.157" x2="3089.722" y2="1498.811" gradientUnits="userSpaceOnUse">
+      <stop offset=".003" stop-color="#8b3cf0"/>
+      <stop offset="1" stop-color="#c084fc"/>
+    </linearGradient>
+  </defs>
+  <polygon points="1580.247 3097.434 866.941 3777.227 0 3777.227 1141.289 2702.715 1580.247 3097.434" fill="url(#Degradado_sin_nombre_3)" stroke-width="0"/>
+  <path d="m1171.11,798.96c903.998-101.222,2384.684,1214.666,2376.891,2071.161,245.473-31.712,374.068-202.444,272.758-560.615-46.759-186.872,23.124-324.201,179.241-412.675l-202.62-350.384c-389.654,147.94-677.998-210.231-451.999-521.683l-319.517-280.307c-249.379,272.521-716.964,38.932-553.309-365.957l-397.447-155.726c-67.989,184.703-218.206,264.735-425.235,233.59-300.244-38.779-465.648,69.094-478.763,342.598Z" fill="#dfe5ed" stroke-width="0"/>
+  <path d="m3185.623,1565.913l-861.666,23.359-763.046,716.887c139.136,153.66,285.705,271.773,443,386l1181.712-1126.246Z" fill="url(#Degradado_sin_nombre_2)" stroke-width="0"/>
+  <path d="m781.456,456.362c-1884.856,1174.05,2132.194,4680.04,3160.096,2752.464C2771.408,3831.791,345.217,1782.103,781.456,456.362Z" fill="#9eadbf" stroke-width="0"/>
+</svg>

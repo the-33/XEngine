@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Logo" xmlns="http://www.w3.org/2000/svg" width="4000" height="4000" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 4000 4000">
+  <defs>
+    <linearGradient id="Degradado_sin_nombre_3" data-name="Degradado sin nombre 3" x1="38.189" y1="3706.581" x2="3061.5" y2="2246.11" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#20d5a0"/>
+      <stop offset="1" stop-color="#62f56a"/>
+    </linearGradient>
+    <linearGradient id="Degradado_sin_nombre_3-2" data-name="Degradado sin nombre 3" x1="31.943" y1="3741.636" x2="3073.477" y2="2272.362" xlink:href="#Degradado_sin_nombre_3"/>
+    <linearGradient id="Degradado_sin_nombre_3-3" data-name="Degradado sin nombre 3" x1="2611.663" y1="1663.418" x2="1877.922" y2="2331.42" gradientTransform="translate(679.859 346.953) rotate(-.83) scale(.887 .831) skewX(-14.836)" xlink:href="#Degradado_sin_nombre_3"/>
+    <linearGradient id="Degradado_sin_nombre_3-4" data-name="Degradado sin nombre 3" x1="2908.56" y1="1770.586" x2="1222.361" y2="876.774" xlink:href="#Degradado_sin_nombre_3"/>
+    <linearGradient id="Degradado_sin_nombre_3-5" data-name="Degradado sin nombre 3" x1="2879.697" y1="1801.176" x2="1169.95" y2="894.881" xlink:href="#Degradado_sin_nombre_3"/>
+    <linearGradient id="Degradado_sin_nombre_3-6" data-name="Degradado sin nombre 3" x1="2938.559" y1="1852.795" x2="1184.125" y2="922.813" xlink:href="#Degradado_sin_nombre_3"/>
+    <linearGradient id="Degradado_sin_nombre_3-7" data-name="Degradado sin nombre 3" x1="2897.519" y1="2006.775" x2="1123.35" y2="1066.332" xlink:href="#Degradado_sin_nombre_3"/>
+    <linearGradient id="Degradado_sin_nombre_3-8" data-name="Degradado sin nombre 3" x1="2787.094" y1="2011.683" x2="1044.881" y2="1088.179" xlink:href="#Degradado_sin_nombre_3"/>
+  </defs>
+  <path d="m1171.11,798.96c1179.312-64.728,2392.244,1161.06,2376.891,2071.161,245.473-31.712,374.068-202.444,272.758-560.615-46.759-186.872,23.124-324.201,179.241-412.675l-202.62-350.384c-389.654,147.94-677.998-210.231-451.999-521.683l-319.517-280.307c-249.379,272.521-716.964,38.932-553.309-365.957l-397.447-155.726c-67.989,184.703-218.206,264.735-425.235,233.59-300.244-38.779-465.648,69.094-478.763,342.598Z" fill="#dfe8e4" stroke-width="0"/>
+  <polygon points="1580.247 3097.434 866.941 3777.227 0 3777.227 1141.289 2702.715 1580.247 3097.434" fill="url(#Degradado_sin_nombre_3)" stroke-width="0"/>
+  <path d="m3179.13,2247.665l-861.666,23.359-397.553,351.135c119.06,113.453,335.089,254.148,493.679,335.521l765.54-710.014Z" fill="url(#Degradado_sin_nombre_3-2)" stroke-width="0"/>
+  <path d="m781.456,456.362c-1884.856,1174.05,2132.194,4680.04,3160.096,2752.464C2771.408,3831.791,345.217,1782.103,781.456,456.362Z" fill="#98ada5" stroke-width="0"/>
+  <g>
+    <polygon points="2672.901 1675.699 1787.137 2180.584 1896.221 2334.64 2672.901 1675.699" fill="url(#Degradado_sin_nombre_3-3)" stroke-width="0"/>
+    <circle cx="1787.706" cy="2290.358" r="138.515" fill="#dfe8e4" stroke-width="0"/>
+  </g>
+  <g>
+    <path d="m2246.094,1230.885c-123.378-77.243-227.125-121.327-356.133-168.834l-105.475,278.275c93.305,46.182,165.27,88.479,264.575,168.084l197.033-277.525Z" fill="url(#Degradado_sin_nombre_3-4)" stroke-width="0"/>
+    <path d="m1798.131,1022.681c-143.301-46.068-266.121-56.753-408.049-59.151l31.419,269.876c96.749,9.336,173.094,18.523,273.711,60.807l102.919-271.532Z" fill="url(#Degradado_sin_nombre_3-5)" stroke-width="0"/>
+    <path d="m2695.24,1587.061c-117.793-116.832-231.533-208.122-363.724-296.778l-202.045,284.586c71.642,61.493,132.193,119.252,208.004,200.039l357.766-187.847Z" fill="url(#Degradado_sin_nombre_3-6)" stroke-width="0"/>
+    <path d="m2768.13,1664.878l-281.358,277.029c60.831,70.96,104.812,125.946,168.815,209.936h482.637c-107.744-182.336-226.08-336.614-370.094-486.966Z" fill="url(#Degradado_sin_nombre_3-7)" stroke-width="0"/>
+    <path d="m1293.829,964.455c-143.729,6.068-262.498,37.097-395.648,96.586l54.107,233.744c132.066-43.658,240.565-68.036,372.352-65.67l-30.812-264.659Z" fill="url(#Degradado_sin_nombre_3-8)" stroke-width="0"/>
+  </g>
+</svg>

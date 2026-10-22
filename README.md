@@ -1,5 +1,9 @@
 <div align="center">
-  <img src="docs/branding/xengine_logo.svg?v=3" alt="XEngine logo — purple X and silver gear" width="176" />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/branding/xengine_logo_dark.svg?v=4" />
+    <source media="(prefers-color-scheme: light)" srcset="docs/branding/xengine_logo_light.svg?v=4" />
+    <img src="docs/branding/xengine_logo_light.svg?v=4" alt="XEngine logo — purple X and silver gear" width="176" />
+  </picture>
   <h1>XEngine</h1>
   <p><strong>A lightweight, cross-platform 2D game engine built with C++20 and SDL2.</strong></p>
   <p><em>Build 2D games in C++. Understand the engine. Own your code.</em></p>
@@ -156,7 +160,11 @@ Use `--sdk-dir` to choose a custom SDK directory. For a manual alternative, see 
 
 <p align="center">
   <a href="docs/BENCHMARK_GAME.md">
-    <img src="docs/branding/xengine_benchmark_logo.svg?v=3" alt="XEngine Benchmark logo — a speedometer within a gear" width="136" />
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/branding/xengine_benchmark_logo_dark.svg?v=4" />
+      <source media="(prefers-color-scheme: light)" srcset="docs/branding/xengine_benchmark_logo_light.svg?v=4" />
+      <img src="docs/branding/xengine_benchmark_logo_light.svg?v=4" alt="XEngine Benchmark logo — a speedometer within a gear" width="136" />
+    </picture>
   </a>
 </p>
 
