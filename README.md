@@ -156,8 +156,10 @@ Use `--sdk-dir` to choose a custom SDK directory. For a manual alternative, see 
 ## Benchmarking and profiling
 
 <p align="center">
-  <a href="docs/BENCHMARK_GAME.md">
+  <a href="docs/BENCHMARK_GAME.md#gh-light-mode-only">
     <img src="docs/branding/xengine_benchmark_logo_light.svg?v=4#gh-light-mode-only" alt="XEngine Benchmark logo — a speedometer within a gear" width="136" />
+  </a>
+  <a href="docs/BENCHMARK_GAME.md#gh-dark-mode-only">
     <img src="docs/branding/xengine_benchmark_logo_dark.svg?v=4#gh-dark-mode-only" alt="XEngine Benchmark logo — a speedometer within a gear" width="136" />
   </a>
 </p>
