@@ -1,7 +1,7 @@
 # XEngine Benchmark
 
 <div align="center">
-  <img src="branding/xengine_benchmark_logo.svg" alt="XEngine Benchmark logo — a speedometer within a gear" width="184" />
+  <img src="branding/xengine_benchmark_logo.svg?v=3" alt="XEngine Benchmark logo — a speedometer within a gear" width="184" />
   <p><strong>Reproducible performance tests and profiling on the real XEngine runtime.</strong></p>
 </div>
 
