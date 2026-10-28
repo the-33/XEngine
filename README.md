@@ -158,7 +158,7 @@ To reconcile rules and stage opted-in games:
 python tools/sync_game_gitignore.py --stage
 ```
 
-An optional `pre-commit` hook automates this step after it has been enabled with `git config --local core.hooksPath .githooks`. **It stages all changes in included games**, so review `git diff --cached` before committing. See [Game Git tracking](docs/GAME_GIT_TRACKING.md).
+An optional `pre-commit` hook automates this step after it has been enabled with `git config --local core.hooksPath .githooks`. It also regenerates local Doxygen when staged changes affect the engine or documentation, if Doxygen is installed; [GitHub Pages](docs/GITHUB_PAGES.md) rebuilds from committed sources independently. **The hook stages all changes in included games**, so review `git diff --cached` before committing. See [Game Git tracking](docs/GAME_GIT_TRACKING.md).
 
 ## Platforms & builds
 
@@ -259,6 +259,7 @@ Read the [Legacy migration feasibility and proposed design](docs/LEGACY_MIGRATIO
 | [Your first game](docs/GETTING_STARTED.md) | Create a game, understand scenes and write a Behaviour |
 | [Headers and includes](docs/INCLUDES_AND_DEPENDENCIES.md) | Public headers, C++ organization, properties and dependencies |
 | [VS Code integration](docs/VSCODE_INTEGRATION.md) | Optional setup for IntelliSense, shared compile commands and game folders |
+| [Online documentation](docs/GITHUB_PAGES.md) | Automatic GitHub Pages publishing of both searchable Doxygen references |
 | [Public API reference](docs/API_REFERENCE.md) | Doxygen reference for exported classes, methods, properties and enum values |
 | [Window, camera and UI](docs/WINDOW_AND_CAMERA.md) | Resolution/fullscreen, coordinates, aspect ratio and responsive layout |
 | [Persistence and serialization](docs/PERSISTENCE_AND_SERIALIZATION.md) | File storage, backups, binary/JSON and PlayerPrefs |
@@ -285,6 +286,10 @@ Markdown logos also follow the Doxygen theme without relying on GitHub-only
 image fragments. Generated machine-readable
 declarations live under each profile's `xml/` directory. These **generated
 files are not committed or packaged**.
+The optional [GitHub Pages workflow](docs/GITHUB_PAGES.md) publishes the same
+portal and both references at **https://the-33.github.io/XEngine/** after
+one-time activation in the repository's Pages settings. It rebuilds on every
+push to `main` without committing generated HTML.
 Doxygen is not required to build or run games. Whenever XEngine's library is
 actually recompiled, the build attempts to regenerate this reference if
 Doxygen is installed; cache hits and game-only changes do not trigger it.

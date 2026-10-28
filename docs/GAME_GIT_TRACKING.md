@@ -65,7 +65,10 @@ git config --local core.hooksPath .githooks
 ```
 
 The hook runs the equivalent of `python tools/sync_game_gitignore.py --stage`
-before the commit. **Note:** It stages *all* changed files under the benchmark
+before the commit. If staged files change engine code or Doxygen inputs, it
+also regenerates and checks the local Doxygen documentation **when Doxygen is
+installed**. The online GitHub Pages site is rebuilt independently on pushes
+to `main`; see [GitHub Pages](GITHUB_PAGES.md). **Note:** It stages *all* changed files under the benchmark
 and each opted-in game and stages removal of previously tracked, unmarked game
 files. Always review what is staged. If you already use a custom
 `core.hooksPath`, integrate the hook into your existing hook rather than

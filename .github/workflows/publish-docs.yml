@@ -1,0 +1,66 @@
+name: Publish XEngine documentation
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: xengine-github-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pages: write
+    steps:
+      - name: Check out XEngine
+        uses: actions/checkout@v6
+
+      # Pin Doxygen so GitHub Pages matches the locally tested references.
+      # Upstream checksum: https://www.doxygen.nl/download.html
+      - name: Install Doxygen 1.18.0
+        run: |
+          curl --fail --location --retry 3 \
+            --output /tmp/xengine-doxygen.tar.gz \
+            https://www.doxygen.nl/files/doxygen-1.18.0.linux.bin.tar.gz
+          echo '14fa81bdc34171edb5f1f02b1d60e74802f0439b77fa44e592565d517d72df90  /tmp/xengine-doxygen.tar.gz' | sha256sum --check
+          tar -xzf /tmp/xengine-doxygen.tar.gz -C /tmp
+          echo '/tmp/doxygen-1.18.0/bin' >> "$GITHUB_PATH"
+
+      - name: Build and validate both references
+        run: |
+          doxygen --version
+          python3 tools/build_doxygen.py
+          python3 tools/check_doxygen_docs.py
+          test -s build/docs/index.html
+          test -s build/docs/game/html/index.html
+          test -s build/docs/engine/html/index.html
+          touch build/docs/.nojekyll
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload site
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: build/docs
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

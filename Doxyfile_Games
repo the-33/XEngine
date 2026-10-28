@@ -17,6 +17,7 @@ INPUT                  = engine/include docs/reference/game \
                          docs/PERSISTENCE_AND_SERIALIZATION.md \
                          docs/CROSS_COMPILATION.md docs/DEFAULT_GAME_ICONS.md \
                          docs/GAME_CONFIG_SYNC.md docs/GAME_GIT_TRACKING.md \
+                         docs/GITHUB_PAGES.md \
                          docs/ENGINE_CONFIG_MIGRATION.md docs/RENDER_BACKENDS.md \
                          docs/VERSIONING.md docs/VSCODE_INTEGRATION.md \
                          docs/MULTITHREADING_AND_PROFILING.md \

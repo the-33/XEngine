@@ -8,7 +8,8 @@ INPUT                   = engine/include engine/src \
                           docs/BENCHMARK_GAME.md docs/CROSS_COMPILATION.md \
                           docs/DEFAULT_GAME_ICONS.md docs/DEVELOPER_GUIDE.md \
                           docs/ENGINE_CONFIG_MIGRATION.md docs/GAME_CONFIG_SYNC.md \
-                          docs/GAME_GIT_TRACKING.md docs/GETTING_STARTED.md \
+                          docs/GAME_GIT_TRACKING.md docs/GITHUB_PAGES.md \
+                          docs/GETTING_STARTED.md \
                           docs/INCLUDES_AND_DEPENDENCIES.md \
                           docs/MULTITHREADING_AND_PROFILING.md \
                           docs/PERSISTENCE_AND_SERIALIZATION.md \
