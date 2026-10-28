@@ -1,4 +1,7 @@
 #pragma once
+/** @file Engine.h
+ * @brief Engine startup, global services and game-loop state.
+ */
 
 #include <functional>
 #include <array>
@@ -34,83 +37,181 @@ class Camera2D;
 class Collider2D;
 struct SDL_mutex;
 
+/** @brief Immutable-style camera parameters copied into a render snapshot.
+ * @note Units are world-space distances except for the dimensionless zoom.
+ */
 struct CameraState
 {
+    /** @brief Camera center X in world coordinates.
+     */
     float centerX = 0.f;
+    /** @brief Camera center Y in world coordinates.
+     */
     float centerY = 0.f;
+    /** @brief Unzoomed horizontal world-space view span.
+     */
     float baseViewW = 0.f;
+    /** @brief Unzoomed vertical world-space view span.
+     */
     float baseViewH = 0.f;
+    /** @brief Camera zoom multiplier.
+     */
     float zoom = 1.f;
 };
 
+/** @brief CPU-side render command that can target world or screen coordinates.
+ * @warning Texture and font pointers are non-owning. Do not free those assets
+ * until the recorded frame has finished using them.
+ */
 struct DrawCmd
 {
+    /** @brief Available type modes for DrawCmd.
+     */
     enum class Type
     {
-        WorldTex,
-        WorldRect,
-        WorldLine,
+        WorldTex,    ///< Texture rendered in camera-projected world coordinates.
+        WorldRect,   ///< Filled or outlined rectangle in world coordinates.
+        WorldLine,   ///< Line segment in world coordinates.
 
-        ScreenRect,
-        ScreenImage,
-        ScreenText,
+        ScreenRect,  ///< Rectangle in window screen pixels.
+        ScreenImage, ///< Image in window screen pixels without camera projection.
+        ScreenText,  ///< Text in window screen pixels.
     };
 
+    /** @brief Command kind: world texture, world rectangle/line, or screen rectangle/image/text.
+     */
     Type type;
 
     // Common
+    /** @brief RGBA tint or primitive color.
+     */
     Color color{ 255,255,255,255 };
 
     // WorldTex
+    /** @brief Referenced texture; its lifetime must cover rendering of this command.
+     */
     const Texture* tex = nullptr;
+    /** @brief Destination rectangle measured in world-space units.
+     */
     Rect dstWorld{};
+    /** @brief Source rectangle measured in source-texture pixels.
+     */
     Rect srcPx{};
+    /** @brief Whether a custom texture source rectangle is set.
+     */
     bool hasSrc = false;
     // Immutable CPU-only sprite pose; projected by workers if populated.
+    /** @brief Whether CPU sprite projection is deferred to the preparation stage.
+     */
     bool hasDeferredSpritePose = false;
+    /** @brief Index into the immutable sprite-pose sidecar of the snapshot.
+     */
     std::uint32_t spritePoseIndex = 0;
+    /** @brief World texture rotation in degrees.
+     */
     float rotationDeg = 0.f;
+    /** @brief Normalized sprite rotation pivot.
+     */
     Vec2  pivot01{ 0.5f,0.5f };
+    /** @brief Flip the sprite horizontally.
+     */
     bool flipX = false;
+    /** @brief Flip the sprite vertically.
+     */
     bool flipY = false;
 
     // WorldRect
+    /** @brief World-space rectangle for the rectangular primitive command.
+     */
     Rect worldRect{};
+    /** @brief Whether rectangle primitives have a filled interior.
+     */
     bool filled = true;
 
     // WorldLine
+    /** @brief Start point X coordinate for a line drawing command. Start point Y coordinate for a line drawing command. End point X coordinate for a line drawing command. End point Y coordinate for a line drawing command.
+     */
     float x1 = 0, y1 = 0, x2 = 0, y2 = 0;
 
+    /** @brief Marks a command as debug drawing for render diagnostics.
+     */
     bool debugDraw = false; // Keeps debug statistics intact when recording commands.
 
     // Optional CPU-only precomputed geometry for the recorded render path.
+    /** @brief Whether the command already has precomputed screen-space geometry.
+     */
     bool hasPreparedGeometry = false;
+    /** @brief Visibility flag from the CPU render-preparation stage.
+     */
     bool preparedVisible = true;
+    /** @brief Precomputed screen-space destination geometry.
+     */
     Rect preparedScreen{};
+    /** @brief Precomputed screen-space rotation pivot.
+     */
     Vec2 preparedPivot{};
 
     // ScreenRect / ScreenImage / ScreenText
+    /** @brief Destination rectangle in screen pixels.
+     */
     Rect dstScreen{};
 
     // ScreenImage uses tex + srcPx/hasSrc + flips + tint in color
     // ScreenText
+    /** @brief Font used by screen-space text commands.
+     */
     const Font* font = nullptr;
+    /** @brief UTF-8 string used by text commands.
+     */
     std::string text;
+    /** @brief Horizontal screen coordinate for a text drawing command. Vertical screen coordinate for a text drawing command.
+     */
     float textX = 0.f, textY = 0.f; // px
 };
 
+/** @var float DrawCmd::y1
+ * @brief First line endpoint's Y coordinate (world space).
+ */
+/** @var float DrawCmd::x2
+ * @brief Second line endpoint's X coordinate (world space).
+ */
+/** @var float DrawCmd::y2
+ * @brief Second line endpoint's Y coordinate (world space).
+ */
+/** @var float DrawCmd::textY
+ * @brief Screen-space text position on the Y axis, in pixels.
+ */
+
+/** @brief Captured camera, window and render commands for one frame.
+ * @note Game code normally uses RenderManager rather than constructing snapshots.
+ */
 struct Snapshot
 {
+    /** @brief Whether this recorded render snapshot is initialized.
+     */
     bool valid = false;
+    /** @brief Recorded logical window width.
+     */
     int winW = 0;
+    /** @brief Recorded logical window height.
+     */
     int winH = 0;
 
+    /** @brief Recorded camera parameters for this frame.
+     */
     CameraState cam;
+    /** @brief Ordered CPU-side draw commands.
+     */
     std::vector<DrawCmd> cmds;
     // Compact sidecar: avoids inflating every command (UI, world rect, etc).
+    /** @brief Compact per-sprite projection metadata referenced by draw commands.
+     */
     std::vector<SpriteProjection::Pose> spritePoses;
 };
 
+/** @brief Central engine lifecycle and access to active managers, camera and timing.
+ * @ingroup xengine_core
+ */
 class Engine : public Singleton<Engine>
 {
     friend class Singleton<Engine>;
@@ -422,18 +523,26 @@ private:
 
 public:
     // --- High-level static API ---
+    /** @brief Lifecycle hook for start; the engine controls invocation order.
+     * @param configPath Path to the engine runtime configuration.
+     */
     static bool Start(const std::string& configPath = "./") noexcept
     {
         if (!CreateSingleton()) return false;
         return GetInstance().StartImpl(configPath);
     }
 
+    /** @brief Starts the engine using an inline JSON configuration string.
+     * @param jsonText Serialized configuration in UTF-8 JSON form.
+     */
     static bool StartFromJson(const std::string& jsonText) noexcept
     {
         if (!CreateSingleton()) return false;
         return GetInstance().StartImpl(jsonText, true);
     }
 
+    /** @brief Enters the main engine loop and returns its exit status.
+     */
     static int Run() noexcept
     {
         if (auto* e = GetInstancePtr())
@@ -452,6 +561,8 @@ public:
         return -1;
     }
 
+    /** @brief Requests termination of the running engine loop.
+     */
     static void Stop() noexcept
     {
         if (auto* e = GetInstancePtr())
@@ -464,6 +575,9 @@ public:
     // Benchmark-only override: set before Run(). 0 restores normal real-time
     // physics; 1..16 executes exactly that many fixed updates per rendered frame.
     // Does not alter the threading mode or production game configurations.
+    /** @brief Configures fixed-step execution for deterministic tests or simulations.
+     * @param steps Number of fixed simulation steps to perform.
+     */
     static bool ConfigureDeterministicFixedSteps(unsigned steps) noexcept
     {
         auto* engine = GetInstancePtr();
@@ -478,6 +592,10 @@ public:
     // Run. Auto/Auto preserves every game/config default. A forced render path
     // allows equivalent workloads to compare the cost of weight/visibility
     // scoring without changing whether workers are used.
+    /** @brief Configures diagnostic sampling of the adaptive render selector.
+     * @param estimate Workload estimate supplied to the render selector.
+     * @param route Renderer route being configured or inspected.
+     */
     static bool ConfigureRenderSelectorProbe(RenderDiagnostics::WorkEstimate estimate,
                                              RenderDiagnostics::RouteOverride route) noexcept
     {
@@ -492,16 +610,25 @@ public:
         return true;
     }
 
+    /** @brief Changes the init callback of Engine.
+     * @param cb Callback invoked by the operation.
+     */
     static void SetInitCallback(std::function<void(Engine&)> cb) noexcept 
     { 
         if (auto* e = GetInstancePtr())
             e->mOnInit = std::move(cb); 
     }
+    /** @brief Changes the update callback of Engine.
+     * @param cb Callback invoked by the operation.
+     */
     static void SetUpdateCallback(std::function<void(float)> cb) noexcept 
     { 
         if (auto* e = GetInstancePtr())
             e->mOnUpdate = std::move(cb);
     }
+    /** @brief Changes the fixed update callback of Engine.
+     * @param cb Callback invoked by the operation.
+     */
     static void SetFixedUpdateCallback(std::function<void(float)> cb) noexcept 
     { 
         if (auto* e = GetInstancePtr())
@@ -574,51 +701,147 @@ public:
     // PropertyROs (lectura)
     // ======================================================
 
+    /** @cond XENGINE_INTERNAL */
+    /** @brief Property accessor type for `is running`; use the corresponding instance member in gameplay code.
+     */
     using IsRunningProperty = PropertyRO<Engine, bool, &Engine::IsRunning_>;
+    /** @endcond */
+    /** @brief Read-only flag that reports whether the engine loop is active.
+     */
     IsRunningProperty isRunning{ this };
 
+    /** @cond XENGINE_INTERNAL */
+    /** @brief Property accessor type for `window`; use the corresponding instance member in gameplay code.
+     */
     using WindowProperty = PropertyRO<Engine, WindowManager*, &Engine::Window_>;
+    /** @endcond */
+    /** @brief Read-only pointer to the active window manager.
+     */
     WindowProperty window{ this };
 
+    /** @cond XENGINE_INTERNAL */
+    /** @brief Property accessor type for `time`; use the corresponding instance member in gameplay code.
+     */
     using TimeProperty = PropertyRO<Engine, TimeManager*, &Engine::Time_>;
+    /** @endcond */
+    /** @brief Read-only pointer to the time manager.
+     */
     TimeProperty time{ this };
 
+    /** @cond XENGINE_INTERNAL */
+    /** @brief Property accessor type for `input`; use the corresponding instance member in gameplay code.
+     */
     using InputProperty = PropertyRO<Engine, InputManager*, &Engine::Input_>;
+    /** @endcond */
+    /** @brief Read-only pointer to the input manager.
+     */
     InputProperty input{ this };
 
+    /** @cond XENGINE_INTERNAL */
+    /** @brief Property accessor type for `assets`; use the corresponding instance member in gameplay code.
+     */
     using AssetsProperty = PropertyRO<Engine, AssetManager*, &Engine::Assets_>;
+    /** @endcond */
+    /** @brief Read-only pointer to the asset cache.
+     */
     AssetsProperty assets{ this };
 
+    /** @cond XENGINE_INTERNAL */
+    /** @brief Property accessor type for `sound`; use the corresponding instance member in gameplay code.
+     */
     using SoundProperty = PropertyRO<Engine, SoundManager*, &Engine::Sound_>;
+    /** @endcond */
+    /** @brief Read-only pointer to the sound manager.
+     */
     SoundProperty sound{ this };
 
+    /** @cond XENGINE_INTERNAL */
+    /** @brief Public type alias for the uiproperty accessor.
+     */
     using UIProperty = PropertyRO<Engine, UIManager*, &Engine::UI_>;
+    /** @endcond */
+    /** @brief Read-only pointer to the immediate-mode UI manager.
+     */
     UIProperty ui{ this };
 
+    /** @cond XENGINE_INTERNAL */
+    /** @brief Property accessor type for `scenes`; use the corresponding instance member in gameplay code.
+     */
     using ScenesProperty = PropertyRO<Engine, SceneManager*, &Engine::Scenes_>;
+    /** @endcond */
+    /** @brief Read-only pointer to the scene manager.
+     */
     ScenesProperty scenes{ this };
 
+    /** @cond XENGINE_INTERNAL */
+    /** @brief Property accessor type for `physics`; use the corresponding instance member in gameplay code.
+     */
     using PhysicsProperty = PropertyRO<Engine, PhysicsManager*, &Engine::Physics_>;
+    /** @endcond */
+    /** @brief Read-only pointer to the physics manager.
+     */
     PhysicsProperty physics{ this };
 
+    /** @cond XENGINE_INTERNAL */
+    /** @brief Property accessor type for `random`; use the corresponding instance member in gameplay code.
+     */
     using RandomProperty = PropertyRO<Engine, RandomManager*, &Engine::Random_>;
+    /** @endcond */
+    /** @brief Read-only pointer to the random-number manager.
+     */
     RandomProperty random{ this };
 
+    /** @cond XENGINE_INTERNAL */
+    /** @brief Property accessor type for `camera`; use the corresponding instance member in gameplay code.
+     */
     using CameraProperty = PropertyRO<Engine, Camera2D*, &Engine::Camera_>;
+    /** @endcond */
+    /** @brief Read-only pointer to the current scene camera.
+     */
     CameraProperty camera{ this };
 
+    /** @cond XENGINE_INTERNAL */
+    /** @brief Property accessor type for `fixed delta`; use the corresponding instance member in gameplay code.
+     */
     using FixedDeltaProperty = PropertyRO<Engine, float, &Engine::FixedDelta_>;
+    /** @endcond */
+    /** @brief Fixed simulation timestep in seconds, exposed read-only.
+     */
     FixedDeltaProperty fixedDelta{ this };
 
+    /** @cond XENGINE_INTERNAL */
+    /** @brief Property accessor type for `log errors`; use the corresponding instance member in gameplay code.
+     */
     using LogErrorsProperty = PropertyRO<Engine, bool, &Engine::LogErrors_>;
+    /** @endcond */
+    /** @brief Flag controlling engine error logging.
+     */
     LogErrorsProperty logErrors{ this };
 
+    /** @cond XENGINE_INTERNAL */
+    /** @brief Public type alias for the fpsproperty accessor.
+     */
     using FPSProperty = PropertyRO<Engine, float, &Engine::GetFPS_>;
+    /** @endcond */
+    /** @brief Read-only frame-rate value from engine timing statistics.
+     */
     FPSProperty fps{ this };
 
+    /** @cond XENGINE_INTERNAL */
+    /** @brief Property accessor type for `aspect ratio`; use the corresponding instance member in gameplay code.
+     */
     using AspectRatioProperty = PropertyRO<Engine, float, &Engine::GetAspectRatio_>;
+    /** @endcond */
+    /** @brief Read-only width-to-height ratio of the active window.
+     */
     AspectRatioProperty aspectRatio{ this };
 
+    /** @cond XENGINE_INTERNAL */
+    /** @brief Property accessor type for `aspect ratio fraction`; use the corresponding instance member in gameplay code.
+     */
     using AspectRatioFractionProperty = PropertyRO<Engine, Vec2I, &Engine::GetAspectRatioAsFraction_>;
+    /** @endcond */
+    /** @brief Read-only integer representation of the current aspect ratio.
+     */
     AspectRatioFractionProperty aspectRatioFraction{ this };
 };

@@ -1,9 +1,15 @@
 #pragma once
+/** @file SpriteRenderer.h
+ * @brief Visual component for drawing sprite textures.
+ */
 
 #include "Behaviour.h"
 #include "Assets.h"
 #include "BaseTypes.h"
 
+/** @brief Renders a texture using a GameObject transform and optional tint/source rectangle.
+ * @ingroup xengine_render
+ */
 class SpriteRenderer : public Behaviour
 {
 private:
@@ -48,44 +54,92 @@ private:
 protected:
 
     // Ciclo
+    /** @brief Lifecycle hook for render; the engine controls invocation order.
+     */
     void Render() override; // Apply texture PPU, Transform.sx/sy, rotated offsetLocal and Transform.rotDeg
 
 public:
+    /** @brief Constructs a SpriteRenderer instance.
+     */
     SpriteRenderer() = default;
+    /** @brief Releases the SpriteRenderer instance and any owned resources.
+     */
     ~SpriteRenderer() override = default;
 
+    /** @cond XENGINE_INTERNAL */
+    /** @brief Property accessor type for `tint`; use the corresponding instance member in gameplay code.
+     */
     using TintProp = Property<SpriteRenderer, Color,
         &SpriteRenderer::GetTint,
         &SpriteRenderer::SetTint>;
+    /** @endcond */
+    /** @brief RGBA tint multiplied with rendered sprite pixels.
+     */
     TintProp tint{ this };
 
+    /** @cond XENGINE_INTERNAL */
+    /** @brief Property accessor type for `offset`; use the corresponding instance member in gameplay code.
+     */
     using OffsetProp = Property<SpriteRenderer, Vec2,
         &SpriteRenderer::GetOffset,
 		&SpriteRenderer::SetOffset>;
+    /** @endcond */
+	/** @brief Local offset applied when placing this sprite relative to its transform.
+	 */
 	OffsetProp offset{ this };
 
+    /** @cond XENGINE_INTERNAL */
+    /** @brief Public type alias for the flip xprop accessor.
+     */
     using FlipXProp = Property<SpriteRenderer, bool,
         &SpriteRenderer::IsFlipX,
 		&SpriteRenderer::SetFlipX>;
+    /** @endcond */
+    /** @brief Flip the sprite horizontally without changing the object transform.
+     */
     FlipXProp flipX{ this };
 
+    /** @cond XENGINE_INTERNAL */
+    /** @brief Public type alias for the flip yprop accessor.
+     */
     using FlipYProp = Property<SpriteRenderer, bool,
 		&SpriteRenderer::IsFlipY,
 		&SpriteRenderer::SetFlipY>;
+    /** @endcond */
+    /** @brief Flip the sprite vertically without changing the object transform.
+     */
     FlipYProp flipY{ this };
 
+    /** @cond XENGINE_INTERNAL */
+    /** @brief Property accessor type for `pivot01`; use the corresponding instance member in gameplay code.
+     */
     using Pivot01Prop = Property<SpriteRenderer, Vec2,
         &SpriteRenderer::GetPivot01,
 		&SpriteRenderer::SetPivot01>;
+    /** @endcond */
+	/** @brief Normalized sprite pivot: (0,0) at one corner and (1,1) at the opposite.
+	 */
 	Pivot01Prop pivot01{ this };
 
+    /** @cond XENGINE_INTERNAL */
+    /** @brief Property accessor type for `texture`; use the corresponding instance member in gameplay code.
+     */
     using TextureProp = Property<SpriteRenderer, const Texture*,
         &SpriteRenderer::GetTexture,
 		&SpriteRenderer::SetTexture>;
+    /** @endcond */
+	/** @brief Texture or sprite resource rendered by this component.
+	 */
 	TextureProp sprite{ this };
 
+    /** @cond XENGINE_INTERNAL */
+    /** @brief Property accessor type for `source`; use the corresponding instance member in gameplay code.
+     */
     using SourceProp = Property<SpriteRenderer, RectI,
         &SpriteRenderer::GetSource,
 		&SpriteRenderer::SetSource>;
+    /** @endcond */
+	/** @brief Optional source rectangle selecting pixels within the texture.
+	 */
 	SourceProp source{ this };
 };

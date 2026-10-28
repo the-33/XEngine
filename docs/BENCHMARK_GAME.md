@@ -1,5 +1,7 @@
 # XEngine Benchmark
 
+<span data-xengine-doc-theme="profiling"></span>
+
 <div align="center">
   <img src="branding/xengine_benchmark_logo_light.svg?v=4#gh-light-mode-only" alt="XEngine Benchmark logo — a speedometer within a gear (light theme)" width="184" />
   <img src="branding/xengine_benchmark_logo_dark.svg?v=4#gh-dark-mode-only" alt="XEngine Benchmark logo — a speedometer within a gear (dark theme)" width="184" />
@@ -248,7 +250,7 @@ selection modes and first-versus-second visits independently. A warmup of
 at 75%, not 55%. Use an even repetition count for balanced starting order.
 Older completed ZIPs can be reprocessed with `tools/render_selector_tails.py`
 without pretending they contain newer SDL instrumentation. See
-[`RENDER_CULLING_RELEASE_FORENSICS_20261022.md`](RENDER_CULLING_RELEASE_FORENSICS_20261022.md)
+`RENDER_CULLING_RELEASE_FORENSICS_20261022.md` (repository reference: `docs/RENDER_CULLING_RELEASE_FORENSICS_20261022.md`)
 for exact Windows Release commands and interpretation limits.
 
 ## v13: paired adaptive-strategy benchmark
@@ -261,7 +263,7 @@ and verifying contact equivalence for every recorded frame:
 python tools/compare_adaptive_broadphase.py --build --repetitions 3 --frames 360 --warmup 90
 ```
 
-See [ADAPTIVE_BROADPHASE.md](ADAPTIVE_BROADPHASE.md) for the robustness rules,
+See ADAPTIVE_BROADPHASE.md (repository reference: `docs/ADAPTIVE_BROADPHASE.md`) for the robustness rules,
 statistics, output CSV files and the reduced smoke-test command.
 
 ## Pruebas de distribución espacial dinámica (v14)
@@ -272,13 +274,13 @@ manteniendo constante el número de colliders. El comando
 `tools/compare_adaptive_broadphase.py` acepta `--layouts` y genera los CSV
 `phase_summary.csv` y `phase_paired.csv` con los resultados de cada tramo.
 
-Consulta [DYNAMIC_BROADPHASE_BENCHMARK.md](DYNAMIC_BROADPHASE_BENCHMARK.md)
+Consulta DYNAMIC_BROADPHASE_BENCHMARK.md (repository reference: `docs/DYNAMIC_BROADPHASE_BENCHMARK.md`)
 para la metodología y los comandos de comparación. Sin estos parámetros,
 la prueba anterior continúa utilizando el layout `static`.
 
 ## Render threshold calibration (v16)
 
-For the paired render-worker experiment, see [`RENDER_THRESHOLD_CALIBRATION.md`](RENDER_THRESHOLD_CALIBRATION.md). The benchmark supports `--sprites N` and `--render-threshold N` overrides, and `tools/sweep_render_threshold.py` compares immediate vs recorded/parallel rendering at controlled loads. v16.9 uses a provisional fixed reference of 1536 and offers an opt-in weighted selector; see [adaptive selector](ADAPTIVE_RENDER_SELECTION.md).
+For the paired render-worker experiment, see `RENDER_THRESHOLD_CALIBRATION.md` (repository reference: `docs/RENDER_THRESHOLD_CALIBRATION.md`). The benchmark supports `--sprites N` and `--render-threshold N` overrides, and `tools/sweep_render_threshold.py` compares immediate vs recorded/parallel rendering at controlled loads. v16.9 uses a provisional fixed reference of 1536 and offers an opt-in weighted selector; see adaptive selector (repository reference: `docs/ADAPTIVE_RENDER_SELECTION.md`).
 
 
 ## Render selector Debug/Release verification (v16.10)
@@ -289,7 +291,7 @@ cycling sprite workloads. Release uses the packaged executable and assets; the
 Python runner verifies the packaged configuration hashes. New CSV columns
 `render_parallel_executed` and `render_parallel_fallback` distinguish actual
 worker dispatch from a selected recorded path. See
-[Adaptive render selection](ADAPTIVE_RENDER_SELECTION.md) for the complete
+Adaptive render selection (repository reference: `docs/ADAPTIVE_RENDER_SELECTION.md`) for the complete
 methodology, smoke and replicated commands. The sweep streams concise
 build-stage progress/errors to the terminal and `build_console.log`;
 `build.log` stores the complete unfiltered compiler transcript. A nonzero
@@ -300,7 +302,7 @@ once per frame and stops visibility scoring once the accumulated work is
 provably above the entry threshold. The CSV field
 `render_visibility_skipped_sprites` records the omitted checks. See the
 **Visibility fast path and saturated adaptive scoring** section of
-[Adaptive render selection](ADAPTIVE_RENDER_SELECTION.md) for the important
+Adaptive render selection (repository reference: `docs/ADAPTIVE_RENDER_SELECTION.md`) for the important
 counter semantics and Debug/Release verification commands.
 
 ### Exact SDL presentation and Release culling tails (2026-10-22)
@@ -318,7 +320,7 @@ The seven-repetition Windows Release `culling` analysis found no consistent
 p95/p99 advantage for adaptive, and several multi-millisecond `End()` stalls
 in both modes. The source/profiler mismatch and build-log collision have been
 addressed as diagnostics-only changes. See
-[the full culling phase and tail analysis](RENDER_CULLING_RELEASE_FORENSICS_20261022.md)
+the full culling phase and tail analysis (repository reference: `docs/RENDER_CULLING_RELEASE_FORENSICS_20261022.md`)
 and the fresh-benchmark reproduction command there.
 
 For investigating latency regressions, each successful real
@@ -335,4 +337,4 @@ Review per-frame route telemetry alongside p95/p99 before blaming the
 adaptive selector: independent-run percentile differences alone do not
 identify the cause of a slow frame. The full Windows investigation and the
 centered-pivot `culling` shortcut are documented in
-[Adaptive render selection](ADAPTIVE_RENDER_SELECTION.md).
+Adaptive render selection (repository reference: `docs/ADAPTIVE_RENDER_SELECTION.md`).

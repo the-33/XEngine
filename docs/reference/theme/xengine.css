@@ -1,0 +1,537 @@
+/* XEngine Doxygen theme: purple accent and steel-neutral surfaces.
+   These variables override Doxygen's generated palette for both profiles.
+   Doxygen's built-in HTML_COLORSTYLE=TOGGLE owns preference and keyboard UX. */
+
+html {
+  --x-accent: #7440c9;
+  --x-accent-strong: #6229b0;
+  --x-accent-soft: #f2eafa;
+  /* The same selected/hovered-row palette is shared by the left tree and
+     the right page outline, regardless of Doxygen's individual defaults. */
+  --x-nav-selected-bg: #d7bbf1;
+  --x-nav-selected-text: #2b0752;
+  --x-nav-selected-marker: #8642c5;
+  --x-nav-normal-text: #6630a2;
+  --x-nav-hover-bg: #ead8f8;
+  --x-nav-hover-text: #491b88;
+  --nav-menu-active-bg: var(--x-nav-selected-bg);
+  --nav-breadcrumb-active-bg: var(--x-nav-selected-bg);
+  --glow-color: #a66ce8;
+  --page-background-color: #fafbfe;
+  --page-foreground-color: #252b36;
+  --page-link-color: #6836b9;
+  --page-visited-link-color: #7755a7;
+  --header-background-color: #f1f3f9;
+  --header-separator-color: #cbd0df;
+  --header-gradient-image: none;
+  --group-header-color: #6836b9;
+  --group-header-separator-color: #ae8bdc;
+  --title-background-color: #fafbfe;
+  --title-separator-color: #a36aeb;
+  --separator-color: #a28ac7;
+  --index-odd-item-bg-color: #f3f4fa;
+  --index-even-item-bg-color: #ffffff;
+  --memdecl-background-color: #f2f3f9;
+  --memdecl-separator-color: #d9ddeb;
+  --memdef-border-color: #b8a3d9;
+  --memdef-title-background-color: #ebe4f5;
+  --memdef-proto-background-color: #ece6f7;
+  --memdef-proto-text-color: #29263b;
+  --memdef-title-gradient-image: none;
+  --memdef-doc-background-color: #ffffff;
+  --nav-background-color: #f0f1f8;
+  --nav-foreground-color: #55456b;
+  --nav-text-normal-color: #41374f;
+  --nav-gradient-image: none;
+  --nav-gradient-hover-image: none;
+  --nav-gradient-active-image: none;
+  --nav-gradient-active-image-parent: none;
+  --nav-breadcrumb-image: none;
+  --nav-menu-button-color: #713ac3;
+  --nav-menu-background-color: #ffffff;
+  --nav-menu-foreground-color: #30293e;
+  --nav-breadcrumb-border-color: #c9bfdc;
+  --nav-arrow-color: #956cc9;
+  --nav-arrow-selected-color: #7d42ca;
+  --toc-background-color: #f6f1fc;
+  --toc-border-color: #d8c6f0;
+  --toc-header-color: #6c3bb8;
+  --blockquote-background-color: #f5f0fc;
+  --blockquote-border-color: #b998e8;
+  --fragment-background-color: #f8f6fd;
+  --fragment-border-color: #ded0ec;
+  --code-link-color: #6836b9;
+  --table-header-background-color: #47385f;
+  --table-header-foreground-color: #ffffff;
+  --label-background-color: #7545b7;
+  --search-filter-highlight-bg-color: #7240bb;
+  --search-filter-highlight-text-color: #ffffff;
+}
+
+html.dark-mode {
+  color-scheme: dark;
+  --x-accent: #b274f5;
+  --x-accent-strong: #c594ff;
+  --x-accent-soft: #352443;
+  --x-nav-selected-bg: #51346d;
+  --x-nav-selected-text: #fff3ff;
+  --x-nav-selected-marker: #bf82f4;
+  --x-nav-normal-text: #cba7f1;
+  --x-nav-hover-bg: #362648;
+  --x-nav-hover-text: #f4e6ff;
+  --glow-color: #b274f5;
+  --page-background-color: #14171e;
+  --page-foreground-color: #e5e6ef;
+  --page-link-color: #c28eff;
+  --page-visited-link-color: #b49ad2;
+  --header-background-color: #1b1e28;
+  --header-separator-color: #373047;
+  --header-gradient-image: none;
+  --group-header-color: #c18aff;
+  --group-header-separator-color: #745394;
+  --title-background-color: #14171e;
+  --title-separator-color: #9b61db;
+  --separator-color: #71558b;
+  --index-odd-item-bg-color: #1f222d;
+  --index-even-item-bg-color: #191c26;
+  --index-header-color: #ede6f7;
+  --memdecl-background-color: #20232e;
+  --memdecl-separator-color: #393043;
+  --memdecl-foreground-color: #d2cedb;
+  --memdef-border-color: #5d476f;
+  --memdef-title-background-color: #32283f;
+  --memdef-proto-background-color: #2e253a;
+  --memdef-proto-text-color: #f1e9fb;
+  --memdef-title-gradient-image: none;
+  --memdef-doc-background-color: #1b1c25;
+  --nav-background-color: #1b1d27;
+  --nav-foreground-color: #c1a1e2;
+  --nav-text-normal-color: #d2c7e0;
+  --nav-gradient-image: none;
+  --nav-gradient-hover-image: none;
+  --nav-gradient-active-image: none;
+  --nav-gradient-active-image-parent: none;
+  --nav-breadcrumb-image: none;
+  --nav-menu-button-color: #c08bff;
+  --nav-menu-background-color: #222331;
+  --nav-menu-foreground-color: #e9e0f3;
+  --nav-breadcrumb-border-color: #473954;
+  --nav-arrow-color: #a878d8;
+  --nav-arrow-selected-color: #c99afa;
+  --toc-background-color: #24202f;
+  --toc-border-color: #514263;
+  --toc-header-color: #c799fc;
+  --blockquote-background-color: #252030;
+  --blockquote-border-color: #77509f;
+  --fragment-background-color: #211d2a;
+  --fragment-foreground-color: #f1e8f7;
+  --fragment-border-color: #544566;
+  --code-link-color: #c594ff;
+  --table-header-background-color: #503962;
+  --table-header-foreground-color: #ffffff;
+  --label-background-color: #71439b;
+  --search-filter-highlight-bg-color: #b676ed;
+  --search-filter-highlight-text-color: #1b1421;
+}
+
+/* Dedicated Benchmark identity on profiling/benchmarking documentation.
+   This class is added only to profiling HTML pages by build_doxygen.py. */
+html.xengine-profiling {
+  --x-accent: #129d68;
+  --x-accent-strong: #04744e;
+  --x-accent-soft: #e1f9ee;
+  --x-nav-selected-bg: #b8e7cf;
+  --x-nav-selected-text: #022d1c;
+  --x-nav-selected-marker: #17855a;
+  --x-nav-normal-text: #087650;
+  --x-nav-hover-bg: #d7f2e4;
+  --x-nav-hover-text: #05462f;
+  --glow-color: #12a873;
+  --page-background-color: #f7fcf9;
+  --page-link-color: #087a56;
+  --page-visited-link-color: #397d70;
+  --header-background-color: #eaf7f1;
+  --header-separator-color: #bcdccb;
+  --footer-foreground-color: #1f7958;
+  --citation-label-color: #147b59;
+  --directory-separator-color: #80c5a2;
+  --scrollbar-thumb-color: #82c5a4;
+  --scrollbar-background-color: #e8f7ef;
+  --icon-background-color: #33a474;
+  --group-header-color: #08794d;
+  --group-header-separator-color: #7bcba4;
+  --title-background-color: #f7fcf9;
+  --title-separator-color: #3bc47c;
+  --separator-color: #75bea0;
+  --index-odd-item-bg-color: #eff9f3;
+  --memdecl-background-color: #eaf8f0;
+  --memdecl-separator-color: #cce6d6;
+  --memdecl-template-color: #107951;
+  --memdef-border-color: #96cead;
+  --memdef-title-background-color: #dff3e7;
+  --memdef-proto-background-color: #eaf7ed;
+  --memdef-template-color: #107951;
+  --nav-background-color: #e8f7ef;
+  --nav-foreground-color: #27795b;
+  /* Doxygen >= 1.14 names; the older palette used the names below. */
+  --nav-border-color: #a8d8bd;
+  --nav-breadcrumb-separator-color: #a8d8bd;
+  --nav-breadcrumb-active-bg: var(--x-nav-selected-bg);
+  --nav-breadcrumb-color: #087a56;
+  --nav-splitbar-bg-color: #b2e4c9;
+  --nav-splitbar-handle-color: #109963;
+  --nav-menu-active-bg: var(--x-nav-selected-bg);
+  --nav-menu-active-color: #087a56;
+  --sync-icon-border-color: #69b996;
+  --sync-icon-background-color: #e8f7ef;
+  --sync-icon-selected-background-color: #d4f1e2;
+  --sync-icon-color: #159e67;
+  --sync-icon-selected-color: #087a56;
+  --nav-text-normal-color: #264b3b;
+  --nav-text-hover-color: #07563c;
+  --nav-text-active-color: #06553b;
+  --nav-text-normal-shadow: none;
+  --nav-text-hover-shadow: none;
+  --nav-text-active-shadow: none;
+  --nav-separator-image: none;
+  --nav-splitbar-image: none;
+  --nav-menu-button-color: #109963;
+  --nav-menu-foreground-color: #264b3b;
+  --nav-menu-toggle-color: #d4f1e2;
+  --nav-breadcrumb-border-color: #a8d8bd;
+  --nav-arrow-color: #4aaf80;
+  --nav-arrow-selected-color: #159e67;
+  --toc-background-color: #ebf9f0;
+  --toc-border-color: #a9ddc0;
+  --toc-header-color: #087e50;
+  --blockquote-background-color: #e7f8ed;
+  --blockquote-border-color: #7ccfa2;
+  --fragment-background-color: #f0fbf3;
+  --fragment-border-color: #c6e8d1;
+  --fragment-lineno-link-fg-color: #087a56;
+  --fragment-lineno-link-hover-fg-color: #087a56;
+  --code-link-color: #05754e;
+  --code-external-link-color: #05754e;
+  --tooltip-link-color: #087a56;
+  --search-filter-border-color: #69b996;
+  --search-filter-background-color: #effaf3;
+  --search-filter-foreground-color: #145d44;
+  --search-results-foreground-color: #126849;
+  --search-results-background-color: #ebf8f0;
+  --search-results-border-color: #69b996;
+  --search-box-border-color: #69b996;
+  --search-close-icon-bg-color: #19885b;
+  --search-close-icon-fg-color: #ffffff;
+  --search-box-shadow: inset 0 0 0 1px #159466;
+  --table-cell-border-color: #86bfa5;
+  --table-header-background-color: #185943;
+  --label-background-color: #19885b;
+  --label-left-top-border-color: #168f5e;
+  --label-right-bottom-border-color: #a0d5b7;
+  --search-filter-highlight-bg-color: #129b67;
+}
+
+html.xengine-profiling.dark-mode {
+  --x-accent: #45ed88;
+  --x-accent-strong: #65f365;
+  --x-accent-soft: #173b30;
+  --x-nav-selected-bg: #245a43;
+  --x-nav-selected-text: #f3fff6;
+  --x-nav-selected-marker: #68d99d;
+  --x-nav-normal-text: #a0efbe;
+  --x-nav-hover-bg: #1d4637;
+  --x-nav-hover-text: #b8ffd0;
+  --glow-color: #45ed88;
+  --page-background-color: #101d1d;
+  --page-link-color: #65eba3;
+  --page-visited-link-color: #79bca7;
+  --header-background-color: #1a2b2c;
+  --header-separator-color: #29483e;
+  --footer-foreground-color: #8ce8b2;
+  --citation-label-color: #83dfa7;
+  --directory-separator-color: #448f69;
+  --scrollbar-thumb-color: #346f57;
+  --scrollbar-background-color: #15251f;
+  --icon-background-color: #2b9b64;
+  --group-header-color: #67f3a1;
+  --group-header-separator-color: #24885d;
+  --title-background-color: #101d1d;
+  --title-separator-color: #37da7a;
+  --separator-color: #3f9470;
+  --index-odd-item-bg-color: #192928;
+  --index-even-item-bg-color: #142423;
+  --memdecl-background-color: #1b312b;
+  --memdecl-separator-color: #2c5544;
+  --memdecl-template-color: #75e6a4;
+  --memdef-border-color: #30684e;
+  --memdef-title-background-color: #1c4434;
+  --memdef-proto-background-color: #204334;
+  --memdef-proto-text-color: #def8e7;
+  --memdef-template-color: #75e6a4;
+  --memdef-doc-background-color: #15251f;
+  --nav-background-color: #182825;
+  --nav-foreground-color: #83dfb3;
+  --nav-border-color: #37624a;
+  --nav-breadcrumb-separator-color: #37624a;
+  --nav-breadcrumb-active-bg: var(--x-nav-selected-bg);
+  --nav-breadcrumb-color: #9df7be;
+  --nav-splitbar-bg-color: #2a5b43;
+  --nav-splitbar-handle-color: #65d69b;
+  --nav-menu-active-bg: var(--x-nav-selected-bg);
+  --nav-menu-active-color: #9df7be;
+  --sync-icon-border-color: #37624a;
+  --sync-icon-background-color: #182825;
+  --sync-icon-selected-background-color: #245c40;
+  --sync-icon-color: #65d69b;
+  --sync-icon-selected-color: #b8ffd0;
+  --nav-text-normal-color: #c5e6d4;
+  --nav-text-hover-color: #9df7be;
+  --nav-text-active-color: #b8ffd0;
+  --nav-text-normal-shadow: none;
+  --nav-text-hover-shadow: none;
+  --nav-text-active-shadow: none;
+  --nav-separator-image: none;
+  --nav-splitbar-image: none;
+  --nav-menu-button-color: #6cea98;
+  --nav-menu-toggle-color: #245c40;
+  --nav-menu-background-color: #1a3028;
+  --nav-menu-foreground-color: #ddf8e7;
+  --nav-breadcrumb-border-color: #37624a;
+  --nav-arrow-color: #65d69b;
+  --nav-arrow-selected-color: #88f7a8;
+  --toc-background-color: #1a3028;
+  --toc-border-color: #2d694c;
+  --toc-header-color: #77f6a9;
+  --blockquote-background-color: #1a3227;
+  --blockquote-border-color: #358c5b;
+  --fragment-background-color: #1b2a24;
+  --fragment-border-color: #345f48;
+  --fragment-lineno-link-fg-color: #79e9a8;
+  --fragment-lineno-link-hover-fg-color: #a0ffc8;
+  --code-link-color: #77efa5;
+  --code-external-link-color: #77efa5;
+  --tooltip-link-color: #77efa5;
+  --search-filter-border-color: #44996d;
+  --search-filter-background-color: #142b22;
+  --search-filter-foreground-color: #b6f3ce;
+  --search-results-foreground-color: #a2f9c4;
+  --search-results-background-color: #18372a;
+  --search-results-border-color: #44996d;
+  --search-box-border-color: #44996d;
+  --search-close-icon-bg-color: #65d69b;
+  --search-close-icon-fg-color: #142b22;
+  --search-box-shadow: inset 0 0 0 1px #66dba0;
+  --table-cell-border-color: #3b7259;
+  --table-header-background-color: #21573e;
+  --label-background-color: #22764e;
+  --label-left-top-border-color: #438960;
+  --label-right-bottom-border-color: #28593f;
+  --search-filter-highlight-bg-color: #44e18b;
+  --search-filter-highlight-text-color: #10211b;
+}
+
+/* Doxygen 1.12–1.18 still embeds a purple tab_a.png in the selected sidebar
+   row. Suppress that static asset so the active page inherits the live brand. */
+html.xengine-profiling .sm-dox a.current {
+  color: var(--x-accent-strong);
+}
+
+/* Keep Doxygen's actual synchronization control clickable: never overlay it.
+   1.12 uses purple PNG icons, recolored in place via CSS filter; 1.18 draws
+   the arrows from --sync-icon-* variables declared above. */
+html.xengine-profiling #nav-sync img {
+  filter: hue-rotate(-116deg) saturate(1.6);
+  opacity: 0.8;
+}
+html.xengine-profiling #nav-sync img:hover { opacity: 1; }
+html.xengine-profiling #MSearchBox {
+  box-shadow: var(--search-box-shadow);
+}
+html.xengine-profiling .ui-resizable-e {
+  background-image: none !important;
+  background-color: var(--nav-splitbar-bg-color);
+  border-right: 1px solid var(--nav-border-color);
+}
+/* In Doxygen 1.18 the right page outline has a second drag handle; it is NOT
+   a scrollbar. The purple stripe is the active resize indicator. */
+html.xengine-profiling #page-nav-resize-handle {
+  background-color: var(--nav-splitbar-bg-color) !important;
+}
+html.xengine-profiling #page-nav-resize-handle::after,
+html.xengine-profiling .ui-resizable-e::after {
+  border-color: var(--nav-splitbar-handle-color) !important;
+}
+html.xengine-profiling #page-nav {
+  background: var(--nav-background-color);
+  border-left-color: var(--nav-border-color);
+}
+/* Doxygen 1.18 uses unrelated native colours for selected tree rows and
+   visible outline headings. Keep those states consistent across both panes,
+   with clear contrast on light backgrounds. Do not intercept clicks or add
+   overlays: these are native navigation elements. */
+html #nav-tree .selected {
+  background-image: none !important;
+  background-color: var(--x-nav-selected-bg) !important;
+  box-shadow: inset 3px 0 var(--x-nav-selected-marker);
+}
+html #nav-tree .item a,
+html #page-nav .page-outline a {
+  color: var(--x-nav-normal-text) !important;
+}
+html #nav-tree .selected a,
+html #nav-tree .selected a .label,
+html #page-nav .page-outline li.vis > .item a,
+html #page-nav .page-outline li.selected > .item a {
+  color: var(--x-nav-selected-text) !important;
+  /* Doxygen's #nav-tree .label uses a font shorthand that resets inherited
+     font-weight, so explicitly include it alongside the anchor. */
+  font-weight: 700 !important;
+}
+html #page-nav .page-outline li.vis,
+html #page-nav .page-outline li.selected {
+  /* A Doxygen li can contain another entire heading subtree. Highlighting
+     the li paints every descendant; only its own row should be selected. */
+  background-color: transparent !important;
+}
+html #page-nav .page-outline li.vis > .item,
+html #page-nav .page-outline li.selected > .item {
+  background-color: var(--x-nav-selected-bg) !important;
+  box-shadow: inset 3px 0 var(--x-nav-selected-marker);
+  border-radius: 0 6px 6px 0;
+}
+html #nav-tree .item:not(.selected):hover,
+html #page-nav .page-outline li:not(.vis):not(.selected) > .item:hover {
+  background-color: var(--x-nav-hover-bg);
+  border-radius: 0 6px 6px 0;
+}
+html #nav-tree .item:not(.selected):hover a,
+html #nav-tree .item:not(.selected):hover a .label,
+html #page-nav .page-outline li:not(.vis):not(.selected) > .item:hover a {
+  color: var(--x-nav-hover-text) !important;
+  text-decoration: underline;
+}
+
+/* Doxygen 1.12--1.18 uses a mixture of generated coloured PNGs, borders
+   and unscoped selectors for its breadcrumbs and tree widgets.  Explicitly
+   replace those on Benchmark pages: simply overriding Doxygen CSS custom
+   properties still leaves purple arrows and outlines on some versions. */
+html.xengine-profiling #main-nav,
+html.xengine-profiling #nav-tree,
+html.xengine-profiling #side-nav,
+html.xengine-profiling #nav-path,
+html.xengine-profiling .navpath,
+html.xengine-profiling .navpath ul {
+  border-color: var(--x-accent) !important;
+}
+html.xengine-profiling .navpath ul {
+  background-image: none !important;
+  background-color: var(--nav-background-color);
+}
+html.xengine-profiling .navpath li,
+html.xengine-profiling .navpath li.navelem {
+  background-image: none !important;
+}
+/* Doxygen 1.18 already draws connected breadcrumbs using the native :after
+   pseudo-element and a negative link margin. Do not add extra padding or
+   replace its geometry: that creates a visible gap between chevrons. */
+html.xengine-profiling .navpath li.navelem {
+  border-right: 0 !important;
+}
+html.xengine-profiling .navpath li.navelem::after {
+  box-shadow: 2px -2px 0 2px var(--nav-breadcrumb-separator-color);
+}
+html.xengine-profiling .navpath li.footer { border-right: 0; }
+html.xengine-profiling #nav-tree .arrow,
+html.xengine-profiling #nav-sync,
+html.xengine-profiling #nav-path a,
+html.xengine-profiling .navpath li.navelem a {
+  color: var(--x-accent-strong);
+}
+html.xengine-profiling #nav-sync,
+html.xengine-profiling #nav-tree .arrow {
+  text-shadow: none !important;
+}
+
+/* Doxygen 1.18 ships a 75px footer logo in light mode and 60px in dark mode.
+   Its SVG contains almost-white letter fills that disappear on pale pages.
+   Keep the original doxygen.svg asset and clickable attribution link, but
+   display its silhouette at a constant 60px with a readable accent colour.
+   Desaturating to a single shade also eliminates the nearly white interiors. */
+html img.footer {
+  width: 60px;
+  height: auto;
+  filter: brightness(0) saturate(100%) invert(28%) sepia(37%) saturate(1433%) hue-rotate(229deg) brightness(88%) contrast(94%);
+}
+html.dark-mode img.footer {
+  filter: brightness(0) saturate(100%) invert(78%) sepia(30%) saturate(853%) hue-rotate(210deg) brightness(107%) contrast(98%);
+}
+html.xengine-profiling img.footer {
+  filter: brightness(0) saturate(100%) invert(34%) sepia(63%) saturate(747%) hue-rotate(109deg) brightness(88%) contrast(92%);
+}
+html.xengine-profiling.dark-mode img.footer {
+  filter: brightness(0) saturate(100%) invert(79%) sepia(34%) saturate(892%) hue-rotate(92deg) brightness(109%) contrast(96%);
+}
+
+/* Only displayed if Doxygen's own dynamic tree fails to initialize. This
+   fallback stays navigable without replacing the native, working tree. */
+#nav-tree .xengine-fallback-tree,
+#nav-tree .xengine-fallback-tree ul {
+  list-style: none;
+  padding-left: 13px;
+  margin: 3px 0;
+}
+#nav-tree .xengine-fallback-tree li { padding: 4px 0; }
+#nav-tree .xengine-fallback-tree summary {
+  cursor: pointer;
+  color: var(--nav-text-normal-color);
+}
+#nav-tree .xengine-fallback-tree a { color: var(--nav-text-normal-color); }
+#nav-tree .xengine-fallback-tree a:hover { color: var(--x-accent-strong); }
+
+/* Generated pages contain both logos. Hide the unused variant according to
+   Doxygen's own light/dark selector, not GitHub's #gh-*-mode-only fragments. */
+#projectlogo img {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  margin-right: 12px;
+}
+#projectlogo .xengine-header-dark,
+html.dark-mode #projectlogo .xengine-header-light { display: none; }
+html.dark-mode #projectlogo .xengine-header-dark { display: inline-block; }
+
+/* Fallback for raw `doxygen Doxyfile_Games` without the post-generation organiser. */
+#projectlogo img:not(.xengine-header-light):not(.xengine-header-dark) {
+  content: url('xengine_logo_light.png');
+}
+html.dark-mode #projectlogo img:not(.xengine-header-light):not(.xengine-header-dark) {
+  content: url('xengine_logo_dark.png');
+}
+
+/* Doxygen does not implement GitHub's theme fragments. The generated HTML
+   gets these classes so only the suitable inline image remains visible. */
+html:not(.dark-mode) img.xengine-inline-logo-dark,
+html.dark-mode img.xengine-inline-logo-light { display: none !important; }
+html:not(.dark-mode) img.xengine-inline-logo-light,
+html.dark-mode img.xengine-inline-logo-dark { display: inline-block !important; }
+
+#titlearea {
+  border-bottom: 2px solid var(--x-accent);
+  padding-top: 7px;
+  padding-bottom: 7px;
+}
+#projectname {
+  font-weight: 750;
+  letter-spacing: -0.02em;
+}
+#projectbrief { letter-spacing: 0.02em; }
+div.header { border-bottom: 2px solid var(--x-accent); }
+div.contents { max-width: 1340px; }
+div.contents h1, div.contents h2, div.contents h3,
+div.contents .title, div.headertitle .title { color: var(--page-foreground-color); }
+div.contents h2 { border-bottom-color: var(--x-accent); }
+table.markdownTable { border-radius: 8px; overflow: hidden; }
+.markdownTable th { border-bottom: 2px solid var(--x-accent); }
+.memtitle, .memname, .memitem { scroll-margin-top: 18px; }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--x-accent); outline-offset: 2px; }
+@media (max-width: 760px) { #projectlogo img { width: 34px; height: 34px; } }

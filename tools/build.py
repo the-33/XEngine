@@ -25,6 +25,7 @@ from typing import TextIO
 ROOT = Path(__file__).resolve().parent.parent
 ENGINE_SRC = ROOT / 'engine' / 'src'
 ENGINE_HEADERS = ROOT / 'engine' / 'include'
+DOXYFILES = (ROOT / 'Doxyfile_Games', ROOT / 'Doxyfile_Engine')
 
 class BuildError(Exception):
     pass
@@ -480,6 +481,44 @@ def compile_sources(sources: list[Path], *, objroot: Path, compiler: str,
         objects.append(obj)
     return objects,changed
 
+
+def regenerate_engine_api_docs() -> None:
+    """Refresh the optional local API reference after a successful engine rebuild.
+
+    Documentation errors should never prevent a developer from compiling or
+    running their game. Both Doxyfiles treat documentation warnings as
+    errors, so a failed run is still reported prominently here.
+    """
+    if not all(path.is_file() for path in DOXYFILES):
+        log('[WARN] Doxyfile_Games or Doxyfile_Engine is missing; '
+            'skipping XEngine API documentation.')
+        return
+    doxygen = shutil.which('doxygen')
+    if not doxygen:
+        log('[WARN] Doxygen is not installed; skipping XEngine API documentation. '
+            'If you plan to modify the engine or develop games with XEngine, '
+            'install Doxygen so its API reference is regenerated whenever the engine recompiles.')
+        return
+
+    log('[DOCS] Regenerating XEngine game and engine references (Doxygen)')
+    try:
+        result = subprocess.run([sys.executable, str(ROOT / 'tools' / 'build_doxygen.py'),
+                                 '--doxygen', doxygen], cwd=ROOT, text=True,
+                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                errors='replace', check=False)
+        output = result.stdout or ''
+        _raw(output)
+        if result.returncode:
+            log(f'[WARN] Doxygen exited with status {result.returncode}; '
+                'the engine was compiled successfully, but its API documentation '
+                'may be incomplete. Run `python tools/build_doxygen.py` to inspect the errors.')
+            for line in output.splitlines()[-30:]:
+                log(f'    {line}')
+        else:
+            log('[DOCS] API reference: build/docs/index.html (game / engine)')
+    except OSError as error:
+        log(f'[WARN] Cannot run Doxygen: {error}. The engine build was not affected.')
+
 def create_engine(*,target,profile,arch,tooling) -> Path:
     compiler,archiver,pkg_cflags,version=tooling.compiler,tooling.archiver,tooling.pkg_cflags,tooling.version
     out=ROOT/'build'/f'{target}-{arch}'/profile/'engine'
@@ -495,6 +534,7 @@ def create_engine(*,target,profile,arch,tooling) -> Path:
         # Remove stale library before archiving, so removed .cpp files are not retained.
         if lib.exists(): lib.unlink()
         command([archiver,'rcs',str(lib),*(str(o) for o in objs)])
+        regenerate_engine_api_docs()
     else: log('[CACHE] XEngine library unchanged')
     return lib
 
@@ -754,6 +794,7 @@ def game_build(project: str, *,target,profile,arch,tooling,run:bool=False) -> Pa
     filename=project+('.exe' if target=='windows' else '')
     output=out/filename
     link_options=[*tooling.cxxflags,*tooling.ldflags,*pkg_libs]
+    if target=='windows': link_options+=['-ladvapi32']  # PlayerPrefs: HKCU Registry API
     if target=='linux': link_options+=['-Wl,-rpath,$ORIGIN/lib']
     if profile=='release': link_options+=['-s']
     link_sig_path=out/'GameLink.sha256'

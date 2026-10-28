@@ -1,4 +1,7 @@
 #pragma once
+/** @file PhysicsManager.h
+ * @brief Fixed-step physics simulation settings and runtime diagnostics.
+ */
 
 #include <unordered_map>
 #include <vector>
@@ -16,6 +19,9 @@ struct NarrowContact;
 class CollisionManager;
 class SceneManager;
 
+/** @brief Owns the fixed-timestep physics solver and its configurable parameters.
+ * @ingroup xengine_physics
+ */
 class PhysicsManager : public Singleton<PhysicsManager>
 {
     friend class Singleton<PhysicsManager>;
@@ -106,31 +112,61 @@ private:
 
 public:
 
+    /** @cond XENGINE_INTERNAL */
+    /** @brief Property accessor type for `gravity`; use the corresponding instance member in gameplay code.
+     */
     using GravityProp = Property<PhysicsManager, Vec2,
         &PhysicsManager::GetGravity,
         &PhysicsManager::SetGravity>;
+    /** @endcond */
 
+    /** @cond XENGINE_INTERNAL */
+    /** @brief Property accessor type for `penetration slop`; use the corresponding instance member in gameplay code.
+     */
     using PenetrationSlopProp = Property<PhysicsManager, float,
         &PhysicsManager::GetPenetrationSlop,
         &PhysicsManager::SetPenetrationSlop>;
+    /** @endcond */
 
+    /** @cond XENGINE_INTERNAL */
+    /** @brief Property accessor type for `penetration percent`; use the corresponding instance member in gameplay code.
+     */
     using PenetrationPercentProp = Property<PhysicsManager, float,
         &PhysicsManager::GetPenetrationPercent,
         &PhysicsManager::SetPenetrationPercent>;
+    /** @endcond */
 
+    /** @cond XENGINE_INTERNAL */
+    /** @brief Property accessor type for `max substeps`; use the corresponding instance member in gameplay code.
+     */
     using MaxSubstepsProp = Property<PhysicsManager, int,
         &PhysicsManager::GetMaxSubsteps,
         &PhysicsManager::SetMaxSubsteps>;
+    /** @endcond */
 
+    /** @cond XENGINE_INTERNAL */
+    /** @brief Property accessor type for `ccdmin size factor`; use the corresponding instance member in gameplay code.
+     */
     using CCDMinSizeFactorProp = Property<PhysicsManager, float,
         &PhysicsManager::GetCCDMinSizeFactor,
         &PhysicsManager::SetCCDMinSizeFactor>;
+    /** @endcond */
 
+    /** @brief Property wrapper type used for gravity prop.
+     */
     GravityProp gravityProp{ this };
 
+    /** @brief Property wrapper type used for penetration slop prop.
+     */
     PenetrationSlopProp penetrationSlopProp{ this };
+    /** @brief Property wrapper type used for penetration percent prop.
+     */
     PenetrationPercentProp penetrationPercentProp{ this };
 
+    /** @brief Property wrapper type used for max substeps prop.
+     */
     MaxSubstepsProp maxSubstepsProp{ this };
+    /** @brief Property wrapper type used for ccd min size factor prop.
+     */
     CCDMinSizeFactorProp ccdMinSizeFactorProp{ this };
 };

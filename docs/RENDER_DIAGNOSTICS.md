@@ -1,5 +1,7 @@
 # Render diagnostics, SDL submissions and controlled benchmarks
 
+<span data-xengine-doc-theme="profiling"></span>
+
 ## Why draw calls do not imply parallel preparation
 
 `Renderer.parallelPreparation=true` enables CPU-side projection/culling only
@@ -25,7 +27,7 @@ prepared commands are counted by `render_culled_commands`).
 `render_eligible_current` counts this frame's eligible scene commands. The
 recorded list also includes UI/debug commands and is not equivalent to eligible
 commands. The F3 overlay reports the route and counts; CSV contains per-frame
-details. The first frame normally selects the immediate path. In the opt-in `adaptive` mode, the previous frame’s work units and 15% hysteresis drive selection; see [adaptive selector](ADAPTIVE_RENDER_SELECTION.md).
+details. The first frame normally selects the immediate path. In the opt-in `adaptive` mode, the previous frame’s work units and 15% hysteresis drive selection; see adaptive selector (repository reference: `docs/ADAPTIVE_RENDER_SELECTION.md`).
 
 ## SDL call diagnostics
 

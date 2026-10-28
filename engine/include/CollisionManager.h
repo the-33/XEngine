@@ -1,4 +1,7 @@
 #pragma once
+/** @file CollisionManager.h
+ * @brief Contact generation, query and collision/trigger dispatch.
+ */
 
 #include <unordered_map>
 #include <unordered_set>
@@ -15,18 +18,35 @@
 #include "SceneManager.h"
 #include "Engine.h"
 
+/** @brief Developer-visible value or service type NarrowContact.
+ */
 struct NarrowContact {
+    /** @brief Exposed a value of NarrowContact; consult its type and setter constraints.
+     */
     GameObject* a = nullptr;
+    /** @brief Exposed b value of NarrowContact; consult its type and setter constraints.
+     */
     GameObject* b = nullptr;
+    /** @brief First collider participating in this detected contact.
+     */
     Collider2D* colA = nullptr;
+    /** @brief Second collider participating in this detected contact.
+     */
     Collider2D* colB = nullptr;
+    /** @brief Whether this pair is treated as a trigger overlap.
+     */
     bool isTriggerPair = false;
+    /** @brief Contact points and normals computed for the pair.
+     */
     ContactPoint contact;
 };
 
 // Forward declarations
 class PhysicsManager;
 
+/** @brief Maintains collision contacts and sends collision/trigger callbacks.
+ * @ingroup xengine_physics
+ */
 class CollisionManager : public Singleton<CollisionManager>
 {
     friend class Singleton<CollisionManager>;

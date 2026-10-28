@@ -1,5 +1,7 @@
 # Multithreading and performance profiling
 
+<span data-xengine-doc-theme="profiling"></span>
+
 ## Model
 
 XEngine uses one SDL/gameplay thread for **window events, input, scene lifecycle,

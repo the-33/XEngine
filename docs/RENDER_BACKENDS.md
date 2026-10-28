@@ -1,5 +1,7 @@
 # SDL2 render backends on Windows and Linux
 
+<span data-xengine-doc-theme="profiling"></span>
+
 XEngine uses the SDL2 `SDL_Renderer` interface. The same game logic works
 with multiple graphics backends; the backend is **not** the
 `Renderer.parallelSelection` choice (`fixed` or `adaptive`). Switching SDL
@@ -89,7 +91,7 @@ submission, not solely in `SDL_RenderPresent()`. No counter/physics
 differences were found, but **pixel-level visual equivalence has not been
 verified**; the other render workloads, Linux and other GPU/driver
 combinations were not covered. See
-[`RENDER_CULLING_RELEASE_FORENSICS_20261022.md`](RENDER_CULLING_RELEASE_FORENSICS_20261022.md)
+`RENDER_CULLING_RELEASE_FORENSICS_20261022.md` (repository reference: `docs/RENDER_CULLING_RELEASE_FORENSICS_20261022.md`)
 for raw methodology, tails and limitations.
 
 In the later four-workload Release benchmark, D3D11 completed 11,520 measured

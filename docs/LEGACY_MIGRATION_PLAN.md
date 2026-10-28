@@ -5,7 +5,7 @@
 The two projects are different generations:
 
 - **[XEngine-Legacy](https://github.com/the-33/XEngine-Legacy)** used Visual Studio/MSVC, solution and `.vcxproj` files, and a shared engine/source/assets tree.
-- **[XEngine](../README.md)** is a C++20/SDL2 source-driven engine with independent game projects, a Python build system, and native Windows/Linux or cross builds using GCC/Clang.
+- **XEngine** (this repository; see the root `README.md`) is a C++20/SDL2 source-driven engine with independent game projects, a Python build system, and native Windows/Linux or cross builds using GCC/Clang.
 
 This is distinct from historical one-off scripts that reorganized an *intermediate, already-modern* XEngine workspace. Those scripts are intentionally **not** part of the proposed solution.
 

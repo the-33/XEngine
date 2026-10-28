@@ -1,4 +1,7 @@
 #pragma once
+/** @file ErrorHandler.h
+ * @brief Runtime diagnostic logging functions.
+ */
 
 #include <string>
 
@@ -16,23 +19,29 @@
 #include <windows.h>
 #endif
 
+/** @brief Available error log result modes for ErrorHandler.h.
+ */
 enum class ErrorLogResult
 {
-    OK = 1,
-    Cancel = 2,
-    Abort = 3,
-    Retry = 4,
-    Ignore = 5,
-    Yes = 6,
-    No = 7,
-    Close = 8,
-    Help = 9,
-    TryAgain = 10,
-    Continue = 11,
-    Error = -1  // Used when an operation fails or is not shown
+    OK = 1,      ///< User selected OK in the dialog.
+    Cancel = 2,  ///< User cancelled the dialog.
+    Abort = 3,   ///< User selected Abort.
+    Retry = 4,   ///< User selected Retry.
+    Ignore = 5,  ///< User selected Ignore.
+    Yes = 6,     ///< User confirmed Yes.
+    No = 7,      ///< User selected No.
+    Close = 8,   ///< User closed the dialog via Close.
+    Help = 9,    ///< User selected Help.
+    TryAgain = 10, ///< User selected Try Again.
+    Continue = 11, ///< User selected Continue.
+    Error = -1   ///< No dialog result is available or the operation failed.
 };
 
 // Cross-platform error logging
+/** @brief Reports an engine error through the configured logging mechanism.
+ * @param caption Visible label on the widget.
+ * @param error Error condition to report.
+ */
 ErrorLogResult LogError(const std::string& caption,
     const std::string& error
 #ifdef _WIN32
@@ -40,6 +49,11 @@ ErrorLogResult LogError(const std::string& caption,
 #endif
 );
 
+/** @brief Reports an engine error through the configured logging mechanism.
+ * @param caption Visible label on the widget.
+ * @param error Error condition to report.
+ * @param sdlError SDL error message associated with the failed operation.
+ */
 ErrorLogResult LogError(const std::string& caption,
     const std::string& error,
     const char* sdlError

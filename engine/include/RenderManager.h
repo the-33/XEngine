@@ -1,4 +1,7 @@
 #pragma once
+/** @file RenderManager.h
+ * @brief World-space and screen-space rendering and backgrounds.
+ */
 
 #include <vector>
 #include <string>
@@ -26,6 +29,9 @@ class AssetManager;
 struct SDL_Renderer;
 struct SDL_FRect;
 
+/** @brief Draws world/screen primitives, textures and background layers on the SDL renderer.
+ * @ingroup xengine_render
+ */
 class RenderManager : public Singleton<RenderManager>
 {
     friend class Singleton<RenderManager>;
@@ -169,58 +175,122 @@ private:
 public:
     // One-shot read-only diagnostics for benchmarks. These are the SDL objects
     // actually created (including any fallback), not the requested JSON flags.
+    /** @brief Developer-visible value or service type BackendDiagnostics.
+     */
     struct BackendDiagnostics {
+        /** @brief True if SDL returned renderer details successfully.
+         */
         bool rendererInfoAvailable = false;
+        /** @brief Name of the initialized SDL rendering backend.
+         */
         std::string rendererName;
+        /** @brief Name of the active SDL video driver.
+         */
         std::string videoDriver;
+        /** @brief SDL runtime version used for these diagnostics.
+         */
         std::string sdlVersion;
+        /** @brief Renderer-driver preference supplied to SDL. Configured SDL vertical-sync driver hint.
+         */
         std::string renderDriverHint, renderVsyncHint;
+        /** @brief SDL error string when renderer information could not be queried.
+         */
         std::string rendererInfoError;
+        /** @brief Backend capability and configuration flags.
+         */
         std::uint32_t rendererFlags = 0;
+        /** @brief Whether SDL reports a hardware-accelerated renderer. Whether the SDL renderer uses a software implementation.
+         */
         bool accelerated = false, software = false;
+        /** @brief Whether SDL reports synchronization with display refresh. Whether rendering to texture targets is supported.
+         */
         bool vsync = false, targetTexture = false;
+        /** @brief SDL flags attached to the active window.
+         */
         std::uint32_t windowFlags = 0;
+        /** @brief Reported width of the renderer output, in pixels. Reported height of renderer output, in pixels.
+         */
         int rendererOutputWidth = 0, rendererOutputHeight = 0;
+        /** @brief Maximum reported texture width supported by the renderer. Maximum reported texture height supported by the renderer.
+         */
         int maxTextureWidth = 0, maxTextureHeight = 0;
+        /** @brief Logical width of the active SDL window. Logical height of the active SDL window.
+         */
         int windowWidth = 0, windowHeight = 0;
+        /** @brief Index of the display containing the window. Refresh rate of the selected display, in hertz.
+         */
         int displayIndex = -1, displayRefreshHz = 0;
     };
 
+    /** @brief Queries the SDL backend capabilities and current renderer settings.
+     */
     BackendDiagnostics QueryBackendDiagnostics() const;
 
+    /** @brief Available background mode modes for RenderManager.
+     */
     enum class BackgroundMode : uint8_t
     {
-        None = 0,
-        Stretch,
-        Fit,
-        Fill,
-        Center,
-        Repeat,
-        RepeatScaled,
-        TileWorldPhysical,
-        TileWorldPhysicalScaled
+        None = 0,              ///< Do not draw a background texture.
+        Stretch,               ///< Stretch the image to exactly cover the window.
+        Fit,                   ///< Preserve aspect ratio with the entire image visible; may leave bars.
+        Fill,                  ///< Preserve aspect ratio and cover the window; may crop edges.
+        Center,                ///< Draw at native size centered in the window.
+        Repeat,                ///< Tile the texture in screen-space coordinates.
+        RepeatScaled,          ///< Repeat tiles with the configured background scale.
+        TileWorldPhysical,     ///< Tile across world space using physical texture dimensions.
+        TileWorldPhysicalScaled ///< World-space tiling with an additional scale factor.
     };
 
+    /** @brief Developer-visible value or service type BackgroundLayer.
+     */
     struct BackgroundLayer
     {
+        /** @brief Texture displayed by this background layer.
+         */
         Texture* tex = nullptr;
+        /** @brief How the layer image is positioned, stretched or repeated.
+         */
         BackgroundMode mode = BackgroundMode::Stretch;
 
+        /** @brief Layer ordering relative to other backgrounds.
+         */
         int order = 0;
+        /** @brief Horizontal camera-motion parallax factor.
+         */
         float parallax = 0.f;
+        /** @brief Vertical camera-motion parallax factor.
+         */
         bool parallaxY = true;
 
+        /** @brief Additional image offset measured in pixels.
+         */
         Vec2 offsetPx{ 0.f, 0.f };
 
+        /** @brief Additional background image scale factor.
+         */
         Vec2 scale{ 1.f, 1.f };
+        /** @brief Color multiplier applied to the background image.
+         */
         Color tint{ 255,255,255,255 };
+        /** @brief Flip background image horizontally.
+         */
         bool flipX = false;
+        /** @brief Flip background image vertically.
+         */
         bool flipY = false;
 
+        /** @brief Apply tile placement designed to avoid visible seams.
+         */
         bool seamSafe = true;
 
+        /** @brief World-space origin used when anchoring this layer.
+         */
         Vec2 worldOrigin{ 0.f, 0.f };
+        /** @brief Optional world-space bounds for this background.
+         */
         Rect worldBounds{ 0.f,0.f,0.f,0.f };
+        /** @brief Whether to constrain the background to world bounds.
+         */
         bool useWorldBounds = false;
     };
 
@@ -270,15 +340,40 @@ public:
     // Diagnostic A/B switch. `true` (production default) offloads sprite XYZ
     // projection with render preparation; `false` projects on the main thread.
     // This is not an additional renderer configuration field.
+    /** @brief Toggles CPU-side deferred sprite projection used for diagnostics, not a renderer backend.
+     * @param enabled Whether to enable the named feature.
+     */
     void SetDeferredSpriteProjection(bool enabled) noexcept {
         mDeferSpriteProjection = enabled;
     }
 
     // Debug
+    /** @brief Queues a line in the renderer’s diagnostic overlay.
+     * @param x1 First X coordinate.
+     * @param y1 First Y coordinate.
+     * @param x2 Second X coordinate.
+     * @param y2 Second Y coordinate.
+     * @param color RGBA drawing color.
+     */
     void DrawDebugLine(float x1, float y1, float x2, float y2, Color color) noexcept;
+    /** @brief Queues a rectangle in the renderer’s diagnostic overlay.
+     * @param worldRect Rectangle in world coordinates.
+     * @param color RGBA drawing color.
+     * @param filled Whether the rectangle is filled.
+     */
     void DrawDebugRect(const Rect& worldRect, Color color, bool filled = false) noexcept;
 
     // World to screen (through the camera)
+    /** @brief Renders a texture in world coordinates, projected through the current camera.
+     * @param tex Texture to draw or cache.
+     * @param dstWorld Destination rectangle in world coordinates.
+     * @param srcPixels Optional source rectangle in texture pixels; null uses the full texture.
+     * @param rotationDeg Rotation angle in degrees.
+     * @param pivot01 Normalized rotation pivot within the rectangle.
+     * @param tint RGBA tint multiplier used for drawing.
+     * @param flipX Whether to mirror the image horizontally.
+     * @param flipY Whether to mirror the image vertically.
+     */
     void DrawTexture(const Texture& tex,
         const Rect& dstWorld,
         const Rect* srcPixels = nullptr,
@@ -288,18 +383,50 @@ public:
         bool flipX = false,
         bool flipY = false) noexcept;
 
+    /** @brief Draws a world-space rectangle, optionally with rotation and pivot.
+     * @param worldRect Rectangle in world coordinates.
+     * @param color RGBA drawing color.
+     * @param filled Whether the rectangle is filled.
+     */
     void DrawRect(const Rect& worldRect, Color color, bool filled) noexcept;
+    /** @brief Draws a world-space rectangle, optionally with rotation and pivot.
+     * @param worldRect Rectangle in world coordinates.
+     * @param rotationDeg Rotation angle in degrees.
+     * @param pivot01 Normalized rotation pivot within the rectangle.
+     * @param color RGBA drawing color.
+     * @param filled Whether the rectangle is filled.
+     */
     void DrawRect(const Rect& worldRect,
         float rotationDeg,
         Vec2 pivot01,
         Color color,
         bool filled = true) noexcept;
 
+    /** @brief Draws a line using the active renderer.
+     * @param x1 First X coordinate.
+     * @param y1 First Y coordinate.
+     * @param x2 Second X coordinate.
+     * @param y2 Second Y coordinate.
+     * @param color RGBA drawing color.
+     */
     void DrawLine(float x1, float y1, float x2, float y2, Color color) noexcept;
 
     // Pantalla (screen-space)
+    /** @brief Draws a screen-space rectangle without applying the camera transform.
+     * @param screenRect Rectangle in screen coordinates.
+     * @param color RGBA drawing color.
+     * @param filled Whether the rectangle is filled.
+     */
     void DrawRectScreen(const Rect& screenRect, Color color, bool filled) noexcept;
 
+    /** @brief Draws a texture in screen pixels without applying the camera transform.
+     * @param tex Texture to draw or cache.
+     * @param dstScreen Destination rectangle in screen pixels.
+     * @param srcPixels Optional source rectangle in texture pixels; null uses the full texture.
+     * @param tint RGBA tint multiplier used for drawing.
+     * @param flipX Whether to mirror the image horizontally.
+     * @param flipY Whether to mirror the image vertically.
+     */
     void DrawImageScreen(const Texture& tex,
         const Rect& dstScreen,
         const Rect* srcPixels = nullptr,
@@ -307,6 +434,13 @@ public:
         bool flipX = false,
         bool flipY = false) noexcept;
 
+    /** @brief Draws text in screen-pixel coordinates using the supplied font.
+     * @param font Font used for text drawing.
+     * @param text Text to render or serialize.
+     * @param x_px Horizontal screen coordinate in pixels.
+     * @param y_px Vertical screen coordinate in pixels.
+     * @param color RGBA drawing color.
+     */
     void DrawTextScreen(const Font& font,
         const std::string& text,
         float x_px, float y_px,
@@ -365,9 +499,43 @@ private:
         const Rect& wrect) noexcept;
 
 public:
+        /** @brief Changes the background of RenderManager.
+         * @param tex Texture to draw or cache.
+         * @param mode Selected operation, input or render mode.
+         * @param tint RGBA tint multiplier used for drawing.
+         */
         void SetBackground(Texture* tex, BackgroundMode mode = BackgroundMode::Stretch, Color tint = { 255,255,255,255 }) noexcept;
+        /** @brief Removes or clears the clear background target.
+         */
         void ClearBackground() noexcept;
 
+        /** @brief Removes or clears the clear parallax target.
+         */
         void ClearParallax() noexcept;
+        /** @brief Adds parallax layer to RenderManager.
+         * @param layer Background or render layer to process.
+         */
         void AddParallaxLayer(const BackgroundLayer& layer) noexcept;
 };
+
+/** @var std::string RenderManager::BackendDiagnostics::renderVsyncHint
+ * @brief SDL render-VSync hint used when creating the renderer.
+ */
+/** @var bool RenderManager::BackendDiagnostics::software
+ * @brief True when the active SDL renderer uses a software backend.
+ */
+/** @var bool RenderManager::BackendDiagnostics::targetTexture
+ * @brief True if the renderer supports render-to-texture targets.
+ */
+/** @var int RenderManager::BackendDiagnostics::rendererOutputHeight
+ * @brief Active renderer output height in drawable pixels.
+ */
+/** @var int RenderManager::BackendDiagnostics::maxTextureHeight
+ * @brief Maximum texture height reported by SDL for the active backend.
+ */
+/** @var int RenderManager::BackendDiagnostics::windowHeight
+ * @brief Actual logical SDL window height.
+ */
+/** @var int RenderManager::BackendDiagnostics::displayRefreshHz
+ * @brief Display refresh frequency in hertz, when reported by the platform.
+ */

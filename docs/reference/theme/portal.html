@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>XEngine | Documentation</title>
+  <style>
+    :root { color-scheme:light; --bg:#f5f4f9;--card:#fff;--text:#24232d;--muted:#55576a;
+      --line:#ddd9e7;--accent:#8242df;--accent2:#5e2da8;--shadow:rgba(39,20,59,.10); }
+    :root[data-mode="dark"] { color-scheme:dark;--bg:#17161d;--card:#25242e;--text:#f2eefa;
+      --muted:#bcb7ca;--line:#443b53;--accent:#c38cff;--accent2:#ddaaff;--shadow:rgba(0,0,0,.25); }
+    * { box-sizing:border-box; }
+    body { margin:0;background:var(--bg);color:var(--text);font:16px/1.55 system-ui,Segoe UI,sans-serif; }
+    main { max-width:1050px;padding:38px 24px 64px;margin:auto; }
+    header { display:flex;align-items:center;justify-content:space-between;gap:20px; }
+    .brand { display:flex;align-items:center;gap:18px; }
+    .mark { width:70px;height:70px;object-fit:contain; }
+    .brand strong { font-size:1.5rem;letter-spacing:-.035em; }
+    .brand small { display:block;color:var(--muted); }
+    button { padding:10px 15px;border:1px solid var(--line);background:var(--card);color:var(--text);
+      border-radius:10px;cursor:pointer;font:inherit; }
+    h1 { margin:74px 0 10px;font-size:clamp(2rem,5vw,3.3rem);line-height:1.13;letter-spacing:-.04em; }
+    .intro { color:var(--muted);max-width:690px;margin-bottom:32px; }
+    .grid { display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:20px; }
+    a.card { color:var(--text);text-decoration:none;display:block;padding:30px;border-radius:18px;
+      background:var(--card);border:1px solid var(--line);box-shadow:0 8px 27px var(--shadow); }
+    a.card:hover, a.card:focus { border-color:var(--accent);outline:none;transform:translateY(-2px); }
+    .eyebrow { font-size:.8rem;text-transform:uppercase;color:var(--accent2);font-weight:800;letter-spacing:.09em; }
+    h2 { margin:8px 0;font-size:1.5rem; }
+    .card p { color:var(--muted);min-height:70px; }
+    .open { color:var(--accent2);font-weight:700; }
+    footer { margin-top:38px;color:var(--muted);font-size:.9rem; }
+    @media (prefers-reduced-motion:no-preference) { a.card { transition:transform .18s,border-color .18s; } }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="brand">
+      <picture><source media="(prefers-color-scheme: dark)" srcset="game/html/xengine_logo_dark.png">
+        <img class="mark" id="logo" src="game/html/xengine_logo_light.png" alt="XEngine logo"></picture>
+      <div><strong>XEngine</strong><small>C++20 · SDL2 · Windows / Linux</small></div>
+    </div>
+    <button type="button" id="mode" aria-label="Switch light and dark mode">Change theme</button>
+  </header>
+  <h1>Build games. Explore the engine.</h1>
+  <p class="intro">Choose the documentation that matches what you are working on. Both references are generated from the same source version, with separate APIs and examples.</p>
+  <div class="grid">
+    <a class="card" href="game/html/index.html"><span class="eyebrow">Start here</span>
+      <h2>Game developers</h2><p>Getting started, scenes, input, sprites, physics, assets, UI, saving games and all supported public C++ APIs.</p>
+      <span class="open">Open game reference →</span></a>
+    <a class="card" href="engine/html/index.html"><span class="eyebrow">Core contributors</span>
+      <h2>Engine developers</h2><p>Architecture, internal types, implementation, build and platform systems, profiling and maintenance.</p>
+      <span class="open">Open engine reference →</span></a>
+  </div>
+  <footer>Current behavior is documented here. Historical experiments remain in the repository, outside the API reference.</footer>
+</main>
+<script>
+  const doc = document.documentElement;
+  const button = document.getElementById('mode');
+  const logo = document.getElementById('logo');
+  const picture = logo.parentNode;
+  const media = picture.querySelector('source');
+  const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const fromLink = new URLSearchParams(window.location.search).get('xengine-doc-theme');
+  let dark = ((fromLink === 'light' || fromLink === 'dark' ? fromLink : null) ||
+              localStorage.getItem('xengine-doc-theme') ||
+              (systemDark ? 'dark' : 'light')) === 'dark';
+  function apply() {
+    doc.dataset.mode = dark ? 'dark' : 'light';
+    logo.src = dark ? 'game/html/xengine_logo_dark.png' : 'game/html/xengine_logo_light.png';
+    media.srcset = logo.src;
+    button.textContent = dark ? '☀ Light mode' : '☾ Dark mode';
+    button.setAttribute('aria-pressed', String(dark));
+  }
+  button.addEventListener('click', () => {dark = !dark;localStorage.setItem('xengine-doc-theme',dark?'dark':'light');apply();});
+  // Both generated Doxygen profiles use this same persistent preference.
+  document.querySelectorAll('a.card').forEach(link => {
+    link.addEventListener('click', () => {
+      const selection = dark ? 'dark' : 'light';
+      localStorage.setItem('xengine-doc-theme', selection);
+      const target = new URL(link.href, window.location.href);
+      target.searchParams.set('xengine-doc-theme', selection);
+      link.href = target.href;
+    });
+  });
+  window.addEventListener('storage', event => {
+    if (event.key === 'xengine-doc-theme' && (event.newValue === 'light' || event.newValue === 'dark')) {
+      dark = event.newValue === 'dark';
+      apply();
+    }
+  });
+  apply();
+</script>
+</body>
+</html>

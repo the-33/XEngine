@@ -447,7 +447,7 @@ Home expansion is supported in `pkg_config_libdir`, `pkg_config_sysroot_dir`,
 `sysroot`, `lib_dirs`, `dll_dirs`, tool executable paths, and path arguments
 in `cxxflags` / `ldflags` (for example, `-I~/sdk/include`).
 
-For a working Ubuntu → Windows example, see the `linux.windows` JSON configuration in [the complete SDK setup above](#linux--windows-complete-sdl2-sdk-setup).
+For a working Ubuntu → Windows example, see the `linux.windows` JSON configuration in [the complete SDK setup above](CROSS_COMPILATION.md#linux--windows-complete-sdl2-sdk-setup).
 
 Remember: home expansion only resolves filesystem paths. The SDK and target
 libraries must still exist and be compatible with your cross-compiler.

@@ -19,8 +19,11 @@ bool WindowManager::Init(const Config& conf) noexcept
     // Creation flags
     Uint32 flags = SDL_WINDOW_SHOWN | SDL_WINDOW_ALLOW_HIGHDPI;
 
-    width = conf.width > 0 ? conf.width : 1280;
-    height = conf.height > 0 ? conf.height : 720;
+    width = conf.width > 0 && conf.width <= 16384 ? conf.width : 1280;
+    height = conf.height > 0 && conf.height <= 16384 ? conf.height : 720;
+    windowedWidth = width;
+    windowedHeight = height;
+    sizeRevision_ = 0;
 
     SDL_Window* win = SDL_CreateWindow(
         conf.title ? conf.title : "Game",
@@ -37,10 +40,9 @@ bool WindowManager::Init(const Config& conf) noexcept
     windowHandle = win;
 
     SDL_SetWindowResizable(win, SDL_FALSE);
-    SDL_SetWindowMinimumSize(win, width, height);
-    SDL_SetWindowMaximumSize(win, width, height);
-
-        SetFullscreen(conf.fullscreen);
+    // Runtime SetSize is allowed even though user drag-resizing stays disabled.
+    // Previous min/max constraints locked this window to its creation resolution.
+    SetFullscreen(conf.fullscreen);
 
     wantClose = false;
     return true;
@@ -93,6 +95,30 @@ void WindowManager::SetTitle(const char* title) noexcept
     }
 }
 
+bool WindowManager::SetSize(int newWidth, int newHeight) noexcept
+{
+    if (!windowHandle || newWidth <= 0 || newHeight <= 0 ||
+        newWidth > 16384 || newHeight > 16384) return false;
+
+    if (fullscreen) {
+        const bool changed = windowedWidth != newWidth || windowedHeight != newHeight;
+        windowedWidth = newWidth;
+        windowedHeight = newHeight;
+        if (changed) ++sizeRevision_;
+        return true;
+    }
+
+    SDL_SetWindowSize(AsSDL(windowHandle), newWidth, newHeight);
+    int actualWidth = 0, actualHeight = 0;
+    SDL_GetWindowSize(AsSDL(windowHandle), &actualWidth, &actualHeight);
+    if (actualWidth != width || actualHeight != height) ++sizeRevision_;
+    width = actualWidth;
+    height = actualHeight;
+    windowedWidth = actualWidth;
+    windowedHeight = actualHeight;
+    return actualWidth == newWidth && actualHeight == newHeight;
+}
+
 void WindowManager::SetFullscreen(bool enabled) noexcept
 {
     if (fullscreen == enabled) return;
@@ -105,6 +131,11 @@ void WindowManager::SetFullscreen(bool enabled) noexcept
     }
     else {
         fullscreen = enabled;
+        ++sizeRevision_;
+        if (!enabled) {
+            // SDL may restore the pre-fullscreen size; apply the most recent requested size.
+            (void)SetSize(windowedWidth, windowedHeight);
+        }
     }
 }
 
@@ -132,11 +163,15 @@ void WindowManager::ProcessEvent(const SDL_Event& e) noexcept
         else if (e.window.event == SDL_WINDOWEVENT_SIZE_CHANGED ||
             e.window.event == SDL_WINDOWEVENT_RESIZED) {
             if (windowHandle && e.window.windowID == SDL_GetWindowID(AsSDL(windowHandle))) {
-                // restore the original size
-                SDL_SetWindowSize(AsSDL(windowHandle), width, height);
-                // and keep the cache consistent
-                int cw, ch; SDL_GetWindowSize(AsSDL(windowHandle), &cw, &ch);
-                width = cw; height = ch;
+                int actualWidth = 0, actualHeight = 0;
+                SDL_GetWindowSize(AsSDL(windowHandle), &actualWidth, &actualHeight);
+                if (actualWidth != width || actualHeight != height) ++sizeRevision_;
+                width = actualWidth;
+                height = actualHeight;
+                if (!fullscreen) {
+                    windowedWidth = actualWidth;
+                    windowedHeight = actualHeight;
+                }
             }
         }
         break;

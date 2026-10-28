@@ -4,6 +4,7 @@
   <h1>XEngine</h1>
   <p><strong>A lightweight, cross-platform 2D game engine built with C++20 and SDL2.</strong></p>
   <p><em>Build 2D games in C++. Understand the engine. Own your code.</em></p>
+  <p><small>Engine release: <strong>0.1.4</strong> · <a href="docs/VERSIONING.md">Version policy</a></small></p>
   <p><small>Modern successor to <a href="https://github.com/the-33/XEngine-Legacy">XEngine-Legacy</a> (Visual Studio / MSVC)</small></p>
   <p>
     <a href="https://en.cppreference.com/w/cpp/20"><img alt="C++20" src="https://img.shields.io/badge/C%2B%2B-20-00599C?logo=cplusplus&amp;logoColor=white" /></a>
@@ -42,14 +43,28 @@ The project includes a portable build tool, a ready-to-use game template and an 
 | **2D rendering** | Sprites, textures, animations, rotation (including X/Y pseudo-3D projection), camera, parallax, culling and UI |
 | **Physics & collision** | RigidBody2D, box/circle colliders, triggers, collision events and fixed-timestep simulation |
 | **Input, audio & assets** | Keyboard/mouse, cached textures and fonts, sound effects, music and immediate-mode UI |
+| **Persistence & data formats** | Direct FileSystem API, atomic single-file writes with inspectable backups, binary/bit I/O, JSON and custom-object serializers, PlayerPrefs |
+| **Runtime resolution** | Window size/fullscreen properties, aspect-aware 2D camera and resize revision for UI layout |
 | **Performance tools** | Optional collision workers, render-command preparation workers, adaptive collision broadphase, CSV profiling and F3/F4 overlays |
 | **Build & distribution** | Windows/Linux native builds, optional cross-build SDK tooling and packaged Release archives |
 
-For architecture, rendering, threading and physics details, read [Architecture](docs/ARCHITECTURE.md), [Multithreading & profiling](docs/MULTITHREADING_AND_PROFILING.md) and the [Developer Guide](docs/DEVELOPER_GUIDE.md).
+To learn the engine from the beginning, follow
+[Your first game](docs/GETTING_STARTED.md) and the
+[includes and project structure guide](docs/INCLUDES_AND_DEPENDENCIES.md).
+The [documentation index](docs/DOCUMENTATION_INDEX.md) organizes the rest of
+the manuals by task; the [Doxygen API reference](docs/API_REFERENCE.md)
+provides exact signatures, property semantics and enum values.
+
+The official engine release number comes from the single root [`VERSION`](VERSION)
+file. Engine documentation and downloadable source archives use that version;
+each game's `config.json` keeps its own independent project version. The
+[versioning policy](docs/VERSIONING.md) explains compatibility and release bumps.
 
 ## Quick start
 
 Clone the repository and install the **host compiler, Python 3.10+ and SDL2 development libraries**. The commands below create a new game rather than depending on private sample games.
+For a walkthrough of the generated files, scene registration, gameplay scripts,
+building and adding assets, read [Your first game](docs/GETTING_STARTED.md).
 
 <details open>
 <summary><strong>Windows 10/11 · MSYS2 UCRT64</strong></summary>
@@ -98,6 +113,8 @@ XEngine/
 │   ├── sync_engine_configs.py
 │   └── sync_game_icons.py
 ├── docs/                     # Architecture and advanced guides
+├── Doxyfile_Games            # Public game-development Doxygen configuration
+├── Doxyfile_Engine           # Full engine internals Doxygen configuration
 ├── tests/                    # Regression tests
 └── README.md
 ```
@@ -195,7 +212,9 @@ python tools/compare_profiles.py --game "XEngine Benchmark"
 
 The parallel collision path has shown measurable advantages in high-contact workloads. **Render preparation parallelism is workload-dependent**: existing measurements do not establish a universal speedup or threshold. Run `python tools/benchmark_render_backends.py --build-config Release` to measure all SDL render backends on your own machine; it preserves the detailed results and recommends a backend using **frames over the monitor/60-Hz budgets, SDL_RenderPresent stalls, p99.9 technical ties and p95/p99 consistency across scenarios and repetitions**, alongside p50/p95/p99 and a per-workload fixed/adaptive comparison. Tiny p99.9 differences (within 2% or 0.02 ms) alone do not decide the winner. Add `--install-ranking` to make `auto` prefer this verified order on the **same machine**; the tool never changes engine.json. If a backend cannot satisfy VSync off, it is recorded as non-comparable in `backend_exclusions.csv` after its first verified failure; genuine failures in `backend_failures.csv` still block installation. See the [benchmark game guide](docs/BENCHMARK_GAME.md), [SDL backend guide](docs/RENDER_BACKENDS.md), [render calibration](docs/RENDER_THRESHOLD_CALIBRATION.md), [adaptive render selector](docs/ADAPTIVE_RENDER_SELECTION.md) and [adaptive broadphase](docs/ADAPTIVE_BROADPHASE.md).
 
-**v16.8:** Sprite X/Y/Z projection now skips unnecessary trigonometry and can run on the CPU render workers without touching SDL. The [sprite projection optimization and A/B procedure](docs/SPRITE_PROJECTION_OPTIMIZATION.md) distinguishes main-thread vs worker-side geometry within the same recorded render path. No performance gain is asserted until platform benchmarks confirm it.
+Sprite X/Y/Z projection supports CPU preparation workers without calling SDL
+from those workers. Its constraints and measurement methodology are described
+in [Sprite projection and worker offload](docs/SPRITE_PROJECTION_OPTIMIZATION.md).
 
 ## Games migrated from XEngine-Legacy
 
@@ -236,19 +255,45 @@ Read the [Legacy migration feasibility and proposed design](docs/LEGACY_MIGRATIO
 
 | Guide | Subject |
 |:--|:--|
-| [Architecture](docs/ARCHITECTURE.md) | Engine systems, scenes and lifecycle |
-| [Developer guide](docs/DEVELOPER_GUIDE.md) | Complete installation, building, packaging and troubleshooting reference |
-| [Cross-compilation](docs/CROSS_COMPILATION.md) | Windows/Linux SDKs, cross builds and verification |
-| [Multithreading and profiling](docs/MULTITHREADING_AND_PROFILING.md) | Worker scheduling, profiler and tradeoffs |
-| [Benchmark game](docs/BENCHMARK_GAME.md) | Reproducible game-integrated performance tests |
-| [SDL render backends](docs/RENDER_BACKENDS.md) | Per-OS backend configuration, automatic ranking, Windows/Linux commands and performance caveats |
-| [Render threshold calibration](docs/RENDER_THRESHOLD_CALIBRATION.md) | Deterministic render scenarios and equivalence checking |
-| [Adaptive render selector](docs/ADAPTIVE_RENDER_SELECTION.md) | Fixed vs weighted cost selection, hysteresis and variable-load calibration |
-| [Engine config synchronization](docs/ENGINE_CONFIG_MIGRATION.md) | Canonical settings, backups and safe updates |
-| [Game Git tracking](docs/GAME_GIT_TRACKING.md) | How to include or exclude your games |
-| [Legacy migration plan](docs/LEGACY_MIGRATION_PLAN.md) | Scope and limits of a future Legacy migrator, plus completed game examples |
-| [Blob's Quest migration](docs/migrations/blobs-quest/MIGRATION.md) | Original game migration notes (public copy) |
-| [My Princess Run migration](docs/migrations/my-princess-run/MIGRATION.md) | Original game migration notes (public copy) |
+| [Documentation index](docs/DOCUMENTATION_INDEX.md) | All guides, organized by what you are trying to achieve |
+| [Your first game](docs/GETTING_STARTED.md) | Create a game, understand scenes and write a Behaviour |
+| [Headers and includes](docs/INCLUDES_AND_DEPENDENCIES.md) | Public headers, C++ organization, properties and dependencies |
+| [Public API reference](docs/API_REFERENCE.md) | Doxygen reference for exported classes, methods, properties and enum values |
+| [Window, camera and UI](docs/WINDOW_AND_CAMERA.md) | Resolution/fullscreen, coordinates, aspect ratio and responsive layout |
+| [Persistence and serialization](docs/PERSISTENCE_AND_SERIALIZATION.md) | File storage, backups, binary/JSON and PlayerPrefs |
+| [Developer Guide](docs/DEVELOPER_GUIDE.md) | Installation, builds, configuration, distribution and troubleshooting |
+
+### Generate the searchable C++ references
+
+Install the optional [Doxygen](https://www.doxygen.nl/) executable on Windows
+or Linux. From the repository root, run:
+
+```bash
+python tools/build_doxygen.py
+python tools/check_doxygen_docs.py
+```
+
+Open **`build/docs/index.html`** and choose the **Game Developer Reference**
+(`build/docs/game/html/index.html`) for the supported public API or the
+**Engine Developer Reference** (`build/docs/engine/html/index.html`) for full
+internals, implementation and maintenance. The sidebar groups Markdown guides
+under **Guides and manuals**, organised by topic. Both have the XEngine
+purple/graphite theme with a light/dark switch. Profiling and benchmarking
+pages automatically use the green XEngine Benchmark logo and palette;
+Markdown logos also follow the Doxygen theme without relying on GitHub-only
+image fragments. Generated machine-readable
+declarations live under each profile's `xml/` directory. These **generated
+files are not committed or packaged**.
+Doxygen is not required to build or run games. Whenever XEngine's library is
+actually recompiled, the build attempts to regenerate this reference if
+Doxygen is installed; cache hits and game-only changes do not trigger it.
+If Doxygen is unavailable, the build prints a recommendation and continues.
+The gameplay profile deliberately excludes private implementation and internal
+property-adapter aliases. Only current-use manuals are included in generated
+documentation; older performance investigations remain in the repository.
+The profiles fail on Doxygen documentation warnings. New public APIs should
+include English `@brief`, `@param`, `@return`
+where useful, and `///<` for individual enum values.
 
 ## Contributing & testing
 
@@ -260,9 +305,8 @@ python -m unittest discover -s tests -v
 
 Tests do not replace compiling and running a real SDL2 game on the intended host and target platforms. The C++ engine is portable, but toolchains, binaries and library dependencies are platform-specific.
 The offline regression suite includes SDL-free C++20 compiler stubs, a
-restored deterministic CPU benchmark and machine-local renderer-ranking
-validation. The v16.25 verification ran **354 tests (0 failures, 0 errors,
-1 skip)** on the development executor. A real Linux/Windows SDL startup and
+restored deterministic CPU benchmark, machine-local renderer-ranking
+validation and Doxygen documentation checks. A real Linux/Windows SDL startup and
 ranking fallback must still be tested on the actual graphics hardware.
 
 ---

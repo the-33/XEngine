@@ -44,8 +44,15 @@ float Camera2D::GetZoom() const noexcept
 
 Vec2 Camera2D::GetViewBase() const noexcept
 {
-	// ancho visible en mundo = base / zoom
-	return (mZoom > 0.f) ? Vec2{(mBaseViewWidth / mZoom), (mBaseViewHeight / mZoom)} : Vec2{ mBaseViewWidth, mBaseViewHeight};
+	// Preserve vertical world units while the window aspect changes.
+	float viewWidth = mBaseViewWidth;
+	if (mMatchWindowAspect) {
+		const Vec2I size = WindowManager::GetInstancePtr()->GetSize();
+		if (size.x > 0 && size.y > 0)
+			viewWidth = mBaseViewHeight * static_cast<float>(size.x) / static_cast<float>(size.y);
+	}
+	return (mZoom > 0.f) ? Vec2{viewWidth / mZoom, mBaseViewHeight / mZoom}
+	                      : Vec2{viewWidth, mBaseViewHeight};
 }
 
 Rect Camera2D::ViewRect() const noexcept {

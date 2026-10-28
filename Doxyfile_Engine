@@ -1,0 +1,30 @@
+# Full engine-development API: inherits common settings and restores internals.
+@INCLUDE                = Doxyfile_Games
+PROJECT_BRIEF           = "Engine Developer Reference | Full internals and implementation"
+OUTPUT_DIRECTORY        = build/docs/engine
+INPUT                   = engine/include engine/src \
+                          docs/reference/game docs/reference/engine \
+                          docs/API_REFERENCE.md docs/ARCHITECTURE.md \
+                          docs/BENCHMARK_GAME.md docs/CROSS_COMPILATION.md \
+                          docs/DEFAULT_GAME_ICONS.md docs/DEVELOPER_GUIDE.md \
+                          docs/ENGINE_CONFIG_MIGRATION.md docs/GAME_CONFIG_SYNC.md \
+                          docs/GAME_GIT_TRACKING.md docs/GETTING_STARTED.md \
+                          docs/INCLUDES_AND_DEPENDENCIES.md \
+                          docs/MULTITHREADING_AND_PROFILING.md \
+                          docs/PERSISTENCE_AND_SERIALIZATION.md \
+                          docs/RENDER_BACKENDS.md docs/RENDER_DIAGNOSTICS.md \
+                          docs/WINDOW_AND_CAMERA.md docs/VERSIONING.md
+FILE_PATTERNS           = *.h *.cpp *.md
+RECURSIVE               = YES
+EXCLUDE                 =
+EXCLUDE_SYMBOLS         =
+EXTRACT_ALL             = YES
+EXTRACT_PRIVATE         = YES
+EXTRACT_PRIV_VIRTUAL    = YES
+EXTRACT_STATIC          = YES
+ENABLED_SECTIONS        = XENGINE_INTERNAL
+HIDE_UNDOC_MEMBERS      = NO
+HIDE_UNDOC_CLASSES      = NO
+INTERNAL_DOCS           = YES
+USE_MDFILE_AS_MAINPAGE  = docs/reference/engine/ENGINE_DEVELOPERS.md
+STRIP_FROM_PATH         = .
