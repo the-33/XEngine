@@ -2,6 +2,7 @@
 """Create a blank project from templates without third-party Python modules."""
 import sys
 import shutil
+import subprocess
 from pathlib import Path
 
 ROOT=Path(__file__).resolve().parent.parent
@@ -51,6 +52,13 @@ def main():
     # Empty asset directories exist locally after copytree; no .gitkeep is
     # created automatically. Only a root-level marker opts a game into Git.
     print(f'[OK] Created games/{name}')
+    # Editor metadata is generated only when this checkout opted in.
+    if (ROOT / 'build' / 'ide' / 'vscode.json').is_file():
+        result = subprocess.run([sys.executable, str(ROOT / 'tools' / 'vscode.py'),
+                                 'refresh'], cwd=ROOT, check=False)
+        if result.returncode:
+            print('[WARN] Game created, but VS Code metadata refresh failed; '
+                  'run python tools/vscode.py refresh', file=sys.stderr)
     print(f'    Windows: cd \"games\\{name}\"  y despues  .\\build.bat --run')
     print(f'    Linux:   cd \"games/{name}\"  y despues  ./build.sh --run')
     return 0

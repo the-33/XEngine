@@ -194,6 +194,14 @@ The source Markdown is not rewritten by that transformation.
 
 ## Build and verify
 
+The optional editor support is described in
+[VS Code integration](../../VSCODE_INTEGRATION.md). When engine build flags,
+SDL includes, generated game headers or project-creation behavior change,
+keep `tools/vscode.py` synchronized with `tools/build.py`; the compile database
+must preserve exact compiler arguments for both cached and rebuilt `.cpp`
+files. Only explicit VS Code opt-in generates `.vscode/` metadata; editor
+files and `build/ide/` stay outside Git and release archives.
+
 From the repository root (Windows or Linux with Python and Doxygen on PATH):
 
 ```sh

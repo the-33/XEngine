@@ -46,7 +46,7 @@ GAME_SHARED = {
     "Build targets, assets and shipping": (
         "CROSS__COMPILATION", "DEFAULT__GAME__ICONS", "GAME__CONFIG__SYNC",
         "GAME__GIT__TRACKING", "ENGINE__CONFIG__MIGRATION", "RENDER__BACKENDS",
-        "VERSIONING"),
+        "VERSIONING", "VSCODE__INTEGRATION"),
     "Optional profiling and diagnostics": (
         "MULTITHREADING__AND__PROFILING", "RENDER__DIAGNOSTICS", "BENCHMARK__GAME"),
 }
@@ -56,7 +56,7 @@ ENGINE = {
                                   "WINDOW__AND__CAMERA", "PERSISTENCE__AND__SERIALIZATION"),
     "Build, platforms and configuration": ("CROSS__COMPILATION", "RENDER__BACKENDS", "DEFAULT__GAME__ICONS",
                                            "GAME__CONFIG__SYNC", "GAME__GIT__TRACKING",
-                                           "ENGINE__CONFIG__MIGRATION", "VERSIONING"),
+                                           "ENGINE__CONFIG__MIGRATION", "VERSIONING", "VSCODE__INTEGRATION"),
     "Profiling and diagnostics": ("BENCHMARK__GAME", "MULTITHREADING__AND__PROFILING", "RENDER__DIAGNOSTICS"),
 }
 

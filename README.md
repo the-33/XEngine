@@ -258,6 +258,7 @@ Read the [Legacy migration feasibility and proposed design](docs/LEGACY_MIGRATIO
 | [Documentation index](docs/DOCUMENTATION_INDEX.md) | All guides, organized by what you are trying to achieve |
 | [Your first game](docs/GETTING_STARTED.md) | Create a game, understand scenes and write a Behaviour |
 | [Headers and includes](docs/INCLUDES_AND_DEPENDENCIES.md) | Public headers, C++ organization, properties and dependencies |
+| [VS Code integration](docs/VSCODE_INTEGRATION.md) | Optional setup for IntelliSense, shared compile commands and game folders |
 | [Public API reference](docs/API_REFERENCE.md) | Doxygen reference for exported classes, methods, properties and enum values |
 | [Window, camera and UI](docs/WINDOW_AND_CAMERA.md) | Resolution/fullscreen, coordinates, aspect ratio and responsive layout |
 | [Persistence and serialization](docs/PERSISTENCE_AND_SERIALIZATION.md) | File storage, backups, binary/JSON and PlayerPrefs |

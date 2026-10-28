@@ -13,7 +13,8 @@ INPUT                   = engine/include engine/src \
                           docs/MULTITHREADING_AND_PROFILING.md \
                           docs/PERSISTENCE_AND_SERIALIZATION.md \
                           docs/RENDER_BACKENDS.md docs/RENDER_DIAGNOSTICS.md \
-                          docs/WINDOW_AND_CAMERA.md docs/VERSIONING.md
+                          docs/WINDOW_AND_CAMERA.md docs/VERSIONING.md \
+                          docs/VSCODE_INTEGRATION.md
 FILE_PATTERNS           = *.h *.cpp *.md
 RECURSIVE               = YES
 EXCLUDE                 =

@@ -18,7 +18,7 @@ INPUT                  = engine/include docs/reference/game \
                          docs/CROSS_COMPILATION.md docs/DEFAULT_GAME_ICONS.md \
                          docs/GAME_CONFIG_SYNC.md docs/GAME_GIT_TRACKING.md \
                          docs/ENGINE_CONFIG_MIGRATION.md docs/RENDER_BACKENDS.md \
-                         docs/VERSIONING.md \
+                         docs/VERSIONING.md docs/VSCODE_INTEGRATION.md \
                          docs/MULTITHREADING_AND_PROFILING.md \
                          docs/RENDER_DIAGNOSTICS.md docs/BENCHMARK_GAME.md
 RECURSIVE              = YES

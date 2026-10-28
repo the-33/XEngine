@@ -459,6 +459,12 @@ def common_flags(target: str, profile: str) -> list[str]:
         flags += ['-O2','-DNDEBUG','-DXENGINE_RELEASE=1']
     return flags
 
+def source_compile_command(compiler: str, flags: list[str], cflags: list[str],
+                           src: Path, obj: Path) -> list[str]:
+    """One authoritative GCC invocation, reused by builds and IDE metadata."""
+    return [compiler, *flags, *cflags, '-MMD', '-MP', '-MF',
+            str(obj.with_suffix('.d')), '-c', str(src), '-o', str(obj)]
+
 def compile_sources(sources: list[Path], *, objroot: Path, compiler: str,
                     flags: list[str], cflags: list[str], headers: list[Path],
                     compiler_version: str, base: Path) -> tuple[list[Path], bool]:
@@ -471,11 +477,10 @@ def compile_sources(sources: list[Path], *, objroot: Path, compiler: str,
         except ValueError: rel=Path(src.name)
         obj=objroot / rel.with_suffix('.o')
         sig=obj.with_suffix('.sha256')
-        dep=obj.with_suffix('.d')
         signature=digest([src],[header_digest,compiler_version,*flags,*cflags])
         if not (obj.is_file() and sig.is_file() and sig.read_text()==signature):
             obj.parent.mkdir(parents=True,exist_ok=True)
-            command([compiler,*flags,*cflags,'-MMD','-MP','-MF',str(dep),'-c',str(src),'-o',str(obj)])
+            command(source_compile_command(compiler, flags, cflags, src, obj))
             sig.write_text(signature)
             changed=True
         objects.append(obj)
@@ -1247,6 +1252,15 @@ def main():
         else:
             lib=create_engine(target=target,profile=profile,arch=arch,tooling=tooling)
             log(f'[OK] {lib}')
+        # Local opt-in: never create VS Code files for developers who have not
+        # enabled the integration. IDE refresh must not break a valid build.
+        if (ROOT / 'build' / 'ide' / 'vscode.json').is_file():
+            ide = subprocess.run([sys.executable, str(ROOT / 'tools' / 'vscode.py'),
+                                  'refresh', '--quiet'], cwd=ROOT, text=True,
+                                 capture_output=True, check=False)
+            if ide.returncode:
+                log('[WARN] VS Code metadata refresh failed: ' +
+                    (ide.stderr.strip() or ide.stdout.strip() or 'unknown error'))
         status = 0
         return 0
     except (BuildError,OSError,subprocess.SubprocessError) as e:
