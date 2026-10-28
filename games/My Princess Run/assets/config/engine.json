@@ -14,6 +14,11 @@
   "Renderer": {
     "vsync": true,
     "hardwareAcceleration": true,
+    "backend": {
+      "windows": "auto",
+      "linux": "auto"
+    },
+    "backendFallback": true,
     "parallelPreparation": true,
     "parallelMinCommands": 384,
     "bgColor": [

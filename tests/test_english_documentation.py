@@ -1,9 +1,7 @@
 """Regression checks for English documentation filenames and diagnostics."""
 from __future__ import annotations
 
-import importlib.util
 from pathlib import Path
-import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -12,11 +10,6 @@ DOCS = (
     (Path("games/Blob's Quest/MIGRACION.md"), Path("games/Blob's Quest/MIGRATION.md")),
     (Path('games/My Princess Run/MIGRACION.md'), Path('games/My Princess Run/MIGRATION.md')),
 )
-
-spec = importlib.util.spec_from_file_location('migrate_documentation', ROOT/'tools/migrate_documentation.py')
-migration = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(migration)
-
 
 class EnglishDocumentationTests(unittest.TestCase):
     def test_english_docs_are_present_and_old_paths_are_gone(self):
@@ -36,31 +29,21 @@ class EnglishDocumentationTests(unittest.TestCase):
         self.assertIn('MIGRATION.md', readme)
         self.assertNotIn('](docs/COMPILACION_CRUZADA.md)', readme)
 
-    def test_legacy_cleanup_preserves_older_docs(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            for old, new in DOCS:
-                (root / old).parent.mkdir(parents=True, exist_ok=True)
-                (root / new).parent.mkdir(parents=True, exist_ok=True)
-                (root / old).write_text('Previous user-edited document', encoding='utf-8')
-                (root / new).write_text('Updated English documentation', encoding='utf-8')
-            archived, missing = migration.migrate(root)
-            self.assertEqual((archived, missing), (3, 0))
-            self.assertEqual(migration.migrate(root), (0, 0))
-            for old, new in DOCS:
-                self.assertFalse((root / old).exists())
-                self.assertEqual((root / new).read_text(encoding='utf-8'), 'Updated English documentation')
-                backup = (root / migration.BACKUP_DIR / new).with_suffix('.previous.md')
-                self.assertEqual(backup.read_text(encoding='utf-8'), 'Previous user-edited document')
+    def test_completed_migration_keeps_original_case_studies(self):
+        # The one-shot migration script was intentionally retired. The durable
+        # contract is that public English docs and original case studies stay.
+        for game, slug in (("Blob's Quest", 'blobs-quest'),
+                           ('My Princess Run', 'my-princess-run')):
+            with self.subTest(game=game):
+                original = ROOT / 'games' / game / 'MIGRATION.md'
+                published = ROOT / 'docs' / 'migrations' / slug / 'MIGRATION.md'
+                self.assertTrue(original.is_file())
+                self.assertTrue(published.is_file())
+                self.assertIn('# ' + game, original.read_text(encoding='utf-8'))
+                self.assertIn('# ' + game, published.read_text(encoding='utf-8'))
 
-    def test_cleanup_does_not_remove_doc_without_english_replacement(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            old, _ = DOCS[0]
-            (root / old).parent.mkdir(parents=True, exist_ok=True)
-            (root / old).write_text('Do not lose this file', encoding='utf-8')
-            self.assertEqual(migration.migrate(root), (0, 1))
-            self.assertTrue((root / old).is_file())
+    def test_retired_one_shot_document_migrator_is_not_distributed(self):
+        self.assertFalse((ROOT / 'tools/migrate_documentation.py').exists())
 
 
 if __name__ == '__main__':

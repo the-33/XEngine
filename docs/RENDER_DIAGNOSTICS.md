@@ -50,7 +50,13 @@ New optional CSV columns (existing consumers can ignore them):
 path used no workers that frame; `render_workers` gives actual worker-pool
 participation.
 - `render_record_ms`, `render_prepare_ms`, `render_worker_wait_ms`,
-  `render_submit_ms`, `render_only_present_ms` retain their previous meanings.
+  `render_submit_ms` retain their previous meanings. The historic
+  `render_only_present_ms` measures the **entire** `RenderManager::End()` call,
+  including SDL presentation and post-present cache/texture cleanup.
+- `render_sdl_present_ms` (new) times only the SDL present delegate, when
+  `Engine.profileCsv` is enabled. Subtracting it from the full End timer gives
+  an approximate cleanup/stopwatch overhead; this is not a GPU execution time.
+  Older CSVs do not have the new column and remain readable.
 
 The frame-cached drawable dimensions are reused for screen-space draw calls,
 so tiled backgrounds do not query the SDL window size for each tile.

@@ -1,6 +1,6 @@
 <div align="center">
-  <img src="docs/branding/xengine_logo_light.svg?v=4#gh-light-mode-only" alt="XEngine logo — purple X and silver gear" width="176" />
-  <img src="docs/branding/xengine_logo_dark.svg?v=4#gh-dark-mode-only" alt="XEngine logo — purple X and silver gear" width="176" />
+  <img src="docs/branding/xengine_logo_light.svg?v=4#gh-light-mode-only" alt="XEngine logo — purple X and silver gear (light theme)" width="176" />
+  <img src="docs/branding/xengine_logo_dark.svg?v=4#gh-dark-mode-only" alt="XEngine logo — purple X and silver gear (dark theme)" width="176" />
   <h1>XEngine</h1>
   <p><strong>A lightweight, cross-platform 2D game engine built with C++20 and SDL2.</strong></p>
   <p><em>Build 2D games in C++. Understand the engine. Own your code.</em></p>
@@ -94,6 +94,7 @@ XEngine/
 │   ├── templates/BlankGame/ # Starting point for new games
 │   ├── new_project.py       # Create a game
 │   ├── build.py             # Native and cross-platform build driver
+│   ├── sync_game_configs.py # Keep game config.json schema synchronized
 │   ├── sync_engine_configs.py
 │   └── sync_game_icons.py
 ├── docs/                     # Architecture and advanced guides
@@ -102,6 +103,18 @@ XEngine/
 ```
 
 A generated game uses `src/main.cpp` for startup, `src/InitCallback.hpp` for asset loading and scene registration, and `assets/scenes/`, `assets/gameobjects/` and `assets/scripts/` for game code. Build settings live in `config.json`; runtime settings live in `assets/config/engine.json`.
+
+### Game build configuration
+
+The canonical build manifest is [`BlankGame/config.json`](tools/templates/BlankGame/config.json). Existing games receive new template fields automatically while retaining their own project name, version, platform-specific icon paths, build choices, definitions and extra settings. The historical key manifest tracks template fields that were intentionally removed, without deleting unknown game-specific extensions.
+
+```bash
+python tools/sync_game_configs.py --check  # Preview build-manifest changes
+python tools/sync_game_configs.py          # Apply to all games with backups
+python tools/sync_game_configs.py --game "My Game"  # Apply to one game
+```
+
+See [game build configuration synchronization](docs/GAME_CONFIG_SYNC.md) for backups, compatibility with legacy icon values and troubleshooting.
 
 ### Runtime configuration
 
@@ -112,9 +125,11 @@ python tools/sync_engine_configs.py --check  # Preview changes
 python tools/sync_engine_configs.py          # Apply without replacing custom values
 ```
 
-**Every game build automatically runs both the engine configuration and default-icon synchronizers before compilation**. No manual sync command is required when building; these commands are useful for checking your workspace beforehand. Neither operation replaces custom game settings or custom icon filenames.
+**Every game build automatically runs all three synchronizers**—game `config.json`, runtime engine configuration and default icons—before compilation. No manual sync command is required when building; the commands are useful for checking your workspace beforehand. The synchronizers preserve custom game settings and custom icon filenames.
 
-For icons, put your original `xengine_icon.ico` (Windows) and 512×512 `xengine_icon.png` (Linux) in the BlankGame template and use `"default"` in `config.json` for either platform. A missing configured custom icon is reported and falls back to the synchronized *game-local* default. Run `python tools/sync_game_icons.py --check` to inspect changes and `python tools/sync_game_icons.py --apply` to sync all games outside a build. See [Default game icons](docs/DEFAULT_GAME_ICONS.md) and [Engine configuration migration](docs/ENGINE_CONFIG_MIGRATION.md). The render selector has a **single global threshold** (`parallelMinCommands`, experimental default **1536**) and two strategies: `fixed` (default) and opt-in `adaptive` (weighted projection cost with hysteresis). Existing custom values are preserved by configuration synchronization. See the [adaptive render selector guide](docs/ADAPTIVE_RENDER_SELECTION.md).
+For icons, put your original `xengine_icon.ico` (Windows) and 512×512 `xengine_icon.png` (Linux) in the BlankGame template and use `"default"` in `config.json` for either platform. A missing configured custom icon is reported and falls back to the synchronized *game-local* default. Run `python tools/sync_game_icons.py --check` to inspect changes and `python tools/sync_game_icons.py --apply` to sync all games outside a build. See [Default game icons](docs/DEFAULT_GAME_ICONS.md) and [Engine configuration migration](docs/ENGINE_CONFIG_MIGRATION.md). The render selector has a **single global threshold** (`parallelMinCommands`, experimental default **1536**) and two strategies: `fixed` (default) and opt-in `adaptive` (weighted projection cost with hysteresis). Existing custom values are preserved by configuration synchronization. See the [adaptive render selector guide](docs/ADAPTIVE_RENDER_SELECTION.md). The platform-specific runtime `Renderer.backend` setting defaults to `auto` on Windows and Linux; use the [SDL renderer backend guide](docs/RENDER_BACKENDS.md) to select or benchmark installed graphics backends without changing game code.
+
+On Windows **and** Linux, `Renderer.backend: "auto"` now checks for a validated *machine-local* backend ranking installed from XEngine's own Release benchmarks. It prioritizes smooth frame times and SDL Present stalls, then tries compatible fallbacks if startup fails. Without a comparable ranking, Windows starts with Direct3D 11 and Linux delegates to SDL's default. `Renderer.backendFallback` defaults to `true`; `false` makes an explicit JSON choice strict. The `SDL_RENDER_DRIVER` environment override is always strict so benchmarks cannot be mislabelled. See [SDL renderer backends](docs/RENDER_BACKENDS.md) for reproducible Windows/Linux commands, safe ranking installation, report interpretation and manual overrides.
 
 ### Which games are published?
 
@@ -151,16 +166,22 @@ install_cross_sdk.bat --target linux  # Windows → Linux
 ./install_cross_sdk.sh --target windows  # Linux → Windows
 ```
 
-Use `--sdk-dir` to choose a custom SDK directory. For a manual alternative, see the [cross-compilation reference](docs/CROSS_COMPILATION.md).
+New SDKs use the operating system's per-user data folder: `AppData\Local\XEngine\sdk`
+on Windows and `${XDG_DATA_HOME:-$HOME/.local/share}/xengine/sdk` on Linux.
+Existing `~/.xengine/sdk` installations continue working; use
+`--target linux --migrate-sdk` (Windows) or `--target windows --migrate-sdk`
+(Linux) for an explicit offline copy. The original remains intact.
+`--sdk-dir` still supports a custom SDK directory or another drive. See the
+[cross-compilation reference](docs/CROSS_COMPILATION.md) for instructions.
 
 ## Benchmarking and profiling
 
 <p align="center">
   <a href="docs/BENCHMARK_GAME.md#gh-light-mode-only">
-    <img src="docs/branding/xengine_benchmark_logo_light.svg?v=4#gh-light-mode-only" alt="XEngine Benchmark logo — a speedometer within a gear" width="136" />
+    <img src="docs/branding/xengine_benchmark_logo_light.svg?v=4#gh-light-mode-only" alt="XEngine Benchmark logo — a speedometer within a gear (light theme)" width="136" />
   </a>
   <a href="docs/BENCHMARK_GAME.md#gh-dark-mode-only">
-    <img src="docs/branding/xengine_benchmark_logo_dark.svg?v=4#gh-dark-mode-only" alt="XEngine Benchmark logo — a speedometer within a gear" width="136" />
+    <img src="docs/branding/xengine_benchmark_logo_dark.svg?v=4#gh-dark-mode-only" alt="XEngine Benchmark logo — a speedometer within a gear (dark theme)" width="136" />
   </a>
 </p>
 
@@ -172,7 +193,7 @@ For an interactive overview, toggle the **F3** debug profiler and use **F4** to 
 python tools/compare_profiles.py --game "XEngine Benchmark"
 ```
 
-The parallel collision path has shown measurable advantages in high-contact workloads. **Render preparation parallelism is workload-dependent**: existing measurements do not establish a universal speedup or threshold. See the [benchmark game guide](docs/BENCHMARK_GAME.md), [render calibration](docs/RENDER_THRESHOLD_CALIBRATION.md), [adaptive render selector](docs/ADAPTIVE_RENDER_SELECTION.md) and [adaptive broadphase](docs/ADAPTIVE_BROADPHASE.md).
+The parallel collision path has shown measurable advantages in high-contact workloads. **Render preparation parallelism is workload-dependent**: existing measurements do not establish a universal speedup or threshold. Run `python tools/benchmark_render_backends.py --build-config Release` to measure all SDL render backends on your own machine; it preserves the detailed results and recommends a backend using **frames over the monitor/60-Hz budgets, SDL_RenderPresent stalls, p99.9 technical ties and p95/p99 consistency across scenarios and repetitions**, alongside p50/p95/p99 and a per-workload fixed/adaptive comparison. Tiny p99.9 differences (within 2% or 0.02 ms) alone do not decide the winner. Add `--install-ranking` to make `auto` prefer this verified order on the **same machine**; the tool never changes engine.json. If a backend cannot satisfy VSync off, it is recorded as non-comparable in `backend_exclusions.csv` after its first verified failure; genuine failures in `backend_failures.csv` still block installation. See the [benchmark game guide](docs/BENCHMARK_GAME.md), [SDL backend guide](docs/RENDER_BACKENDS.md), [render calibration](docs/RENDER_THRESHOLD_CALIBRATION.md), [adaptive render selector](docs/ADAPTIVE_RENDER_SELECTION.md) and [adaptive broadphase](docs/ADAPTIVE_BROADPHASE.md).
 
 **v16.8:** Sprite X/Y/Z projection now skips unnecessary trigonometry and can run on the CPU render workers without touching SDL. The [sprite projection optimization and A/B procedure](docs/SPRITE_PROJECTION_OPTIMIZATION.md) distinguishes main-thread vs worker-side geometry within the same recorded render path. No performance gain is asserted until platform benchmarks confirm it.
 
@@ -220,6 +241,7 @@ Read the [Legacy migration feasibility and proposed design](docs/LEGACY_MIGRATIO
 | [Cross-compilation](docs/CROSS_COMPILATION.md) | Windows/Linux SDKs, cross builds and verification |
 | [Multithreading and profiling](docs/MULTITHREADING_AND_PROFILING.md) | Worker scheduling, profiler and tradeoffs |
 | [Benchmark game](docs/BENCHMARK_GAME.md) | Reproducible game-integrated performance tests |
+| [SDL render backends](docs/RENDER_BACKENDS.md) | Per-OS backend configuration, automatic ranking, Windows/Linux commands and performance caveats |
 | [Render threshold calibration](docs/RENDER_THRESHOLD_CALIBRATION.md) | Deterministic render scenarios and equivalence checking |
 | [Adaptive render selector](docs/ADAPTIVE_RENDER_SELECTION.md) | Fixed vs weighted cost selection, hysteresis and variable-load calibration |
 | [Engine config synchronization](docs/ENGINE_CONFIG_MIGRATION.md) | Canonical settings, backups and safe updates |
@@ -237,6 +259,11 @@ python -m unittest discover -s tests -v
 ```
 
 Tests do not replace compiling and running a real SDL2 game on the intended host and target platforms. The C++ engine is portable, but toolchains, binaries and library dependencies are platform-specific.
+The offline regression suite includes SDL-free C++20 compiler stubs, a
+restored deterministic CPU benchmark and machine-local renderer-ranking
+validation. The v16.25 verification ran **354 tests (0 failures, 0 errors,
+1 skip)** on the development executor. A real Linux/Windows SDL startup and
+ranking fallback must still be tested on the actual graphics hardware.
 
 ---
 

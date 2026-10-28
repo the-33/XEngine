@@ -44,6 +44,20 @@ private:
     int mWinW = 0, mWinH = 0;
     bool mVSync = true;
     bool mAccelerated = true;
+    // Preserve the actually initialized SDL renderer through VSync recreation.
+    int mPreferredRendererDriverIndex = -1;
+    std::string mRequestedRendererBackend = "auto";
+    std::string mFirstChoiceRendererBackend = "auto";
+    struct BackendCandidate
+    {
+        int index = -1;
+        std::string name;
+    };
+    std::vector<BackendCandidate> mRendererCandidates;
+    bool ResolveRendererBackend_(const std::string& requested,
+                                 bool allowFallback, bool strictHint) noexcept;
+    bool CreateInitialRenderer_(std::uint32_t flags) noexcept;
+    void CreateWhiteTexture_() noexcept;
 
 	float renderBeginTime = 0.f;
     float renderTime = 0.f;
@@ -72,6 +86,8 @@ private:
         bool accelerated = true;
         bool vsync = true;
         Color bgColor = Color::White();
+        std::string backend = "auto";
+        bool backendFallback = true;
     };
 
     std::vector<SDL_Texture*> mTempTextTextures; // destroy at the end of the frame
@@ -121,6 +137,9 @@ private:
     float mBackgroundMs = 0.f, mDebugMs = 0.f;
     float mSpriteSubmitMs = 0.f; // world textures only, measured when CSV profiling is enabled
     bool mMeasureSpriteSubmissions = false;
+    // Exact SDL_RenderPresent duration; End() also includes texture cleanup.
+    float mLastSdlPresentMs = 0.f;
+    bool mMeasureSdlPresent = false;
     // Comparison switch: both variants record commands; only workers mode
     // defers sprite XYZ projection until CPU geometry preparation.
     bool mDeferSpriteProjection = true;
@@ -148,6 +167,27 @@ private:
     void EndRecord() noexcept;
 
 public:
+    // One-shot read-only diagnostics for benchmarks. These are the SDL objects
+    // actually created (including any fallback), not the requested JSON flags.
+    struct BackendDiagnostics {
+        bool rendererInfoAvailable = false;
+        std::string rendererName;
+        std::string videoDriver;
+        std::string sdlVersion;
+        std::string renderDriverHint, renderVsyncHint;
+        std::string rendererInfoError;
+        std::uint32_t rendererFlags = 0;
+        bool accelerated = false, software = false;
+        bool vsync = false, targetTexture = false;
+        std::uint32_t windowFlags = 0;
+        int rendererOutputWidth = 0, rendererOutputHeight = 0;
+        int maxTextureWidth = 0, maxTextureHeight = 0;
+        int windowWidth = 0, windowHeight = 0;
+        int displayIndex = -1, displayRefreshHz = 0;
+    };
+
+    BackendDiagnostics QueryBackendDiagnostics() const;
+
     enum class BackgroundMode : uint8_t
     {
         None = 0,

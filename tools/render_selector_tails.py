@@ -161,6 +161,164 @@ def analyze_phase_run(rows: list[dict[str, str]], *, build: str, workload: str,
     return result_frames, result_summaries
 
 
+def analyze_phase_passes(rows: list[dict[str, str]], *, build: str,
+                         workload: str, repetition: int, mode: str,
+                         phase_frames: int, warmup: int,
+                         phase_loads: tuple[int, ...] = (55, 75, 100, 65)
+                         ) -> list[dict[str, object]]:
+    """One record per contiguous phase visit, preserving first/second visits.
+
+    Uses absolute profile frame numbers (not zero-based measured offsets),
+    because the phase cycle begins during warmup. Partial phase windows are
+    explicitly labelled; old captures without exact SDL timing remain readable.
+    """
+    if phase_frames < 1 or warmup < 0 or len(phase_loads) != 4 or not rows:
+        raise ValueError('invalid phase-pass configuration or empty samples')
+    windows: dict[int, list[dict[str, str]]] = {}
+    for row in rows:
+        frame = int(row['frame'])
+        if frame < warmup:
+            raise ValueError('phase pass rows must contain measured frames only')
+        windows.setdefault(frame // phase_frames, []).append(row)
+    seen: dict[int, int] = {}
+    result: list[dict[str, object]] = []
+    for segment, window in sorted(windows.items()):
+        phase = segment % 4
+        seen[phase] = seen.get(phase, 0) + 1
+        frame_numbers = [int(row['frame']) for row in window]
+        if (len(window) > phase_frames or len(set(frame_numbers)) != len(window) or
+            any(frame // phase_frames != segment for frame in frame_numbers)):
+            raise ValueError('malformed phase segment frames')
+        # A valid full visit must cover the exact contiguous phase interval.
+        complete = (len(window) == phase_frames and
+                    min(frame_numbers) == segment * phase_frames and
+                    max(frame_numbers) == (segment + 1) * phase_frames - 1)
+        ordered = sorted(window, key=lambda row: int(row['frame']))
+        exact = all(row.get(EXACT_PRESENT, '') != '' for row in ordered)
+        vals = lambda field: [float(row[field]) for row in ordered]
+        full = vals('frame_ms')
+        end = vals('render_only_present_ms')
+        render = vals('render_present_ms')
+        first = full[:10]
+        remaining = full[10:]
+        first_cutoff = percentile(full, .95)
+        slow = [value >= first_cutoff for value in full]
+        streak = longest = 0
+        for is_slow in slow:
+            streak = streak + 1 if is_slow else 0
+            longest = max(longest, streak)
+        data: dict[str, object] = {
+            'build_config': build, 'workload': workload, 'repetition': repetition,
+            'mode': mode, 'phase': phase, 'phase_load_pct': phase_loads[phase],
+            'pass_index': seen[phase], 'phase_start_frame': segment * phase_frames,
+            'measured_first_frame': min(frame_numbers),
+            'measured_last_frame': max(frame_numbers),
+            'frame_count': len(window), 'complete_phase': int(complete),
+            'frame_p50_ms': percentile(full, .5),
+            'frame_p95_ms': percentile(full, .95),
+            'frame_p99_ms': percentile(full, .99),
+            'frame_max_ms': max(full),
+            'render_p95_ms': percentile(render, .95),
+            'end_p95_ms': percentile(end, .95),
+            'cpu_pre_end_p95_ms': percentile([max(0., a - b)
+                                           for a, b in zip(render, end)], .95),
+            'record_p95_ms': percentile(vals('render_record_ms'), .95),
+            'prepare_p95_ms': percentile(vals('render_prepare_ms'), .95),
+            'submit_p95_ms': percentile(vals('render_submit_ms'), .95),
+            'worker_wait_p95_ms': percentile(vals('render_worker_wait_ms'), .95),
+            'first10_frame_p95_ms': percentile(first, .95),
+            'remaining_frame_p95_ms': percentile(remaining, .95) if remaining else '',
+            'p95_tail_in_first10': sum(slow[:10]),
+            'max_consecutive_p95_frames': longest,
+            'parallel_requested_frames': sum(int(float(row['render_path_reason'])) == 3
+                                             for row in ordered),
+            'parallel_executed_frames': sum(int(float(row['render_parallel_executed']))
+                                            for row in ordered),
+            'parallel_fallback_frames': sum(int(float(row['render_parallel_fallback']))
+                                            for row in ordered),
+            'sdl_exact_available': int(exact),
+            'sdl_present_p50_ms': '', 'sdl_present_p95_ms': '',
+            'sdl_present_p99_ms': '', 'sdl_present_max_ms': '',
+            'end_cleanup_p95_ms': '',
+        }
+        if exact:
+            sdl = vals(EXACT_PRESENT)
+            data.update(sdl_present_p50_ms=percentile(sdl, .5),
+                        sdl_present_p95_ms=percentile(sdl, .95),
+                        sdl_present_p99_ms=percentile(sdl, .99),
+                        sdl_present_max_ms=max(sdl),
+                        end_cleanup_p95_ms=percentile([max(0., e - p)
+                                                       for e, p in zip(end, sdl)], .95))
+        result.append(data)
+    return result
+
+
+def compare_phase_passes(data: list[dict[str, object]]
+                         ) -> tuple[list[dict[str, object]], list[dict[str, object]]]:
+    """Independent pairs: fixed vs adaptive per visit; visit 1 vs 2 per mode.
+
+    Pair only full, same-length phase visits. These are independent processes,
+    not synchronized frames; percentile deltas are descriptive, not causal.
+    """
+    matched: dict[tuple[str, int, int, int, str], dict[str, object]] = {}
+    for record in data:
+        key = (str(record['workload']), int(record['repetition']),
+               int(record['phase']), int(record['pass_index']), str(record['mode']))
+        if key in matched:
+            raise ValueError(f'duplicate phase visit {key}')
+        matched[key] = record
+    modes: list[dict[str, object]] = []
+    visits: list[dict[str, object]] = []
+
+    def percent_gain(first: object, second: object) -> object:
+        if first == '' or second == '' or float(first) == 0:
+            return ''
+        return 100 * (float(first) - float(second)) / float(first)
+
+    for (workload, rep, phase, visit, mode), a in sorted(matched.items()):
+        if not a['complete_phase']:
+            continue
+        if mode == 'fixed':
+            other = matched.get((workload, rep, phase, visit, 'adaptive'))
+            if other and other['complete_phase'] and a['frame_count'] == other['frame_count']:
+                common = {'workload': workload, 'repetition': rep, 'phase': phase,
+                          'phase_load_pct': a['phase_load_pct'], 'pass_index': visit}
+                modes.append({**common, 'fixed_frame_p95_ms': a['frame_p95_ms'],
+                              'adaptive_frame_p95_ms': other['frame_p95_ms'],
+                              'adaptive_frame_p95_gain_pct': percent_gain(a['frame_p95_ms'], other['frame_p95_ms']),
+                              'fixed_frame_p99_ms': a['frame_p99_ms'],
+                              'adaptive_frame_p99_ms': other['frame_p99_ms'],
+                              'adaptive_frame_p99_gain_pct': percent_gain(a['frame_p99_ms'], other['frame_p99_ms']),
+                              'fixed_sdl_p95_ms': a['sdl_present_p95_ms'],
+                              'adaptive_sdl_p95_ms': other['sdl_present_p95_ms'],
+                              'adaptive_sdl_p95_gain_pct': percent_gain(a['sdl_present_p95_ms'], other['sdl_present_p95_ms']),
+                              'fixed_sdl_p99_ms': a['sdl_present_p99_ms'],
+                              'adaptive_sdl_p99_ms': other['sdl_present_p99_ms'],
+                              'adaptive_sdl_p99_gain_pct': percent_gain(a['sdl_present_p99_ms'], other['sdl_present_p99_ms']),
+                              'fixed_parallel_executed': a['parallel_executed_frames'],
+                              'adaptive_parallel_executed': other['parallel_executed_frames']})
+        if visit == 1:
+            later = matched.get((workload, rep, phase, 2, mode))
+            if later and later['complete_phase'] and a['frame_count'] == later['frame_count']:
+                visits.append({'workload': workload, 'repetition': rep,
+                               'mode': mode, 'phase': phase, 'phase_load_pct': a['phase_load_pct'],
+                               'first_frame_p95_ms': a['frame_p95_ms'],
+                               'second_frame_p95_ms': later['frame_p95_ms'],
+                               'second_frame_p95_gain_pct': percent_gain(a['frame_p95_ms'], later['frame_p95_ms']),
+                               'first_frame_p99_ms': a['frame_p99_ms'],
+                               'second_frame_p99_ms': later['frame_p99_ms'],
+                               'second_frame_p99_gain_pct': percent_gain(a['frame_p99_ms'], later['frame_p99_ms']),
+                               'first_sdl_p95_ms': a['sdl_present_p95_ms'],
+                               'second_sdl_p95_ms': later['sdl_present_p95_ms'],
+                               'second_sdl_p95_gain_pct': percent_gain(a['sdl_present_p95_ms'], later['sdl_present_p95_ms']),
+                               'first_sdl_p99_ms': a['sdl_present_p99_ms'],
+                               'second_sdl_p99_ms': later['sdl_present_p99_ms'],
+                               'second_sdl_p99_gain_pct': percent_gain(a['sdl_present_p99_ms'], later['sdl_present_p99_ms']),
+                               'first_p95_tail_in_first10': a['p95_tail_in_first10'],
+                               'second_p95_tail_in_first10': later['p95_tail_in_first10']})
+    return modes, visits
+
+
 def analyze_existing_all(source: Path) -> tuple[list[dict[str, object]],
                                                 list[dict[str, object]],
                                                 list[dict[str, object]],
@@ -230,6 +388,49 @@ def analyze_existing(source: Path) -> tuple[list[dict[str, object]], list[dict[s
     return frames, summaries, pairs
 
 
+def analyze_existing_phase_passes(source: Path) -> tuple[list[dict[str, object]],
+                                                        list[dict[str, object]],
+                                                        list[dict[str, object]]]:
+    """Offline revisit of old/new archives; keep analyze_existing_all's API stable."""
+    archive = zipfile.ZipFile(source) if source.is_file() else None
+    try:
+        names = archive.namelist() if archive else [str(p.relative_to(source)).replace('\\', '/')
+                                                    for p in source.rglob('*') if p.is_file()]
+        metadata_paths = [name for name in names if name.endswith('metadata.json') and
+                          (name.count('/') == 0 or name.split('/')[-2].startswith('render_selector_'))]
+
+        def read(name: str) -> str:
+            return (archive.read(name).decode('utf-8-sig') if archive else
+                    (source / name).read_text(encoding='utf-8-sig'))
+
+        passes: list[dict[str, object]] = []
+        for name in sorted(metadata_paths):
+            root = name.removesuffix('metadata.json')
+            meta = json.loads(read(name))
+            if meta.get('selector_modes') != ['fixed', 'adaptive']:
+                continue
+            warmup, count = int(meta['warmup']), int(meta['frames'])
+            for workload in meta['workloads']:
+                for rep in range(1, int(meta['repetitions']) + 1):
+                    for mode in ('fixed', 'adaptive'):
+                        profile = f'{root}{workload}/{mode}_run{rep:02d}/render_parallel_run01.csv'
+                        data = list(csv.DictReader(io.StringIO(read(profile))))
+                        if len(data) < warmup + count:
+                            raise ValueError(f'{profile}: missing measured frames')
+                        passes.extend(analyze_phase_passes(
+                            data[warmup:warmup + count], build=str(meta['build_config']),
+                            workload=workload, repetition=rep, mode=mode,
+                            phase_frames=int(meta['phase_frames']), warmup=warmup,
+                            phase_loads=tuple(meta.get('render_cycle_percentages', [55,75,100,65]))))
+        if not passes:
+            raise ValueError('no phase visits found in archive')
+        modes, visits = compare_phase_passes(passes)
+        return passes, modes, visits
+    finally:
+        if archive:
+            archive.close()
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--input', required=True, type=Path,
@@ -239,17 +440,23 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         frames, summaries, phase_frames, phase_summaries, pairs = analyze_existing_all(args.input)
+        passes, paired_modes, paired_visits = analyze_existing_phase_passes(args.input)
         args.output.mkdir(parents=True, exist_ok=True)
         write_csv(args.output / 'tail_frames.csv', frames)
         write_csv(args.output / 'tail_summary.csv', summaries)
         write_csv(args.output / 'phase_tail_frames.csv', phase_frames)
         write_csv(args.output / 'phase_tail_summary.csv', phase_summaries)
+        write_csv(args.output / 'phase_pass_results.csv', passes)
+        write_csv(args.output / 'phase_pass_comparisons.csv', paired_modes)
+        write_csv(args.output / 'phase_pass_transitions.csv', paired_visits)
     except (OSError, KeyError, ValueError, json.JSONDecodeError, zipfile.BadZipFile) as exc:
         print(f'[FAIL] Tail analysis: {exc}', file=sys.stderr)
         return 1
     print(f'[SELECTOR-TAILS] equivalent_pairs={pairs} p95_frames={len(frames)} '
           f'summaries={len(summaries)} phase_p95_frames={len(phase_frames)} '
-          f'phase_summaries={len(phase_summaries)} errors=0 output={args.output}', flush=True)
+          f'phase_summaries={len(phase_summaries)} '
+          f'phase_passes={len(passes)} pass_pairs={len(paired_modes)} '
+          f'pass_transitions={len(paired_visits)} errors=0 output={args.output}', flush=True)
     return 0
 
 

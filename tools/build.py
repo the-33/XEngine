@@ -101,7 +101,8 @@ def _command_stage(args: list[str]) -> tuple[str, bool]:
     if '-o' in args:
         destination = args[args.index('-o') + 1]
         return f'[LINK] {_short_path(destination)}', True
-    if len(args) > 1 and args[1].endswith(('sync_engine_configs.py', 'sync_game_icons.py')):
+    if len(args) > 1 and args[1].endswith((
+            'sync_game_configs.py', 'sync_engine_configs.py', 'sync_game_icons.py')):
         return f'[SYNC] {Path(args[1]).name}', False
     return '[RUN] ' + _short_path(args[0]), False
 
@@ -712,12 +713,12 @@ def game_sources(game: Path, target: str, generated: Path) -> list[Path]:
     return sorted(set(sources))
 
 def sync_before_game_build(project: str) -> None:
-    """Always sync game engine settings and default icons before any compilation.
+    """Sync game manifest, runtime settings and default icons before compilation.
 
     Each command streams output directly to the terminal (and benchmark tee
     logs). A nonzero exit aborts immediately, never using an old executable.
     """
-    for tool in ('sync_engine_configs.py', 'sync_game_icons.py'):
+    for tool in ('sync_game_configs.py', 'sync_engine_configs.py', 'sync_game_icons.py'):
         command([sys.executable, str(ROOT / 'tools' / tool), '--game', project], cwd=ROOT)
 
 

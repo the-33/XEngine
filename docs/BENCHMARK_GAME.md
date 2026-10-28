@@ -1,12 +1,32 @@
 # XEngine Benchmark
 
 <div align="center">
-  <img src="branding/xengine_benchmark_logo_light.svg?v=4#gh-light-mode-only" alt="XEngine Benchmark logo — a speedometer within a gear" width="184" />
-  <img src="branding/xengine_benchmark_logo_dark.svg?v=4#gh-dark-mode-only" alt="XEngine Benchmark logo — a speedometer within a gear" width="184" />
+  <img src="branding/xengine_benchmark_logo_light.svg?v=4#gh-light-mode-only" alt="XEngine Benchmark logo — a speedometer within a gear (light theme)" width="184" />
+  <img src="branding/xengine_benchmark_logo_dark.svg?v=4#gh-dark-mode-only" alt="XEngine Benchmark logo — a speedometer within a gear (dark theme)" width="184" />
   <p><strong>Reproducible performance tests and profiling on the real XEngine runtime.</strong></p>
 </div>
 
 Independent C++20/SDL2 benchmark game under `games/XEngine Benchmark/`. It uses the engine's actual `Scene`, `GameObject`, `Transform`, `SpriteRenderer`, `Collider2D`, `RigidBody2D` and `Behaviour` components, not a synthetic substitute for the engine's lifecycle.
+
+To **discover and compare every SDL2 renderer available on your own Windows
+or Linux machine**, use `python tools/benchmark_render_backends.py
+--build-config Release`. It builds once, probes SDL's renderer list, runs
+controlled fixed/adaptive sweeps per backend and writes `report.md`,
+`backend_ranking.csv`, `backend_results.csv` and all original per-driver
+profiles. See the [complete backend configuration and comparison
+guide](RENDER_BACKENDS.md) for Windows/Linux PowerShell, Bash, output
+interpretation and the current justification for keeping `auto` as default.
+The backend ranking treats very small p99.9 differences as technical ties
+and then checks whether p95/p99 advantages repeat across workloads and runs.
+Functional counters are checked automatically; **pixel equivalence still
+needs a separate visual check**.
+
+The default benchmark window is 1280 × 720 (windowed). The backend comparison
+supports `--width`, `--height` and `--fullscreen` to match a game's actual
+resolution and desktop-fullscreen mode; it verifies the SDL-reported display
+conditions across all drivers and stores fullscreen state with new rankings.
+See [Benchmark resolution and fullscreen mode](RENDER_BACKENDS.md#benchmark-resolution-and-fullscreen-mode)
+for reproducible commands and why fullscreen is not universally preferable.
 
 ## Build
 
@@ -169,6 +189,7 @@ Outputs:
 - `{scenario}_{mode}_runXX.csv`: original full frame-by-frame engine profile, including warmup.
 - `{scenario}_{mode}_runXX.log`: stdout, stderr, process exit code and execution duration.
 - `metadata.json`: run configuration, environment, selected scheduling mode, expected fixed-step totals, and SHA-256 of each runtime JSON.
+- `metadata.json` also contains `presenter_observations` for the **actual** SDL renderer and video driver created after startup, including renderer flags (observed VSync), output/window sizes, display and refresh rate. Each run prints one `[BENCH-PRESENTER]` JSON handshake; missing or active-VSync instrumentation aborts rather than accepting a stale executable. `summary.csv` includes renderer identity/flags and exact `render_sdl_present_ms` p50/p95 when available.
 - `failures.txt`: created only if runs failed; failure status is returned to the calling shell. A Windows loader error (such as `0xC0000139`, `0xC0000135` or `0xC000007B`) **aborts the batch after the first process** instead of repeating the same startup failure for every scenario/mode. Inspect the corresponding `.log`. Other per-scenario failures continue to be collected.
 
 The run-level profile CSV also contains `collision_passes`, `collision_parallel_passes`,
@@ -184,6 +205,51 @@ sum of candidate CPU timings by `collision_passes_total` (not just
 The runner discards the first `--warmup` frame samples and uses exactly `--frames` samples for aggregates (a final SDL_QUIT frame may also exist in the original CSV). It reports frame **wall time**, not just CPU time; `vsync` is explicitly disabled in every mode. Time measurements depend on GPU drivers, frequency scaling, thermals and other processes. Run on the same machine, graphics backend and resolution; use several repetitions and interpret p50/p95 together with `fixed_steps`, `broadphase_tests`, `render_eligible_current` and `render_path_reason`. Do not interpret the number of worker threads as achieved speedup. In real-time mode, fixed-step counts can differ with frame time, so normalize collision/physics comparisons against actual step/passes counts. Deterministic mode instead schedules equal counts and validates them before accepting results.
 
 **Limitations:** A complete performance comparison requires a compiled SDL2 engine and a usable real graphics driver. CPU-only tests validate the benchmark runner and render preparation, but do not measure the SDL application's runtime. This repository does not ship fabricated timing results.
+
+### Install a benchmark-backed renderer order for users
+
+For the graphical SDL renderer selection (separate from the `fixed`/`adaptive`
+preparation strategy), use the complete Release sweep on the machine that
+will run XEngine:
+
+```bash
+python3 tools/benchmark_render_backends.py --build-config Release --workloads baseline culling mixed rotations_xyz --repetitions 3 --sprites 2048 --threshold 1536 --install-ranking
+```
+
+On Windows substitute `python` if that is your Python launcher. The command
+retains all raw results and installs the stability-first ranking only if
+at least two drivers complete every measurement, their functional comparisons
+pass, and no genuine failures remain. A verified backend that cannot disable
+VSync is marked **non-comparable** and excluded from the measured ranking;
+its original failure log is preserved and no longer invalidates the other
+drivers. Inspect `backend_exclusions.csv` separately from genuine errors in
+`backend_failures.csv`; the latter still prevent installation. Such a presenter
+is stopped after its first failed run rather than repeating every workload.
+To validate/install
+an already captured folder use
+`python tools/install_render_backend_ranking.py --results PATH --check`,
+then repeat without `--check`. Use `--status` to see the human-readable local
+preference, or `--status --json` for the original machine-readable record.
+The runtime automatically ignores the preference if OS, SDL, display, video
+driver or game window size differs. The exact commands, report interpretation,
+fallback semantics and manual selection instructions are in
+[`RENDER_BACKENDS.md`](RENDER_BACKENDS.md#end-user-procedure-calibrate-auto-on-your-own-computer).
+
+For the **render-selector latency investigation**, use
+`tools/sweep_render_selector.py` to compare `fixed` versus `adaptive`.
+The sweep already alternates first-run order (odd repetition: fixed first;
+even: adaptive first), and now persists it in `run_order.csv`. It also
+rejects pairs whose reported SDL backend, display, resolution or refresh
+conditions differ. In addition to the existing per-phase p95/p99 tails,
+`phase_pass_results.csv` reports separate contiguous load visits, and
+`phase_pass_comparisons.csv`/`phase_pass_transitions.csv` compare the two
+selection modes and first-versus-second visits independently. A warmup of
+60 frames with phase length 60 means the measured phase sequence starts
+at 75%, not 55%. Use an even repetition count for balanced starting order.
+Older completed ZIPs can be reprocessed with `tools/render_selector_tails.py`
+without pretending they contain newer SDL instrumentation. See
+[`RENDER_CULLING_RELEASE_FORENSICS_20261022.md`](RENDER_CULLING_RELEASE_FORENSICS_20261022.md)
+for exact Windows Release commands and interpretation limits.
 
 ## v13: paired adaptive-strategy benchmark
 
@@ -224,9 +290,10 @@ Python runner verifies the packaged configuration hashes. New CSV columns
 `render_parallel_executed` and `render_parallel_fallback` distinguish actual
 worker dispatch from a selected recorded path. See
 [Adaptive render selection](ADAPTIVE_RENDER_SELECTION.md) for the complete
-methodology, smoke and replicated commands. Both engine and game build messages
-stream live to console and `build.log` during the sweep; a nonzero build aborts
-all measurements before launching an old binary.
+methodology, smoke and replicated commands. The sweep streams concise
+build-stage progress/errors to the terminal and `build_console.log`;
+`build.log` stores the complete unfiltered compiler transcript. A nonzero
+build aborts all measurements before launching an old binary.
 
 The latest experimental adaptive optimization also caches viewport bounds
 once per frame and stops visibility scoring once the accumulated work is
@@ -235,6 +302,24 @@ provably above the entry threshold. The CSV field
 **Visibility fast path and saturated adaptive scoring** section of
 [Adaptive render selection](ADAPTIVE_RENDER_SELECTION.md) for the important
 counter semantics and Debug/Release verification commands.
+
+### Exact SDL presentation and Release culling tails (2026-10-22)
+
+In freshly built profiles, `render_sdl_present_ms` times **only** the SDL
+presentation call. The older `render_only_present_ms` remains the inclusive
+`RenderManager::End()` duration (SDL present **plus** cache/temporary-resource
+cleanup). The tail reports use the exact field when available, derive an
+approximate End-cleanup remainder, and accept historical profiles without it.
+New `sweep_render_selector.py` captures require the exact column and stop
+immediately if a cached/old executable does not produce it. Keep
+`Renderer.parallelSelection: fixed` and the experimental threshold 1536.
+
+The seven-repetition Windows Release `culling` analysis found no consistent
+p95/p99 advantage for adaptive, and several multi-millisecond `End()` stalls
+in both modes. The source/profiler mismatch and build-log collision have been
+addressed as diagnostics-only changes. See
+[the full culling phase and tail analysis](RENDER_CULLING_RELEASE_FORENSICS_20261022.md)
+and the fresh-benchmark reproduction command there.
 
 For investigating latency regressions, each successful real
 `sweep_render_selector.py` sweep now also exports `tail_frames.csv` and

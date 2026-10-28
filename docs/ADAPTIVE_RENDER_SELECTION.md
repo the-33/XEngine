@@ -88,6 +88,19 @@ writing `build.log`. Failure aborts immediately with a nonzero status: an
 old executable must never be used as a fallback. Source-equivalence checks are
 not pixel-perfect screenshots.
 
+**v16.17 controlled tail experiment:** The existing order alternation is
+now exported in `run_order.csv` (use an even repetition count for balanced
+start positions). The runner records the *actual* SDL backend and presentation
+conditions, rejects unexpected VSync or changing fixed/adaptive backend,
+and saves per-visit `phase_pass_results.csv`, matched
+`phase_pass_comparisons.csv`, and first/second
+`phase_pass_transitions.csv`. These preserve a genuine cold/early-transition
+comparison instead of pooling all identical-load visits. Renderer identity
+does **not** measure GPU queue stalls or prove what causes a slow
+`SDL_RenderPresent()`. See the dated
+[`render culling forensics`](RENDER_CULLING_RELEASE_FORENSICS_20261022.md)
+report for a reproducible Release run, offline reanalysis and limitations.
+
 **Before making the adaptive mode the production default**, gather replicated
 Windows Debug and Release results: per-phase p50/p95/p99, number of transitions,
 actual worker activity, CPU overhead and confidence under noise. If hysteresis
@@ -345,8 +358,9 @@ and verifies 7 thresholds with both hysteresis states and synthetic streams
 of mixed sprite weights. This validates the comparison mathematics; it does
 **not** prove overall SDL frame-time improvement or pixel equivalence.
 
-Build and run independently in **Debug and Release**, keeping the engine and
-game's complete build output visible:
+Build and run independently in **Debug and Release**. The default terminal
+shows concise compiler progress and all errors; use `--show warnings` to
+also display warnings. Full unfiltered diagnostics remain in raw build logs:
 
 ```powershell
 python tools/sweep_render_selector_cost.py --build --build-config Debug --workloads baseline culling mixed rotations_xyz --routes recorded immediate --sprites 2048 --threshold 1536 --phase-frames 60 --frames 480 --warmup 60 --repetitions 7
@@ -378,13 +392,15 @@ Specific tails requiring caution:
 
 - Debug, `baseline`, repetition 2: fixed p95/p99 = **2.205/2.447 ms**;
   adaptive = **2.583/4.240 ms**. Adaptive frame 369 spent **3.990 ms**
-  inside `SDL_RenderPresent`; frame 370 spent **3.307 ms** in input, while
+  inside `RenderManager::End()` (SDL present **plus cleanup**; the exact SDL
+  call was not measured); frame 370 spent **3.307 ms** in input, while
   frames 527–529 were on the **immediate** route (no render workers) and
   `render_world_ms` reached **4.701 ms** on frame 529. No single selector
   decision timer explains these different peaks.
 - Release, `baseline`, repetition 1: fixed p95/p99 = **1.431/1.610 ms**;
   adaptive = **1.677/1.962 ms**. At frame 127 adaptive spent **1.567 ms**
-  inside `SDL_RenderPresent`; the entire frame was **2.406 ms**. At frames
+  inside `RenderManager::End()` (not exact SDL present); the entire frame was
+  **2.406 ms**. At frames
   129 and 369, input itself was **0.267/0.206 ms**. These are scheduling/
   submission/presentation candidates to profile further, not proof that the
   visibility predicate made these frames slow.
@@ -393,7 +409,9 @@ Specific tails requiring caution:
   frame (Debug adaptive: 167 of 168, with one input-dominated spike).
   **This does not make the SDL-present call the cause of every regression**:
   `render_present_ms` includes the *whole* render stage, while
-  `render_only_present_ms` is the nested SDL-present call.
+  `render_only_present_ms` is the nested **whole `RenderManager::End()`**
+  duration (SDL present plus resource/cache cleanup). Historical captures
+  cannot split those operations.
 
 The experiments were separate sequential processes, not synchronized
 per-frame A/B. Differencing independent p95 or p99 quantiles cannot establish
@@ -456,3 +474,45 @@ branch saves visibility CPU time. This optimization has been verified only
 by SDL-free C++ equivalence tests on Linux so far: do **not** claim a Windows
 p50/p95/p99 gain before new matched sessions. Preserve production `fixed`
 and the experimental `1536` threshold.
+
+## Release culling follow-up: exact present instrumentation (2026-10-22)
+
+The Windows Release `render_selector_20261022_112229_339088` capture contains
+seven equivalent `culling` fixed/adaptive pairs. The median paired adaptive
+gains were **-0.56% p50, +0.07% p95, -0.41% p99**: no tail-latency benefit
+robust enough to justify adjusting the selector or the 1536 threshold. At 75%
+load, fixed dispatched render workers in 118/120 frames and adaptive in 0/120;
+adaptive's within-phase p95 median paired gain was **-6.71%**. Some of the
+largest outliers appeared in the old inclusive `End()` timer under **both**
+modes (44.4563 ms total frame in adaptive r3; 7.4994 ms in fixed r5), so
+those observations cannot identify a slow SDL call without better timing.
+
+The source in the latest supplied project ZIP supported the optional
+`render_sdl_present_ms` in `tools/render_selector_tails.py` but did **not**
+measure/export it from C++; the Release build also reported cached engine
+and game binaries. `RenderManager::End()` now conditionally measures only the
+SDL call, the engine exports `render_sdl_present_ms` in new profile CSVs, and
+the fresh selector sweep refuses old captures immediately. The standalone
+tail analyzer and generic profile comparator stay compatible with earlier
+CSVs. The new `render_end_cleanup_ms` forensic field is computed as the
+old whole-End duration minus the new exact SDL duration; it is approximate
+cleanup/clock overhead, **not** a GPU timer. The existing
+`render_cpu_pre_end_ms` is a coarse remainder of the render stage, not a
+pure CPU stopwatch.
+
+The selector sweep now writes **two separate** compiler logs with `--build`:
+`build.log` is the unfiltered builder transcript and `build_console.log`
+mirrors the live concise progress/errors. Older same-file writes could
+corrupt the end of `build.log`. See the numerical phase and outlier tables in
+[Release culling forensics](RENDER_CULLING_RELEASE_FORENSICS_20261022.md).
+
+Next native Windows Release verification (after installing the patch):
+
+```powershell
+python tools/sweep_render_selector.py --build --build-config Release --workloads culling --sprites 2048 --threshold 1536 --phase-frames 60 --frames 480 --warmup 60 --repetitions 7
+```
+
+Confirm a real recompilation/relink, correct build-log separation,
+`render_sdl_present_ms` in all 14 new CSVs, 7/7 counter-equivalent pairs,
+and stable visuals. Revisit CPU prep versus presentation/cleanup only after
+examining the new stage-separated phase p95/p99 frames.

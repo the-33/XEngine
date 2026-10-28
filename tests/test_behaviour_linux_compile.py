@@ -3,9 +3,8 @@
 Run from XEngine root:
     python3 -m unittest discover -s tests -p 'test_behaviour_linux_compile.py'
 
-A minimal temporary stand-in is used for SDL_stdinc.h solely because this
-translation unit needs the SDLCALL macro via Engine.h. This test does not test
-linking, SDL runtime operation or a full game build.
+Minimal temporary SDL stand-ins validate syntax without requiring the native
+SDL2 SDK. This is not a substitute for the real SDL2 compile/link build.
 """
 
 import shutil
@@ -28,6 +27,22 @@ class BehaviourLinuxCompileTest(unittest.TestCase):
             stub = Path(td)
             (stub / "SDL_stdinc.h").write_text(
                 "#pragma once\n#define SDLCALL\n", encoding="utf-8"
+            )
+            (stub / "SDL.h").write_text(
+                "#pragma once\n#include <cstdint>\n"
+                "typedef struct SDL_Texture SDL_Texture;\n"
+                "typedef struct SDL_Surface SDL_Surface;\n"
+                "typedef struct SDL_Renderer SDL_Renderer;\n"
+                "typedef struct SDL_Window SDL_Window;\n"
+                "typedef union SDL_Event { std::uint32_t type; } SDL_Event;\n"
+                "#define SDL_QUIT 0x100\n", encoding="utf-8"
+            )
+            (stub / "SDL_mixer.h").write_text(
+                "#pragma once\ntypedef struct Mix_Chunk Mix_Chunk;\n"
+                "typedef struct _Mix_Music Mix_Music;\n", encoding="utf-8"
+            )
+            (stub / "SDL_ttf.h").write_text(
+                "#pragma once\ntypedef struct _TTF_Font TTF_Font;\n", encoding="utf-8"
             )
             for config in ("DEBUG", "RELEASE"):
                 with self.subTest(config=config):

@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "managedLeaves": [
+    ["build", "architecture"],
+    ["build", "configuration"],
+    ["build", "platform"],
+    ["defines"],
+    ["project", "icon", "linux"],
+    ["project", "icon", "windows"],
+    ["project", "name"],
+    ["project", "version"],
+    ["shipping", "copy_runtime_assets"]
+  ]
+}

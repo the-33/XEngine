@@ -42,20 +42,14 @@ class HeaderOnlyTests(unittest.TestCase):
         self.assertEqual(len(files),2)
         self.assertIn(game/'src/main.cpp', files)
 
-    def test_migration_moves_only_legacy_file_to_backup(self):
-        spec=importlib.util.spec_from_file_location('migrate_headeronly',ROOT/'tools/migrate_to_hpp.py')
-        mod=importlib.util.module_from_spec(spec);spec.loader.exec_module(mod)
-        with tempfile.TemporaryDirectory() as td:
-            project=Path(td)/'Test'
-            folder=project/'assets/scripts'; folder.mkdir(parents=True)
-            (folder/'ExampleBehaviour.hpp').write_text('#pragma once\n')
-            (folder/'ExampleBehaviour.cpp').write_text('// custom user edits')
-            with mock.patch.object(mod,'TARGETS',{project:{'scripts':('ExampleBehaviour',)}}),\
-                 mock.patch.object(mod,'ROOT',Path(td)):
-                self.assertEqual(mod.main(),0)
-                self.assertFalse((folder/'ExampleBehaviour.cpp').exists())
-                self.assertEqual((project/'_legacy_split_files/scripts/ExampleBehaviour.cpp').read_text(),
-                                 '// custom user edits')
+    def test_retired_migrator_does_not_ship_and_game_sources_remain_header_only(self):
+        self.assertFalse((ROOT / 'tools/migrate_to_hpp.py').exists())
+        for game in (ROOT/'games'/"Blob's Quest", ROOT/'games'/'My Princess Run'):
+            for subfolder in ('scripts', 'gameobjects', 'scenes'):
+                with self.subTest(game=game.name, folder=subfolder):
+                    assets=game/'assets'/subfolder
+                    self.assertFalse(list(assets.glob('*.cpp')))
+                    self.assertFalse(list(assets.glob('*.h')))
 
     @unittest.skipUnless(shutil.which('g++'), 'g++ unavailable')
     def test_inline_code_can_be_included_from_multiple_translation_units(self):

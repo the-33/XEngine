@@ -33,13 +33,14 @@ If a configured **custom path** is missing, `build.py` prints `[ICON] WARNING` a
 
 Every `python tools/build.py game --project "My Game"` (or game-level `build.bat` / `build.sh`) does the following **before compiling game or engine sources**:
 
-1. `sync_engine_configs.py --game "My Game"` updates its runtime engine JSON and additional startup profiles from the canonical BlankGame schema while preserving compatible custom values and backing up changes under `.xengine-config-backups/`.
-2. `sync_game_icons.py --game "My Game"` compares SHA-256 of `xengine_icon.ico` and `xengine_icon.png` with BlankGame; it copies absent files and replaces outdated reserved filenames, backing up replaced bytes under `.xengine-icon-backups/`.
-3. On success, the normal compiler and linker run; a changed Windows icon causes a relink through the existing build signature mechanism.
+1. `sync_game_configs.py --game "My Game"` updates its root `config.json` against BlankGame, preserving chosen icon values (including legacy strings and `null`), project identity, build settings and custom keys. Previous manifests are backed up under `.xengine-config-backups/`.
+2. `sync_engine_configs.py --game "My Game"` updates its runtime engine JSON and additional startup profiles from the canonical BlankGame schema while preserving compatible custom values and backing up changes under `.xengine-config-backups/`.
+3. `sync_game_icons.py --game "My Game"` compares SHA-256 of `xengine_icon.ico` and `xengine_icon.png` with BlankGame; it copies absent files and replaces outdated reserved filenames, backing up replaced bytes under `.xengine-icon-backups/`.
+4. On success, the normal compiler and linker run; a changed Windows icon causes a relink through the existing build signature mechanism.
 
-Only the **requested game** is modified by a build. A standalone sync without `--game` updates all game directories. Both synchronizers are idempotent.
+Only the **requested game** is modified by a build. A standalone sync without `--game` updates all game directories. All three synchronizers are idempotent.
 
-All tool output remains visible on the console (and benchmark `build.log` through its live tee). If either synchronizer or the compiler fails, the build exits nonzero: no benchmark may run a stale binary.
+All tool output remains visible on the console (and benchmark `build.log` through its live tee). If any synchronizer or the compiler fails, the build exits nonzero: no benchmark may run a stale binary.
 
 ## Command-line synchronization
 
@@ -47,6 +48,7 @@ All tool output remains visible on the console (and benchmark `build.log` throug
 python tools/sync_game_icons.py --check                 # Compare all games; exit 1 if changes needed
 python tools/sync_game_icons.py --apply                 # Synchronize all games
 python tools/sync_game_icons.py --game "My Game" --apply # Synchronize one game
+python tools/sync_game_configs.py --check              # Inspect game-level config.json
 python tools/sync_engine_configs.py --check             # Inspect runtime JSON
 ```
 

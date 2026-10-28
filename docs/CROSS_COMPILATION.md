@@ -79,7 +79,50 @@ install_cross_sdk.bat --target linux --sdk-dir "D:\Cross SDKs\linux-x86_64"
 | Linux | `windows` | Download MinGW SDL2 development archives, prepare Windows headers/libraries/DLLs and update `linux.windows` |
 | Either | `all` | Check native dependencies and install the other supported target SDK |
 
-**Options:** `--sdk-dir` chooses a location (target-specific; not usable with `all`); `--force` redownloads/reinstalls; `--verify-only` retests an existing Windows → Linux sysroot without re-extracting it. A default SDK path under `~/.xengine/sdk/<target>-x86_64` is a **configurable example**, not a required global directory. `~` resolves to the current account's home; an SDK may be kept on another drive. The generated `toolchains.local.json` is local and ignored by Git.
+**SDK storage defaults (new installations):**
+
+| Host | Default SDK directory |
+|---|---|
+| Windows | `%LOCALAPPDATA%\XEngine\sdk\<target>-x86_64` (or `AppData\Local` under the user profile if the variable is unavailable) |
+| Linux | `${XDG_DATA_HOME:-$HOME/.local/share}/xengine/sdk/<target>-x86_64` (relative XDG paths fall back to `$HOME/.local/share`) |
+
+`~/.xengine/sdk/<target>-x86_64` is the **old default**. If it already exists
+and the new directory does not, normal setup keeps using it; nothing is moved
+silently. A custom `--sdk-dir` always takes precedence. The generated
+`tools/toolchains.local.json` remains local and Git-ignored.
+
+To **copy** an existing SDK to the new location without downloading packages
+(requires sufficient free disk space for a temporary duplicate):
+
+```powershell
+# Windows -> Linux; run from the project root
+.\install_cross_sdk.bat --target linux --migrate-sdk
+# Verify the copied Linux sysroot without downloading again
+.\install_cross_sdk.bat --target linux --verify-only
+```
+
+```bash
+# Linux -> Windows; run from the project root
+./install_cross_sdk.sh --target windows --migrate-sdk
+```
+
+Migration requires an installed target entry in `toolchains.local.json`; it
+copies the SDK and its cached downloads, rewrites SDK paths inside the target's
+`.pc` files and its toolchain settings, and backs up the original toolchain
+file. The **old SDK is preserved** as a fallback: test a full cross-build
+before removing it yourself. The migration fails if the new directory already
+exists and refuses `--force`, `--sdk-dir` or a native/ambiguous target; it
+never overwrites a custom installation. This is a *copy*, not a zero-space
+move. A failed copy does not remove the original SDK.
+
+**Options:** `--sdk-dir` chooses a location (target-specific; not usable with
+`all`); `--force` redownloads/reinstalls; `--verify-only` retests an existing
+Windows → Linux sysroot without re-extracting it; `--migrate-sdk` performs the
+explicit offline copy described above. SDK storage does not require admin
+rights. The machine-local renderer preference remains at
+`%LOCALAPPDATA%\XEngine\render_backend_ranking.json` on Windows and under
+`$XDG_CONFIG_HOME/xengine` on Linux; its existing location is kept for
+compatibility with previously built games.
 
 **Windows → Linux implementation:** Debian `bookworm` (amd64) package metadata and `.deb` archives come directly from Debian's official HTTPS repositories. Package SHA-256 values from Debian's package metadata are verified, dependencies are followed, `.so` symlinks are materialized for Windows filesystems, and target `.pc` files are relocated to the SDK. This is a *development sysroot assembler*, **not** an apt/dpkg replacement: it does not run Debian maintainer scripts or provide a complete Linux OS. Network access and enough disk space are required; packages/paths may change as repositories evolve. A completed installation still needs an end-to-end link and runtime test on Linux. The target glibc baseline is Debian 12, not the Windows host.
 

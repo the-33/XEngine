@@ -27,17 +27,38 @@ namespace {
     }
     void usage() {
         std::puts("XEngine Benchmark --scenario light|render|collision|balanced|stress "
+                  "[--list-render-backends] "
                   "--mode single|collision|parallel [--frames N] [--warmup N] [--seed N] "
                   "[--timing realtime|deterministic] [--fixed-steps N (1..16)] "
                   "[--broadphase bruteforce|grid|auto] [--cell-size N|auto] [--colliders N] "
                   "[--layout static|clustered|spread|alternating|cycling] [--phase-frames N] "
                   "[--sprites N] [--render-threshold N] [--render-selection fixed|adaptive] [--render-cycle 0|1] [--sprite-projection main|workers] [--render-workload baseline|transforms|tint|culling|mixed|rotations_xyz] "
-                  "[--render-estimate auto|off|weighted|visibility] [--render-route auto|immediate|recorded]");
+                  "[--render-estimate auto|off|weighted|visibility] [--render-route auto|immediate|recorded] "
+                  "[--window-width N --window-height N --fullscreen 0|1]");
     }
 }
 
 int main(int argc, char** argv) {
     using namespace XEngineBenchmark;
+    // Probe compiled SDL2 renderers with no game configuration or benchmark
+    // workload. Their actual usability is verified later by the sweep itself.
+    if (argc == 2 && std::strcmp(argv[1], "--list-render-backends") == 0) {
+        if (SDL_Init(SDL_INIT_VIDEO) != 0) {
+            std::fprintf(stderr, "[BENCH-RENDER-DRIVERS] SDL_Init failed: %s\n", SDL_GetError());
+            return 1;
+        }
+        nlohmann::json drivers = nlohmann::json::array();
+        const int count = SDL_GetNumRenderDrivers();
+        for (int i = 0; i < count; ++i) {
+            SDL_RendererInfo info{};
+            if (SDL_GetRenderDriverInfo(i, &info) == 0 && info.name) {
+                drivers.push_back({{"name", info.name}, {"flags", info.flags}});
+            }
+        }
+        std::printf("[BENCH-RENDER-DRIVERS] %s\n", drivers.dump().c_str());
+        SDL_Quit();
+        return drivers.empty() ? 1 : 0;
+    }
     Options opts;
     std::string mode = "parallel";
     std::string timing = "realtime";
@@ -52,6 +73,10 @@ int main(int argc, char** argv) {
     bool autoCellSize = false;
     bool broadphaseOverride = false;
     bool cellSizeOverride = false;
+    unsigned windowWidth = 0;
+    unsigned windowHeight = 0;
+    bool fullscreenOverride = false;
+    bool windowFullscreen = false;
     for (int i = 1; i < argc; ++i) {
         const std::string key(argv[i]);
         if (key == "--help" || key == "-h") { usage(); return 0; }
@@ -64,6 +89,9 @@ int main(int argc, char** argv) {
         else if (key == "--seed") { if (!parseUnsigned(value, opts.seed)) return 2; }
         else if (key == "--colliders") { unsigned count; if (!parseUnsigned(value, count) || count > 3000) return 2; opts.colliderOverride = static_cast<int>(count); }
         else if (key == "--sprites") { unsigned count; if (!parseUnsigned(value, count) || count > 10000) return 2; opts.spriteOverride = static_cast<int>(count); }
+        else if (key == "--window-width") { if (!parseUnsigned(value, windowWidth)) return 2; }
+        else if (key == "--window-height") { if (!parseUnsigned(value, windowHeight)) return 2; }
+        else if (key == "--fullscreen") { unsigned state; if (!parseUnsigned(value, state) || state > 1) return 2; windowFullscreen = state != 0; fullscreenOverride = true; }
         else if (key == "--render-workload") opts.renderWorkload = value;
         else if (key == "--render-selection") renderSelection = value;
         else if (key == "--render-estimate") renderEstimate = value;
@@ -107,7 +135,9 @@ int main(int argc, char** argv) {
         (timing != "realtime" && timing != "deterministic") ||
         (broadphaseOverride && broadphase != "bruteforce" && broadphase != "grid" && broadphase != "auto") ||
         !std::isfinite(cellSize) || cellSize < 0.05f || cellSize > 4096.f ||
-        fixedSteps < 1 || fixedSteps > 16 || (timing == "realtime" && fixedSteps != 1)) {
+        fixedSteps < 1 || fixedSteps > 16 || (timing == "realtime" && fixedSteps != 1) ||
+        (windowWidth && (windowWidth < 320 || windowWidth > 16384)) ||
+        (windowHeight && (windowHeight < 240 || windowHeight > 16384))) {
         usage(); return 2;
     }
     SetOptions(opts);
@@ -181,6 +211,9 @@ int main(int argc, char** argv) {
         }
         config["Renderer"]["parallelMinCommands"] = renderThreshold;
         config["Renderer"]["parallelSelection"] = renderSelection;
+        if (windowWidth) config["Window"]["width"] = windowWidth;
+        if (windowHeight) config["Window"]["height"] = windowHeight;
+        if (fullscreenOverride) config["Window"]["fullscreen"] = windowFullscreen;
         config["Collision"]["broadphase"] = broadphase;
         config["Collision"]["cellSize"] = autoCellSize ? nlohmann::json("auto") : nlohmann::json(cellSize);
         runtimeConfig = config.dump();
@@ -192,6 +225,38 @@ int main(int argc, char** argv) {
     if (!Engine::StartFromJson(runtimeConfig)) {
         std::fprintf(stderr, "[BENCH-CONFIG] XEngine failed to initialize with %s\n",
                      configPath.string().c_str());
+        return 1;
+    }
+    // Snapshot the ACTUAL SDL backend once after renderer/window creation.
+    // This is deliberately outside measured frames and does not alter VSync.
+    const auto backend = Renderer->QueryBackendDiagnostics();
+    nlohmann::json presenter;
+    presenter["renderer_info_available"] = backend.rendererInfoAvailable;
+    presenter["renderer_name"] = backend.rendererName;
+    presenter["renderer_flags"] = backend.rendererFlags;
+    presenter["renderer_accelerated"] = backend.accelerated;
+    presenter["renderer_software"] = backend.software;
+    presenter["renderer_vsync"] = backend.vsync;
+    presenter["renderer_targettexture"] = backend.targetTexture;
+    presenter["renderer_output_width"] = backend.rendererOutputWidth;
+    presenter["renderer_output_height"] = backend.rendererOutputHeight;
+    presenter["max_texture_width"] = backend.maxTextureWidth;
+    presenter["max_texture_height"] = backend.maxTextureHeight;
+    presenter["video_driver"] = backend.videoDriver;
+    presenter["window_flags"] = backend.windowFlags;
+    presenter["window_fullscreen"] = (backend.windowFlags & SDL_WINDOW_FULLSCREEN) != 0;
+    presenter["window_width"] = backend.windowWidth;
+    presenter["window_height"] = backend.windowHeight;
+    presenter["display_index"] = backend.displayIndex;
+    presenter["display_refresh_hz"] = backend.displayRefreshHz;
+    presenter["sdl_version"] = backend.sdlVersion;
+    presenter["render_driver_hint"] = backend.renderDriverHint;
+    presenter["render_vsync_hint"] = backend.renderVsyncHint;
+    std::printf("[BENCH-PRESENTER] %s\n", presenter.dump().c_str());
+    if (!backend.rendererInfoAvailable || backend.rendererName.empty()) {
+        std::fprintf(stderr, "[BENCH-PRESENTER] SDL_GetRendererInfo failed: %s\n",
+                     backend.rendererInfoError.c_str());
+        Engine::Stop();
         return 1;
     }
     Renderer->SetDeferredSpriteProjection(spriteProjection == "workers");

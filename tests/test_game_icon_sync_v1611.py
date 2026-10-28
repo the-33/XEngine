@@ -140,13 +140,14 @@ class IconSyncTests(unittest.TestCase):
                 build.project_icon(self.game, {'project': {'icon': path}})
         self.assertIsNone(build.project_icon(self.game, {'project': {'icon': None}}))
 
-    def test_prebuild_invokes_both_syncs_and_aborts(self):
+    def test_prebuild_invokes_all_three_syncs_and_aborts(self):
         calls=[]
         with mock.patch.object(build, 'command', side_effect=lambda args, **kwargs: calls.append(args)):
             build.sync_before_game_build(self.game.name)
-        self.assertEqual(len(calls), 2)
-        self.assertTrue(calls[0][1].endswith('sync_engine_configs.py'))
-        self.assertTrue(calls[1][1].endswith('sync_game_icons.py'))
+        self.assertEqual(len(calls), 3)
+        self.assertTrue(calls[0][1].endswith('sync_game_configs.py'))
+        self.assertTrue(calls[1][1].endswith('sync_engine_configs.py'))
+        self.assertTrue(calls[2][1].endswith('sync_game_icons.py'))
         with mock.patch.object(build, 'command', side_effect=build.BuildError('compiler preflight failed')) as runner:
             with self.assertRaises(build.BuildError):
                 build.sync_before_game_build(self.game.name)

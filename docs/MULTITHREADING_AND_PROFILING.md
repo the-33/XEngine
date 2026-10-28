@@ -132,10 +132,15 @@ Columns include `frame_ms`, `input_ms`, `fixed_ms`, `update_ms`,
 `collision_candidates_ms`, `collision_merge_ms`, fixed steps, broad/narrowphase
 test counts and worker count. Additional columns are `render_record_ms`,
 `render_prepare_ms`, `render_submit_ms`, `render_only_present_ms`,
+`render_sdl_present_ms`,
 `render_worker_wait_ms`, `render_prepared_commands`, `render_culled_commands`,
 and `render_workers`. `render_prepare_ms` **includes** worker waiting;
 `render_worker_wait_ms` is a diagnostic subset, not a separate phase to add. Timing uses `std::chrono::steady_clock` in **both**
 modes, rather than treating `TimeManager::timeSinceStart` as a stopwatch.
+`render_only_present_ms` includes all of `RenderManager::End()` (presentation
+**and cleanup**); the new optional `render_sdl_present_ms` measures only the
+SDL call and is unavailable in historical captures. Neither timer measures
+GPU execution independently.
 `fixed_ms` includes physics and collision substeps; those numbers must not be
 added twice. `render_present_ms` includes VSync waiting, when enabled; it is not
 pure CPU work. The onscreen Debug overlay (F3) reports frame median (p50) and

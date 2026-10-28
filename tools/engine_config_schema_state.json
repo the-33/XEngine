@@ -67,6 +67,25 @@
     ],
     [
       "Renderer",
+      "backend",
+      "linux"
+    ],
+    [
+      "Renderer",
+      "backend",
+      "macos"
+    ],
+    [
+      "Renderer",
+      "backend",
+      "windows"
+    ],
+    [
+      "Renderer",
+      "backendFallback"
+    ],
+    [
+      "Renderer",
       "bgColor"
     ],
     [

@@ -107,6 +107,117 @@ def host_os() -> str:
     raise SetupError(f'Unsupported host: {sys.platform}')
 
 
+def sdk_locations(host: str, target: str, *,
+                  environ: dict[str, str] | None = None,
+                  home: Path | None = None) -> tuple[Path, Path]:
+    """Return (platform-appropriate location, legacy ~/.xengine location).
+
+    SDKs are large machine-local development data, not roaming preferences.
+    An existing legacy installation remains usable until explicitly migrated.
+    """
+    env = os.environ if environ is None else environ
+    user_home = Path.home() if home is None else home
+    if host == 'windows':
+        base = Path(env.get('LOCALAPPDATA') or user_home / 'AppData' / 'Local') / 'XEngine'
+    elif host == 'linux':
+        xdg = env.get('XDG_DATA_HOME', '').strip()
+        base = ((Path(xdg) if xdg and Path(xdg).is_absolute()
+                 else user_home / '.local' / 'share') / 'xengine')
+    else:
+        raise SetupError(f'Unsupported host: {host}')
+    name = f'{target}-x86_64'
+    return base / 'sdk' / name, user_home / '.xengine' / 'sdk' / name
+
+
+def select_sdk_location(host: str, target: str, *,
+                        custom: Path | None = None) -> tuple[Path, str]:
+    if custom is not None:
+        return custom.expanduser().resolve(), 'custom'
+    preferred, legacy = sdk_locations(host, target)
+    if preferred.is_dir():
+        return preferred.resolve(), 'platform default'
+    if legacy.is_dir():
+        return legacy.resolve(), 'existing legacy SDK (use --migrate-sdk to copy)'
+    return preferred.resolve(), 'platform default (new)'
+
+
+def _replace_sdk_paths(value: object, old: Path, new: Path) -> object:
+    """Replace only this target SDK's paths, preserving custom config keys."""
+    if isinstance(value, str):
+        # pkg-config typically uses POSIX separators, while Windows JSON can
+        # contain either representation. Do not rewrite similarly named paths.
+        for before, after in ((str(old), str(new)), (old.as_posix(), new.as_posix())):
+            if before != after:
+                value = re.sub(re.escape(before) + r'(?=$|[\r\n\\/])',
+                               lambda _match: after, value)
+        return value
+    if isinstance(value, list):
+        return [_replace_sdk_paths(part, old, new) for part in value]
+    if isinstance(value, dict):
+        return {key: _replace_sdk_paths(part, old, new) for key, part in value.items()}
+    return value
+
+
+def migrate_legacy_sdk(host: str, target: str) -> Path:
+    """Opt-in offline COPY; leaves the original SDK intact for recovery."""
+    preferred, legacy = sdk_locations(host, target)
+    preferred, legacy = preferred.resolve(), legacy.resolve()
+    if not legacy.is_dir():
+        raise SetupError(f'No legacy SDK to migrate: {legacy}')
+    if preferred.exists():
+        raise SetupError(f'Refusing to overwrite an existing SDK: {preferred}')
+    if preferred == ROOT or ROOT in preferred.parents or legacy == preferred:
+        raise SetupError('Unsafe SDK migration destination')
+    required = ((Path('sysroot/usr/include/SDL2/SDL.h'),
+                 Path('sysroot/usr/lib/x86_64-linux-gnu/pkgconfig/sdl2.pc'))
+                if (host, target) == ('windows', 'linux') else
+                (Path('include/SDL2/SDL.h'), Path('lib/pkgconfig/sdl2.pc')))
+    missing = [str(legacy / part) for part in required if not (legacy / part).is_file()]
+    if missing:
+        raise SetupError('Cannot migrate an incomplete SDK; missing: ' + ', '.join(missing))
+
+    config = ROOT / 'tools' / 'toolchains.local.json'
+    try:
+        doc = json.loads(config.read_text(encoding='utf-8'))
+        current = doc[host][target]
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        raise SetupError('A valid installed toolchains.local.json entry is required '
+                         'to migrate and update SDK references') from exc
+    if not isinstance(current, dict) or not current:
+        raise SetupError('Missing or invalid toolchain entry for SDK migration')
+    changed = _replace_sdk_paths(current, legacy, preferred)
+    if changed == current:
+        raise SetupError('The selected toolchain does not reference the legacy SDK; '
+                         'inspect tools/toolchains.local.json before migrating')
+
+    preferred.parent.mkdir(parents=True, exist_ok=True)
+    info(f'[MIGRATE] Copying {legacy} to {preferred}; the original will be preserved.')
+    with tempfile.TemporaryDirectory(prefix='.xengine-sdk-migration-',
+                                     dir=preferred.parent) as staging_dir:
+        staging = Path(staging_dir) / 'sdk'
+        shutil.copytree(legacy, staging)
+        # Relocate absolute SDK paths embedded in pkg-config metadata. The
+        # source is untouched, including its cached Debian/SDL downloads.
+        for pc in staging.rglob('*.pc'):
+            data = pc.read_text(encoding='utf-8')
+            rewritten = _replace_sdk_paths(data, legacy, preferred)
+            if rewritten != data:
+                pc.write_text(str(rewritten), encoding='utf-8')
+        if preferred.exists():
+            raise SetupError(f'SDK destination appeared during migration: {preferred}')
+        staging.rename(preferred)
+        try:
+            update_toolchains(host, target, changed)
+        except Exception:
+            # The original source and its config remain usable. This target
+            # was created by this operation and never existed before.
+            shutil.rmtree(preferred)
+            raise
+    info(f'[MIGRATE] Copied SDK and updated toolchains.local.json: {preferred}')
+    info(f'[MIGRATE] Original SDK kept at {legacy}; remove it only after a successful cross-build.')
+    return preferred
+
+
 def require_programs(names: tuple[str, ...], instruction: str) -> None:
     missing = [name for name in names if shutil.which(name) is None]
     if missing:
@@ -654,6 +765,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='Install target SDKs for XEngine cross-compilation (no WSL/Docker required).')
     parser.add_argument('--target', choices=('auto', 'linux', 'windows', 'all'), default='auto')
     parser.add_argument('--sdk-dir', type=Path, help='Custom target SDK directory (not valid for --target all).')
+    parser.add_argument('--migrate-sdk', action='store_true',
+                        help='Copy an existing ~/.xengine SDK to the OS data folder and update toolchain paths without downloading')
     parser.add_argument('--force', action='store_true', help='Redownload and replace SDK content.')
     parser.add_argument('--debug', action='store_true', help='Include a Python traceback when setup fails.')
     parser.add_argument('--verify-only', action='store_true', help='Reuse an existing Windows-to-Linux sysroot and repeat toolchain/link validation without downloading or extracting packages.')
@@ -664,6 +777,14 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     try:
         host = host_os()
+        if args.migrate_sdk:
+            if (args.target in ('auto', 'all') or args.sdk_dir or args.force or args.verify_only):
+                raise SetupError('--migrate-sdk requires explicit --target linux/windows '
+                                 'and cannot be combined with --sdk-dir, --force or --verify-only.')
+            if args.target == host:
+                raise SetupError('Native targets do not require a cross SDK to migrate.')
+            migrate_legacy_sdk(host, args.target)
+            return 0
         if args.verify_only and (host != 'windows' or args.target != 'linux'):
             raise SetupError('--verify-only is supported only for Windows -> Linux (--target linux).')
         if args.verify_only and args.force:
@@ -679,11 +800,10 @@ def main(argv: list[str] | None = None) -> int:
                 if check.returncode:
                     raise SetupError('Native dependencies are incomplete. See the checker output above.')
                 continue
-            default = Path.home() / '.xengine' / 'sdk' / (target + '-x86_64')
-            sdk = (args.sdk_dir or default).expanduser().resolve()
+            sdk, location_source = select_sdk_location(host, target, custom=args.sdk_dir)
             if sdk == ROOT or ROOT in sdk.parents:
                 raise SetupError('Store cross SDKs outside the XEngine repository.')
-            info(f'[SDK] Location: {sdk} (override with --sdk-dir)')
+            info(f'[SDK] Location: {sdk} ({location_source}; override with --sdk-dir)')
             if host == 'linux' and target == 'windows':
                 install_windows_sdk(sdk, force=args.force)
             elif host == 'windows' and target == 'linux':

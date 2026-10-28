@@ -1,14 +1,22 @@
 #include "RenderManager.h"
 
 #include <cmath>
+#include <cstdlib>
+#include <filesystem>
+#include <fstream>
+#include <nlohmann/json.hpp>
+#include <set>
+#include <stdexcept>
 
 #include "SDL.h"
 #include "SDL_ttf.h"
 #include "WindowManager.h"
 #include "Camera2D.h"
 #include "RenderPreparation.h"
+#include "RendererBackendPolicy.h"
 #include <chrono>
 #include <algorithm>
+#include <cstdio>
 #include "ErrorHandler.h"
 #include "TimeManager.h"
 
@@ -23,6 +31,215 @@ static inline bool SDL_Intersect(const SDL_Rect& a, const SDL_Rect& b, SDL_Rect&
     return out.w > 0 && out.h > 0;
 }
 
+namespace {
+// The benchmark installer writes this preference to a per-user, per-machine
+// location, never into the game's packaged assets/config/engine.json.
+std::filesystem::path LocalRendererRankingPath_() {
+#if defined(_WIN32)
+    if (const char* base = std::getenv("LOCALAPPDATA"))
+        if (*base) return std::filesystem::path(base) / "XEngine" / "render_backend_ranking.json";
+#else
+    if (const char* base = std::getenv("XDG_CONFIG_HOME"))
+        if (*base) return std::filesystem::path(base) / "xengine" / "render_backend_ranking.json";
+    if (const char* base = std::getenv("HOME"))
+        if (*base) return std::filesystem::path(base) / ".config" / "xengine" /
+                          "render_backend_ranking.json";
+#endif
+    return {};
+}
+
+std::vector<std::string> ReadMeasuredBackendOrder_(SDL_Window* window) noexcept {
+    std::vector<std::string> names;
+    try {
+        const auto path = LocalRendererRankingPath_();
+        if (path.empty() || !std::filesystem::is_regular_file(path)) return names;
+        if (std::filesystem::file_size(path) > 65536)
+            throw std::runtime_error("ranking file exceeds 64 KiB");
+        std::ifstream stream(path);
+        if (!stream) throw std::runtime_error("cannot open ranking file");
+        const auto record = nlohmann::json::parse(stream);
+        const auto& display = record.at("display");
+#if defined(_WIN32)
+        constexpr const char* platform = "windows";
+#else
+        constexpr const char* platform = "linux";
+#endif
+        if (record.at("schema").get<int>() != 1 ||
+            record.at("platform").get<std::string>() != platform ||
+            record.at("ranking_valid").get<bool>() != true)
+            throw std::runtime_error("ranking platform/schema/validity mismatch");
+
+        SDL_version version{};
+        SDL_GetVersion(&version);
+        const std::string sdlVersion = std::to_string(version.major) + "." +
+            std::to_string(version.minor) + "." + std::to_string(version.patch);
+        const char* video = SDL_GetCurrentVideoDriver();
+        const int displayIndex = window ? SDL_GetWindowDisplayIndex(window) : -1;
+        SDL_DisplayMode mode{};
+        int width = 0, height = 0;
+        if (window) SDL_GetWindowSize(window, &width, &height);
+        if (!video || displayIndex < 0 ||
+            SDL_GetCurrentDisplayMode(displayIndex, &mode) != 0 ||
+            display.at("sdl_version").get<std::string>() != sdlVersion ||
+            display.at("video_driver").get<std::string>() != video ||
+            display.at("display_index").get<int>() != displayIndex ||
+            display.at("display_refresh_hz").get<int>() != mode.refresh_rate ||
+            display.at("window_width").get<int>() != width ||
+            display.at("window_height").get<int>() != height ||
+            (display.contains("window_fullscreen") &&
+             display.at("window_fullscreen").get<bool>() !=
+                 ((SDL_GetWindowFlags(window) & SDL_WINDOW_FULLSCREEN) != 0)))
+            throw std::runtime_error("SDL version, video session, display or window size changed");
+
+        const auto& ranked = record.at("ranked_backends");
+        if (!ranked.is_array() || ranked.size() < 2 || ranked.size() > 32)
+            throw std::runtime_error("invalid ranked backend count");
+        std::set<std::string> unique;
+        for (const auto& item : ranked) {
+            const std::string name = item.get<std::string>();
+            if (name.empty() || name.size() > 64 ||
+                !std::all_of(name.begin(), name.end(), [](unsigned char character) {
+                    return std::isalnum(character) || character == '_' || character == '-';
+                }) || !unique.insert(RendererBackendPolicy::Normalize(name)).second)
+                throw std::runtime_error("invalid or duplicate renderer name");
+            names.push_back(RendererBackendPolicy::Normalize(name));
+        }
+        std::fprintf(stderr, "[RENDER-BACKEND] benchmark-priority=loaded platform=%s count=%zu first=%s\n",
+                     platform, names.size(), names.front().c_str());
+    } catch (const std::exception& error) {
+        std::fprintf(stderr, "[RENDER-BACKEND] warning: ignoring local benchmark ranking: %s\n",
+                     error.what());
+        names.clear();
+    }
+    return names;
+}
+} // namespace
+
+bool RenderManager::ResolveRendererBackend_(const std::string& requested,
+                                             bool allowFallback, bool strictHint) noexcept
+{
+    mRequestedRendererBackend = RendererBackendPolicy::Normalize(requested);
+    if (mRequestedRendererBackend.empty()) mRequestedRendererBackend = "auto";
+    mPreferredRendererDriverIndex = -1;
+    mRendererCandidates.clear();
+    const std::vector<std::string> measuredOrder = strictHint ?
+        std::vector<std::string>{} : ReadMeasuredBackendOrder_(mWindow ? mWindow->SDL() : nullptr);
+    const auto plan = RendererBackendPolicy::MakePlan(
+        requested,
+#if defined(_WIN32)
+        true,
+#else
+        false,
+#endif
+        allowFallback, strictHint, measuredOrder);
+    mFirstChoiceRendererBackend = plan.names.empty() ? "SDL default" : plan.names.front();
+
+    std::string available;
+    const int count = SDL_GetNumRenderDrivers();
+    std::vector<BackendCandidate> installed;
+    for (int i = 0; i < count; ++i)
+    {
+        SDL_RendererInfo info{};
+        if (SDL_GetRenderDriverInfo(i, &info) != 0 || !info.name) continue;
+        if (!available.empty()) available += ", ";
+        available += info.name;
+        installed.push_back({i, RendererBackendPolicy::Normalize(info.name)});
+    }
+    for (const auto& name : plan.names)
+    {
+        const auto found = std::find_if(installed.begin(), installed.end(),
+            [&](const BackendCandidate& candidate) { return candidate.name == name; });
+        if (found != installed.end()) mRendererCandidates.push_back(*found);
+    }
+    if (!strictHint && allowFallback && mRequestedRendererBackend != "auto" &&
+        (mRendererCandidates.empty() ||
+         mRendererCandidates.front().name != mRequestedRendererBackend))
+        std::fprintf(stderr, "[RENDER-BACKEND] warning: requested=%s is not installed; trying fallback\n",
+                     mRequestedRendererBackend.c_str());
+    if (plan.allowSdlDefault) mRendererCandidates.push_back({-1, "SDL default"});
+    if (!mRendererCandidates.empty()) return true;
+
+    const std::string error = "Requested SDL renderer backend '" +
+        requested + "' is unavailable on this platform. Available: " +
+        (available.empty() ? "(none)" : available);
+    std::fprintf(stderr, "[RENDER-BACKEND] %s\n", error.c_str());
+    LogError("RenderManager::Init()", error);
+    return false;
+}
+
+bool RenderManager::CreateInitialRenderer_(std::uint32_t flags) noexcept
+{
+    // Preserve requested acceleration/VSync across every backend first;
+    // only relax these flags if none of the drivers can initialize.
+    for (int pass = 0; pass < (flags ? 2 : 1); ++pass)
+    {
+        const Uint32 attemptFlags = pass == 0 ? flags : 0;
+        for (const BackendCandidate& candidate : mRendererCandidates)
+        {
+            SDL_Renderer* candidateRenderer = SDL_CreateRenderer(
+                mWindow->SDL(), candidate.index, attemptFlags);
+            if (!candidateRenderer)
+            {
+                std::fprintf(stderr,
+                    "[RENDER-BACKEND] warning: backend=%s flags=%u failed: %s\n",
+                    candidate.name.c_str(), attemptFlags, SDL_GetError());
+                continue;
+            }
+
+            SDL_RendererInfo info{};
+            if (SDL_GetRendererInfo(candidateRenderer, &info) != 0 || !info.name ||
+                (candidate.index >= 0 &&
+                 RendererBackendPolicy::Normalize(info.name) != candidate.name))
+            {
+                std::fprintf(stderr,
+                    "[RENDER-BACKEND] warning: cannot verify backend=%s: %s\n",
+                    candidate.name.c_str(), SDL_GetError());
+                SDL_DestroyRenderer(candidateRenderer);
+                continue;
+            }
+
+            // An SDL-default attempt also records its concrete driver for
+            // subsequent SetVSync() recreation.
+            mPreferredRendererDriverIndex = candidate.index;
+            if (mPreferredRendererDriverIndex < 0)
+            {
+                for (int index = 0, count = SDL_GetNumRenderDrivers(); index < count; ++index)
+                {
+                    SDL_RendererInfo driverInfo{};
+                    if (SDL_GetRenderDriverInfo(index, &driverInfo) == 0 && driverInfo.name &&
+                        RendererBackendPolicy::Normalize(driverInfo.name) ==
+                            RendererBackendPolicy::Normalize(info.name))
+                    {
+                        mPreferredRendererDriverIndex = index;
+                        break;
+                    }
+                }
+            }
+            mRenderer = candidateRenderer;
+            if (pass != 0 || candidate.name != mRendererCandidates.front().name ||
+                (mFirstChoiceRendererBackend != "SDL default" &&
+                 RendererBackendPolicy::Normalize(info.name) != mFirstChoiceRendererBackend))
+                std::fprintf(stderr,
+                    "[RENDER-BACKEND] warning: fallback from=%s to=%s flags=%u\n",
+                    mFirstChoiceRendererBackend.c_str(), info.name, attemptFlags);
+            // Re-creation after a VSync change should retry the currently
+            // working driver before visiting compatibility alternatives.
+            auto active = std::find_if(mRendererCandidates.begin(), mRendererCandidates.end(),
+                [&](const BackendCandidate& entry) {
+                    return entry.index == candidate.index && entry.name == candidate.name;
+                });
+            if (active != mRendererCandidates.end())
+            {
+                active->index = mPreferredRendererDriverIndex;
+                active->name = RendererBackendPolicy::Normalize(info.name);
+                std::rotate(mRendererCandidates.begin(), active, active + 1);
+            }
+            return true;
+        }
+    }
+    return false;
+}
+
 bool RenderManager::Init(const Config& cfg) noexcept
 {
     mWindow = WindowManager::GetInstancePtr();
@@ -33,40 +250,123 @@ bool RenderManager::Init(const Config& cfg) noexcept
     mVSync = cfg.vsync;
     mClearColor = cfg.bgColor;
 
+    // Explicit process hints (e.g. SDL_RENDER_DRIVER during benchmarks) take
+    // precedence over the platform-specific JSON choice. Enumerating SDL
+    // renderer indices prevents an unsupported explicit choice from silently
+    // falling back to a different driver.
+    const char* hint = SDL_GetHint(SDL_HINT_RENDER_DRIVER);
+    const bool hasHint = hint && *hint;
+    if (!ResolveRendererBackend_(hasHint ? hint : cfg.backend,
+                                 cfg.backendFallback, hasHint)) return false;
+
     // Create SDL renderer
     Uint32 flags = 0;
     if (mAccelerated) flags |= SDL_RENDERER_ACCELERATED;
     if (mVSync)       flags |= SDL_RENDERER_PRESENTVSYNC;
 
-    mRenderer = SDL_CreateRenderer(mWindow->SDL(), -1, flags);
-    if (!mRenderer) {
-        // Fallback without acceleration/VSYNC
-        mRenderer = SDL_CreateRenderer(mWindow->SDL(), -1, 0);
-    }
-
-    if (!mRenderer)
+    if (!CreateInitialRenderer_(flags))
     {
-        LogError("RenderManager::Init()", "SDL_CreateRenderer(mWindow->SDL(), -1, 0) failed.", SDL_GetError());
+        LogError("RenderManager::Init()", "SDL_CreateRenderer failed for all allowed backends (requested '" +
+                 mRequestedRendererBackend + "').", SDL_GetError());
         return false;
     }
+    SDL_RendererInfo rendererInfo{};
+    if (SDL_GetRendererInfo(mRenderer, &rendererInfo) != 0 || !rendererInfo.name)
+    {
+        LogError("RenderManager::Init()", "SDL_GetRendererInfo() failed.", SDL_GetError());
+        SDL_DestroyRenderer(mRenderer);
+        mRenderer = nullptr;
+        return false;
+    }
+    std::printf("[RENDER-BACKEND] requested=%s source=%s actual=%s flags=%u driver_index=%d\n",
+                mRequestedRendererBackend.c_str(), hasHint ? "SDL_HINT_RENDER_DRIVER" : "config",
+                rendererInfo.name, rendererInfo.flags, mPreferredRendererDriverIndex);
+    mFirstChoiceRendererBackend = RendererBackendPolicy::Normalize(rendererInfo.name);
 
     // Alpha blending for DrawRect/DrawLine and alpha textures
     SDL_SetRenderDrawBlendMode(mRenderer, SDL_BLENDMODE_BLEND);
     const Vec2I drawable = mWindow->GetDrawableSize();
     mWinW = drawable.x; mWinH = drawable.y;
 
-    // 1x1 blanco
+    CreateWhiteTexture_();
+
+    return true;
+}
+
+void RenderManager::CreateWhiteTexture_() noexcept
+{
+    // 1x1 white texture is tied to the SDL_Renderer lifetime.
     mWhite = SDL_CreateTexture(mRenderer, SDL_PIXELFORMAT_RGBA8888,
         SDL_TEXTUREACCESS_TARGET, 1, 1);
-    if (mWhite) {
+    if (mWhite && SDL_SetRenderTarget(mRenderer, mWhite) == 0) {
         SDL_SetTextureBlendMode(mWhite, SDL_BLENDMODE_BLEND);
-        SDL_SetRenderTarget(mRenderer, mWhite);
         SDL_SetRenderDrawColor(mRenderer, 255, 255, 255, 255);
         SDL_RenderClear(mRenderer);
         SDL_SetRenderTarget(mRenderer, nullptr);
     }
+    else
+    {
+        if (mWhite) { SDL_DestroyTexture(mWhite); mWhite = nullptr; }
+        // Compatibility renderers may not support target textures. Rect/line
+        // rendering still requires a valid white texture after fallback.
+        mWhite = SDL_CreateTexture(mRenderer, SDL_PIXELFORMAT_RGBA8888,
+            SDL_TEXTUREACCESS_STATIC, 1, 1);
+        if (mWhite)
+        {
+            const Uint32 white = 0xffffffffu;
+            if (SDL_UpdateTexture(mWhite, nullptr, &white, sizeof(white)) != 0)
+            {
+                SDL_DestroyTexture(mWhite);
+                mWhite = nullptr;
+            }
+            else SDL_SetTextureBlendMode(mWhite, SDL_BLENDMODE_BLEND);
+        }
+        if (!mWhite)
+            std::fprintf(stderr, "[RENDER-BACKEND] warning: white draw texture unavailable: %s\n",
+                         SDL_GetError());
+    }
+}
 
-    return true;
+RenderManager::BackendDiagnostics RenderManager::QueryBackendDiagnostics() const
+{
+    BackendDiagnostics result;
+    SDL_version version{};
+    SDL_GetVersion(&version);
+    result.sdlVersion = std::to_string(version.major) + "." +
+                        std::to_string(version.minor) + "." +
+                        std::to_string(version.patch);
+    if (const char* video = SDL_GetCurrentVideoDriver()) result.videoDriver = video;
+    if (const char* hint = SDL_GetHint(SDL_HINT_RENDER_DRIVER)) result.renderDriverHint = hint;
+    if (const char* hint = SDL_GetHint(SDL_HINT_RENDER_VSYNC)) result.renderVsyncHint = hint;
+    if (mRenderer) {
+        SDL_RendererInfo info{};
+        if (SDL_GetRendererInfo(mRenderer, &info) == 0) {
+            result.rendererInfoAvailable = true;
+            if (info.name) result.rendererName = info.name;
+            result.rendererFlags = info.flags;
+            result.accelerated = (info.flags & SDL_RENDERER_ACCELERATED) != 0;
+            result.software = (info.flags & SDL_RENDERER_SOFTWARE) != 0;
+            result.vsync = (info.flags & SDL_RENDERER_PRESENTVSYNC) != 0;
+            result.targetTexture = (info.flags & SDL_RENDERER_TARGETTEXTURE) != 0;
+            result.maxTextureWidth = info.max_texture_width;
+            result.maxTextureHeight = info.max_texture_height;
+        } else {
+            result.rendererInfoError = SDL_GetError();
+        }
+        SDL_GetRendererOutputSize(mRenderer, &result.rendererOutputWidth,
+                                  &result.rendererOutputHeight);
+    }
+    SDL_Window* window = mWindow ? mWindow->SDL() : nullptr;
+    if (window) {
+        result.windowFlags = SDL_GetWindowFlags(window);
+        SDL_GetWindowSize(window, &result.windowWidth, &result.windowHeight);
+        result.displayIndex = SDL_GetWindowDisplayIndex(window);
+        SDL_DisplayMode display{};
+        if (result.displayIndex >= 0 &&
+            SDL_GetCurrentDisplayMode(result.displayIndex, &display) == 0)
+            result.displayRefreshHz = display.refresh_rate;
+    }
+    return result;
 }
 
 void RenderManager::Shutdown() noexcept
@@ -112,11 +412,19 @@ void RenderManager::Begin(const Camera2D& cam) noexcept
 
 void RenderManager::End() noexcept
 {
+    mLastSdlPresentMs = 0.f;
     if (!mRenderer) return;
 
-    // Delegate present to WindowManager to centralize backend-specific behavior
+    // Measure only the SDL presentation call, not the cleanup below. Keep the
+    // two clock reads out of ordinary frames when CSV profiling is disabled.
+    const auto presentStart = mMeasureSdlPresent
+        ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
+    // Delegate present to WindowManager to centralize backend-specific behavior.
     if (mWindow) mWindow->Present(mRenderer);
     else         SDL_RenderPresent(mRenderer);
+    if (mMeasureSdlPresent)
+        mLastSdlPresentMs = std::chrono::duration<float, std::milli>(
+            std::chrono::steady_clock::now() - presentStart).count();
 
     for (SDL_Texture* t : mTempTextTextures) SDL_DestroyTexture(t);
     mTempTextTextures.clear();
@@ -149,6 +457,7 @@ void RenderManager::SetVSync(bool enabled) noexcept
 
     ClearTextCache_();
     mTextureTintCache.clear();
+    if (mWhite) { SDL_DestroyTexture(mWhite); mWhite = nullptr; }
     SDL_DestroyRenderer(mRenderer);
     mRenderer = nullptr;
 
@@ -156,9 +465,21 @@ void RenderManager::SetVSync(bool enabled) noexcept
     if (mAccelerated) flags |= SDL_RENDERER_ACCELERATED;
     if (mVSync)       flags |= SDL_RENDERER_PRESENTVSYNC;
 
-    mRenderer = SDL_CreateRenderer(mWindow->SDL(), -1, flags);
-    if (!mRenderer) mRenderer = SDL_CreateRenderer(mWindow->SDL(), -1, 0);
-    if (mRenderer) SDL_SetRenderDrawBlendMode(mRenderer, SDL_BLENDMODE_BLEND);
+    if (!CreateInitialRenderer_(flags))
+    {
+        LogError("RenderManager::SetVSync()", "Could not recreate any allowed renderer backend.",
+                 SDL_GetError());
+        return;
+    }
+    SDL_SetRenderDrawBlendMode(mRenderer, SDL_BLENDMODE_BLEND);
+    CreateWhiteTexture_();
+    SDL_RendererInfo info{};
+    if (SDL_GetRendererInfo(mRenderer, &info) == 0 && info.name)
+    {
+        std::printf("[RENDER-BACKEND] recreated actual=%s flags=%u driver_index=%d\n",
+                    info.name, info.flags, mPreferredRendererDriverIndex);
+        mFirstChoiceRendererBackend = RendererBackendPolicy::Normalize(info.name);
+    }
 }
 
 inline SDL_FRect RenderManager::WorldRectToScreen(const Camera2D& cam, int winW, int winH, const Rect& wrect) noexcept

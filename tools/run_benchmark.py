@@ -28,6 +28,7 @@ METRICS = ('frame_ms', 'input_ms', 'fixed_ms', 'update_ms', 'physics_ms',
            'collision_ms', 'collision_snapshot_ms', 'collision_candidates_ms',
            'collision_merge_ms', 'render_present_ms', 'render_record_ms',
            'render_prepare_ms', 'render_submit_ms', 'render_only_present_ms',
+           'render_sdl_present_ms',
            'render_worker_wait_ms', 'render_sprite_submit_ms', 'render_world_ms',
            'render_selector_decision_ms', 'render_work_estimate_mode',
            'render_route_override',
@@ -112,6 +113,39 @@ def expected_config_marker(mode: str) -> str:
 def expected_timing_marker(timing: str, fixed_steps: int) -> str:
     return (f'[BENCH-TIMING] mode={timing} fixed_steps_per_frame='
             f'{fixed_steps if timing == "deterministic" else 0}')
+
+
+def parse_presenter_marker(stdout: str) -> dict[str, object]:
+    """Read the actual SDL renderer, not a guessed driver from the config.
+
+    A missing/malformed banner usually means a stale benchmark executable.
+    JSON keeps SDL names/hints unambiguous even if they contain whitespace.
+    """
+    prefix = '[BENCH-PRESENTER] '
+    lines = [line[len(prefix):] for line in stdout.splitlines() if line.startswith(prefix)]
+    if len(lines) != 1:
+        raise RuntimeError(f'Expected exactly one SDL presenter banner; found {len(lines)}. '
+                           'Rebuild the engine and benchmark with --build.')
+    try:
+        details = json.loads(lines[0])
+    except (json.JSONDecodeError, TypeError) as exc:
+        raise RuntimeError('Invalid SDL presenter banner; rebuild the benchmark') from exc
+    required_strings = ('renderer_name', 'video_driver', 'sdl_version')
+    required_ints = ('renderer_flags', 'renderer_output_width', 'renderer_output_height',
+                     'window_width', 'window_height', 'display_index', 'display_refresh_hz')
+    if (not isinstance(details, dict) or details.get('renderer_info_available') is not True or
+        any(not isinstance(details.get(key), str) or not details[key]
+            for key in required_strings) or
+        any(type(details.get(key)) is not int for key in required_ints) or
+        any(details[key] <= 0 for key in ('renderer_output_width', 'renderer_output_height',
+                                        'window_width', 'window_height')) or
+        type(details.get('renderer_vsync')) is not bool):
+        raise RuntimeError('Incomplete SDL presenter diagnostics; rebuild the benchmark')
+    if details['renderer_vsync']:
+        raise RuntimeError('SDL reports an active VSync presenter; benchmark requires VSync off')
+    if 'window_fullscreen' not in details or type(details['window_fullscreen']) is not bool:
+        raise RuntimeError('Missing SDL fullscreen telemetry; rebuild the benchmark')
+    return details
 
 
 def assert_render_configuration_marker(stdout: str, *, threshold: int, sprites: int,
@@ -335,6 +369,9 @@ def arguments() -> argparse.Namespace:
                         help='Spatial grid cell width in world units')
     parser.add_argument('--render-workload', choices=('baseline','transforms','tint','culling','mixed','rotations_xyz'), default='baseline',
                         help='Render stress profile for sprite rotation/tint/culling/primitives')
+    parser.add_argument('--width', type=int, default=1280, help='SDL window width (default 1280)')
+    parser.add_argument('--height', type=int, default=720, help='SDL window height (default 720)')
+    parser.add_argument('--fullscreen', action='store_true', help='SDL desktop fullscreen (default windowed)')
     parser.add_argument('--sprites', type=int, default=None,
                         help='Override sprite count of selected scenario (0..10000)')
     parser.add_argument('--render-selection', choices=('fixed','adaptive'), default='fixed')
@@ -380,6 +417,9 @@ def main() -> int:
         return run_broadphase_comparison(args)
     if args.sprites is not None and not 0 <= args.sprites <= 10000:
         print('[ERROR] --sprites must be within 0..10000', file=sys.stderr)
+        return 2
+    if not 320 <= args.width <= 16384 or not 240 <= args.height <= 16384:
+        print('[ERROR] Invalid benchmark window dimensions', file=sys.stderr)
         return 2
     if not 1 <= args.render_threshold <= 100000:
         print('[ERROR] --render-threshold must be within 1..100000', file=sys.stderr)
@@ -456,6 +496,8 @@ def main() -> int:
                 'runtime_assets': str(assets), 'os': platform.platform(),
                 'python': platform.python_version(), 'seed': args.seed,
                 'frames': args.frames, 'warmup': args.warmup,
+                'requested_window_width': args.width, 'requested_window_height': args.height,
+                'requested_fullscreen': args.fullscreen,
                 'broadphase': getattr(args, 'broadphase', 'bruteforce'), 'cell_size': getattr(args, 'cell_size', 2.0),
                 'timing': args.timing,
                 'fixed_steps_per_frame': args.fixed_steps if args.timing == 'deterministic' else 0,
@@ -470,7 +512,8 @@ def main() -> int:
                 'repetitions': args.repetitions, 'scenarios': args.scenarios,
                 'modes': args.modes, 'vsync': False, 'runtime_configurations': configs,
                 'timestamp': datetime.now().astimezone().isoformat(),
-                'note': 'Each test is a separate engine process. Path reason=3 means recorded route requested; render_parallel_executed confirms actual worker preparation.'}
+                'note': 'Each test is a separate engine process. Path reason=3 means recorded route requested; render_parallel_executed confirms actual worker preparation.',
+                'presenter_observations': []}
     (output / 'metadata.json').write_text(json.dumps(metadata, indent=2) + '\n', encoding='utf-8')
 
     for scenario in args.scenarios:
@@ -488,6 +531,8 @@ def main() -> int:
                            '--render-selection', args.render_selection, '--render-cycle', str(int(args.render_cycle)),
                            '--render-estimate', args.render_estimate, '--render-route', args.render_route,
                            '--render-workload', args.render_workload,
+                           '--window-width', str(args.width), '--window-height', str(args.height),
+                           '--fullscreen', str(int(args.fullscreen)),
                            '--sprite-projection', args.sprite_projection]
                 if args.sprites is not None:
                     command += ['--sprites', str(args.sprites)]
@@ -533,6 +578,18 @@ def main() -> int:
                         proc.stdout, threshold=args.render_threshold, sprites=expected_sprites,
                         workload=args.render_workload, selection=args.render_selection,
                         cycle=args.render_cycle)
+                    presenter = parse_presenter_marker(proc.stdout)
+                    if presenter.get('window_fullscreen') is not args.fullscreen:
+                        raise RuntimeError('Actual SDL fullscreen mode differs from requested mode; '
+                                           'rebuild the benchmark')
+                    if (not args.fullscreen and
+                        (presenter['window_width'], presenter['window_height']) !=
+                            (args.width, args.height)):
+                        raise RuntimeError('Actual SDL window dimensions differ from requested size')
+                    metadata['presenter_observations'].append({
+                        'scenario': scenario, 'mode': mode, 'repetition': repeat + 1,
+                        'presenter': presenter})
+                    (output / 'metadata.json').write_text(json.dumps(metadata, indent=2) + '\n', encoding='utf-8')
                     if args.render_estimate != 'auto' or args.render_route != 'auto':
                         assert_selector_probe_marker(proc.stdout,
                                                      estimate=args.render_estimate,
@@ -588,7 +645,13 @@ def main() -> int:
                 'timing': args.timing,
                                         'scheduled_fixed_steps': (args.fixed_steps if args.timing == 'deterministic' else 0),
                                         'repetition': repeat + 1, 'seed': args.seed,
-                                        'elapsed_seconds': round(elapsed, 3), **metrics})
+                                        'elapsed_seconds': round(elapsed, 3),
+                                        'sdl_renderer': presenter['renderer_name'],
+                                        'sdl_video_driver': presenter['video_driver'],
+                                        'sdl_renderer_flags': presenter['renderer_flags'],
+                                        'sdl_vsync': presenter['renderer_vsync'],
+                                        'sdl_display_refresh_hz': presenter['display_refresh_hz'],
+                                        **metrics})
                     print(f'  frame p50={metrics["frame_ms_p50"]:.3f} ms '
                           f'p95={metrics["frame_ms_p95"]:.3f} ms '
                           f'fixed_steps={int(metrics.get("fixed_steps_total", 0))} '
@@ -596,6 +659,12 @@ def main() -> int:
                 except (RuntimeError, ValueError, subprocess.TimeoutExpired, OSError) as exc:
                     failures.append(f'{tag}: {exc}')
                     print(f'[FAIL] {tag}: {exc}', file=sys.stderr, flush=True)
+                    if (isinstance(exc, RuntimeError) and
+                        ('SDL presenter' in str(exc) or
+                         'SDL reports an active VSync presenter' in str(exc))):
+                        # This is a persistent backend/configuration constraint.
+                        # Do not repeat an identical failed presenter 24 times.
+                        loader_failure = str(exc)
                     # Startup/loader failures are independent of scenario and
                     # multithreading. Repeating 45 identical failures obscures
                     # the root cause and wastes time. Preserve the first log.

@@ -21,6 +21,89 @@ spec.loader.exec_module(sdk)
 
 
 class CrossSdkInstallerTests(unittest.TestCase):
+    def test_default_sdk_paths_and_legacy_reuse(self):
+        user = Path('/test-account')
+        windows, legacy = sdk.sdk_locations(
+            'windows', 'linux', environ={'LOCALAPPDATA': 'C:/Users/example/AppData/Local'},
+            home=user)
+        self.assertEqual(windows, Path('C:/Users/example/AppData/Local/XEngine/sdk/linux-x86_64'))
+        self.assertEqual(legacy, user / '.xengine/sdk/linux-x86_64')
+        linux, _ = sdk.sdk_locations('linux', 'windows', environ={}, home=user)
+        self.assertEqual(linux, user / '.local/share/xengine/sdk/windows-x86_64')
+        xdg, _ = sdk.sdk_locations('linux', 'windows',
+                                   environ={'XDG_DATA_HOME': '/custom/data'}, home=user)
+        self.assertEqual(xdg, Path('/custom/data/xengine/sdk/windows-x86_64'))
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp)
+            target = base / 'new'
+            previous = base / 'legacy'
+            with mock.patch.object(sdk, 'sdk_locations', return_value=(target, previous)):
+                self.assertEqual(sdk.select_sdk_location('windows', 'linux')[0], target)
+                previous.mkdir()
+                chosen, reason = sdk.select_sdk_location('windows', 'linux')
+                self.assertEqual(chosen, previous)
+                self.assertIn('legacy', reason)
+                target.mkdir()
+                self.assertEqual(sdk.select_sdk_location('windows', 'linux')[0], target)
+                self.assertEqual(sdk.select_sdk_location('windows', 'linux',
+                                                        custom=base / 'my-sdk')[0], base / 'my-sdk')
+
+    def test_sdk_migration_copies_and_updates_only_target_paths(self):
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp)
+            old, new = base / 'legacy-sdk', base / 'new-sdk'
+            (old / 'lib/pkgconfig').mkdir(parents=True)
+            (old / 'include/SDL2').mkdir(parents=True)
+            (old / 'include/SDL2/SDL.h').write_bytes(b'header')
+            (old / 'lib/pkgconfig/sdl2.pc').write_text(
+                f'prefix={old.as_posix()}\nlibdir={old.as_posix()}/lib\n', encoding='utf-8')
+            (old / '.downloads').mkdir()
+            (old / '.downloads/cached.deb').write_bytes(b'cache')
+            project_root = base / 'project'
+            (project_root / 'tools').mkdir(parents=True)
+            conf = project_root / 'tools/toolchains.local.json'
+            conf.write_text(json.dumps({
+                'linux': {'windows': {
+                    'pkg_config_libdir': f'{old}/lib/pkgconfig',
+                    'cxxflags': ['-I' + str(old / 'include')],
+                    'custom': 'keep-me'}},
+                'windows': {'linux': {'sysroot': '/unrelated'}},
+            }), encoding='utf-8')
+            with mock.patch.object(sdk, 'ROOT', project_root), \
+                 mock.patch.object(sdk, 'sdk_locations', return_value=(new, old)):
+                destination = sdk.migrate_legacy_sdk('linux', 'windows')
+            self.assertEqual(destination, new)
+            self.assertTrue(old.is_dir())
+            self.assertEqual((old / 'lib/pkgconfig/sdl2.pc').read_text().splitlines()[0],
+                             f'prefix={old.as_posix()}')
+            self.assertEqual((new / 'lib/pkgconfig/sdl2.pc').read_text().splitlines()[0],
+                             f'prefix={new.as_posix()}')
+            self.assertEqual((new / '.downloads/cached.deb').read_bytes(), b'cache')
+            entry = json.loads(conf.read_text())
+            self.assertEqual(entry['linux']['windows']['pkg_config_libdir'], f'{new}/lib/pkgconfig')
+            self.assertEqual(entry['linux']['windows']['cxxflags'], ['-I' + str(new / 'include')])
+            self.assertEqual(entry['linux']['windows']['custom'], 'keep-me')
+            self.assertEqual(entry['windows']['linux']['sysroot'], '/unrelated')
+            self.assertEqual(len(list((project_root / 'tools').glob('toolchains.local.json.*.bak'))), 1)
+
+    def test_migration_never_overwrites_or_downloads(self):
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp)
+            old, new = base / 'old', base / 'new'
+            old.mkdir()
+            new.mkdir()
+            with mock.patch.object(sdk, 'sdk_locations', return_value=(new, old)), \
+                 mock.patch.object(sdk, 'download', side_effect=AssertionError('download')):
+                with self.assertRaisesRegex(sdk.SetupError, 'Refusing to overwrite'):
+                    sdk.migrate_legacy_sdk('windows', 'linux')
+        self.assertTrue(sdk.parse_args(['--migrate-sdk']).migrate_sdk)
+        with mock.patch.object(sdk, 'host_os', return_value='windows'), \
+             mock.patch.object(sdk, 'migrate_legacy_sdk') as migrate:
+            self.assertEqual(sdk.main(['--target', 'linux', '--migrate-sdk']), 0)
+            migrate.assert_called_once_with('windows', 'linux')
+            self.assertEqual(sdk.main(['--target', 'linux', '--migrate-sdk', '--force']), 1)
+            self.assertEqual(migrate.call_count, 1)
+
     def test_cli_and_home_directory_defaults(self):
         self.assertEqual(sdk.parse_args([]).target, 'auto')
         self.assertEqual(sdk.parse_args(['--target', 'all']).target, 'all')

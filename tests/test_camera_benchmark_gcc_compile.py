@@ -24,6 +24,14 @@ typedef struct SDL_Window SDL_Window;
 typedef struct SDL_FRect SDL_FRect;
 typedef union SDL_Event { std::uint32_t type; } SDL_Event;
 #define SDL_QUIT 0x100
+#define SDL_INIT_VIDEO 0x00000020u
+#define SDL_WINDOW_FULLSCREEN 0x00000001u
+struct SDL_RendererInfo { const char* name; std::uint32_t flags; };
+inline int SDL_Init(std::uint32_t) { return 0; }
+inline const char* SDL_GetError() { return ""; }
+inline int SDL_GetNumRenderDrivers() { return 1; }
+inline int SDL_GetRenderDriverInfo(int, SDL_RendererInfo*) { return 0; }
+inline void SDL_Quit() {}
 inline int SDL_PushEvent(SDL_Event*) { return 1; }
 inline char* SDL_GetBasePath() { return nullptr; }
 inline void SDL_free(void*) {}
@@ -33,11 +41,17 @@ inline void SDL_free(void*) {}
     'SDL_ttf.h': '#pragma once\ntypedef struct _TTF_Font TTF_Font;\n',
     'nlohmann/json.hpp': '''#pragma once
 #include <string>
+#include <initializer_list>
+#include <utility>
 namespace nlohmann { class json { public:
   static json parse(const std::string&);
   json() = default;
   json(const char*);
   json(float);
+  static json array();
+  void push_back(const json&);
+  void push_back(std::initializer_list<std::pair<const char*, json>>);
+  bool empty() const;
   bool is_string() const;
   const json& at(const char*) const;
   json& operator[](const char*);

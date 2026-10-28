@@ -143,6 +143,9 @@ private:
         {
             bool vsync = true;
             bool hardwareAcceleration = true;
+            // Backend selected for the current platform (default: SDL chooses).
+            std::string backend = "auto";
+            bool backendFallback = true;
             bool parallelPreparation = true;
             std::size_t parallelMinCommands = RenderDiagnostics::kParallelThreshold;
             RenderDiagnostics::Selection parallelSelection = RenderDiagnostics::Selection::Fixed;
@@ -330,6 +333,7 @@ private:
         float renderPrepareMs = 0.f;
         float renderSubmitMs = 0.f;
         float renderPresentMs = 0.f;
+        float renderSdlPresentMs = 0.f;
         float renderWorkerWaitMs = 0.f;
         unsigned renderPreparedCommands = 0;
         unsigned renderCulledCommands = 0;

@@ -1,6 +1,7 @@
 #include "Engine.h"
 
 #include <fstream>
+#include <filesystem>
 #include <nlohmann/json.hpp>
 
 #include <sstream>
@@ -163,6 +164,18 @@ bool Engine::StartImpl(const std::string configPath, bool inlineJson) noexcept
     if (!configLoaded)
     {
         if (inlineJson) return false;
+        // Missing config may use legacy defaults, but an EXISTING malformed
+        // runtime config must not silently discard an explicit renderer
+        // preference (or any other setting).
+        std::error_code statError;
+        const std::string resolvedPath =
+            configPath.empty() ? kDefaultConfigPath : configPath;
+        if (std::filesystem::exists(resolvedPath, statError) || statError)
+        {
+            LogError("Engine::Start()", "Invalid/unreadable existing engine config: " +
+                     resolvedPath + ". Refusing to silently load defaults.");
+            return false;
+        }
         LogError("Engine warning", "Start(): Could not read config file, loading default values.");
     }
     // Contract: cwd is the assets root in editor/debug and in shipping.
@@ -265,7 +278,9 @@ bool Engine::StartImpl(const std::string configPath, bool inlineJson) noexcept
         RenderManager::Config cfg{
             mCfg.renderer.hardwareAcceleration,
             mCfg.renderer.vsync,
-            mCfg.renderer.bgColor
+            mCfg.renderer.bgColor,
+            mCfg.renderer.backend,
+            mCfg.renderer.backendFallback
         };
 
         ok = render->Init(cfg);
@@ -521,6 +536,7 @@ int Engine::RunSingleThreadingImpl() noexcept
             sample.renderWorkerWaitMs = mRenderWorkerWaitTime * 1000.f;
             if (auto* r = RenderManager::GetInstancePtr())
             {
+                sample.renderSdlPresentMs = r->mLastSdlPresentMs;
                 sample.renderPreparedCommands = r->mLastPreparedCount;
                 sample.renderCulledCommands = r->mLastCulledCount;
                 sample.renderWorkers = r->mLastWorkers;
@@ -631,6 +647,7 @@ void Engine::WriteProfiles_() noexcept
            "physics_ms,collision_ms,collision_snapshot_ms,collision_candidates_ms,"
            "collision_merge_ms,fixed_steps,broadphase_tests,narrowphase_tests,workers,"
            "render_record_ms,render_prepare_ms,render_submit_ms,render_only_present_ms,"
+           "render_sdl_present_ms,"
            "render_worker_wait_ms,render_prepared_commands,render_culled_commands,render_workers,"
            "render_path_reason,render_eligible_previous,render_eligible_current,"
            "render_recorded_total,render_immediate_culled,render_background_draws,render_world_draws,"
@@ -665,6 +682,7 @@ void Engine::WriteProfiles_() noexcept
             << ',' << r.narrowphaseTests << ',' << r.workers
             << ',' << r.renderRecordMs << ',' << r.renderPrepareMs
             << ',' << r.renderSubmitMs << ',' << r.renderPresentMs
+            << ',' << r.renderSdlPresentMs
             << ',' << r.renderWorkerWaitMs << ',' << r.renderPreparedCommands
             << ',' << r.renderCulledCommands << ',' << r.renderWorkers
             << ',' << r.renderPathReason << ',' << r.renderEligiblePrevious
@@ -1092,6 +1110,31 @@ bool Engine::LoadConfigFromJson(const std::string& text, const std::string& orig
                 out.renderer.vsync = r["vsync"].get<bool>();
             if (r.contains("hardwareAcceleration") && r["hardwareAcceleration"].is_boolean())
                 out.renderer.hardwareAcceleration = r["hardwareAcceleration"].get<bool>();
+            if (r.contains("backend"))
+            {
+                // A single config file can travel with the game on Windows
+                // and Linux. An omitted platform keeps SDL auto-selection.
+                const json& platforms = r["backend"];
+                if (!platforms.is_object()) return false;
+                for (auto itBackend = platforms.begin(); itBackend != platforms.end(); ++itBackend)
+                {
+                    if (itBackend.key() != "windows" && itBackend.key() != "linux")
+                        return false;
+                    if (!itBackend.value().is_string()) return false;
+                    const std::string value = itBackend.value().get<std::string>();
+                    if (value.empty() || value.size() > 64u) return false;
+#if defined(_WIN32)
+                    if (itBackend.key() == "windows") out.renderer.backend = value;
+#elif defined(__linux__)
+                    if (itBackend.key() == "linux") out.renderer.backend = value;
+#endif
+                }
+            }
+            if (r.contains("backendFallback"))
+            {
+                if (!r["backendFallback"].is_boolean()) return false;
+                out.renderer.backendFallback = r["backendFallback"].get<bool>();
+            }
             if (r.contains("parallelPreparation") && r["parallelPreparation"].is_boolean())
                 out.renderer.parallelPreparation = r["parallelPreparation"].get<bool>();
             // Global crossover reference; selection strategy is independent.
@@ -1343,6 +1386,11 @@ void Engine::DoRender_() noexcept
     auto* render = RenderManager::GetInstancePtr();
     auto* ui = UIManager::GetInstancePtr();
     Scene* active = scenes ? scenes->GetActive() : nullptr;
+    if (render)
+    {
+        render->mLastSdlPresentMs = 0.f;
+        render->mMeasureSdlPresent = mCfg.profileCsv;
+    }
     if (!active || !active->GetCamera() || !render || !ui) return;
 
     mRenderRecordTime = 0.f;

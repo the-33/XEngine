@@ -143,7 +143,18 @@ install_cross_sdk.bat --target linux --sdk-dir "D:\Cross SDKs\linux-x86_64"
 | Linux | `windows` | Download MinGW SDL2 development archives, prepare Windows headers/libraries/DLLs and update `linux.windows` |
 | Either | `all` | Check native dependencies and install the other supported target SDK |
 
-**Options:** `--sdk-dir` chooses a location (target-specific; not usable with `all`); `--force` redownloads/reinstalls; `--verify-only` retests an existing Windows → Linux sysroot without re-extracting it. A default SDK path under `~/.xengine/sdk/<target>-x86_64` is a **configurable example**, not a required global directory. `~` resolves to the current account's home; an SDK may be kept on another drive. The generated `toolchains.local.json` is local and ignored by Git.
+**Options:** `--sdk-dir` chooses a custom location (target-specific; not valid
+with `all`); `--force` redownloads; `--verify-only` rechecks an existing
+Windows → Linux sysroot without downloads. New SDKs default to
+`%LOCALAPPDATA%\XEngine\sdk\<target>-x86_64` on Windows and
+`${XDG_DATA_HOME:-$HOME/.local/share}/xengine/sdk/<target>-x86_64` on Linux.
+Old `~/.xengine/sdk/` installations remain usable automatically until you run
+`install_cross_sdk.bat --target linux --migrate-sdk` or
+`./install_cross_sdk.sh --target windows --migrate-sdk`, respectively. The
+opt-in operation **copies** the complete SDK and download cache, updates
+its pkg-config paths and the Git-ignored `tools/toolchains.local.json`, and
+preserves the original; it needs space for both copies. See
+[SDK storage and migration](CROSS_COMPILATION.md#recommended-install-cross-compilation-sdks-automatically).
 
 **Windows → Linux implementation:** Debian `bookworm` (amd64) package metadata and `.deb` archives come directly from Debian's official HTTPS repositories. Package SHA-256 values from Debian's package metadata are verified, dependencies are followed, `.so` symlinks are materialized for Windows filesystems, and target `.pc` files are relocated to the SDK. This is a *development sysroot assembler*, **not** an apt/dpkg replacement: it does not run Debian maintainer scripts or provide a complete Linux OS. Network access and enough disk space are required; packages/paths may change as repositories evolve. A completed installation still needs an end-to-end link and runtime test on Linux. The target glibc baseline is Debian 12, not the Windows host.
 
@@ -348,6 +359,14 @@ Each game has independent build settings. For example:
 
 The example icon files must exist if you use these paths. New games generated from `BlankGame` already have working default XEngine icons.
 
+**Template synchronization (v16.22):** The canonical `tools/templates/BlankGame/config.json`
+is now synchronized into existing game manifests by `tools/sync_game_configs.py`.
+It adds newly introduced keys without resetting a game's version, name,
+icon paths, build choices, `defines` or shipping options. Preview with
+`python tools/sync_game_configs.py --check`; the synchronizer runs automatically
+before every game build, creates backups when modifying files, and aborts the
+build on an error. See [game config synchronization](GAME_CONFIG_SYNC.md).
+
 | Build option | Meaning |
 |---|---|
 | `build.platform = "auto"` | Build natively for the host operating system |
@@ -420,7 +439,7 @@ With **no arguments**, the tool converts `tools/templates/BlankGame/assets/icons
 
 When GAME ICON are supplied, `--png` instead locates the source relative to that game's `assets/`, and the ICO is always written under its `assets/icons/`. `--force` permits replacing an existing ICO. `--set-config` works only with GAME ICON and updates Windows/Linux `project.icon` paths automatically. Linux supports all three modes through `./tools/png_to_ico.sh`. Use `--help` for all options.
 
-`tools/templates/BlankGame` is the canonical source for `assets/icons/xengine_icon.png` (512×512, Linux) and `assets/icons/xengine_icon.ico` (Windows). The files must be supplied by the project maintainer; patch archives never synthesize/recolor the artwork. New projects copy these files locally. **Before every game build**, `tools/build.py` runs `sync_engine_configs.py` and `sync_game_icons.py --game <name>` to synchronize engine settings and reserved default icons. Changed default icons are backed up; custom filenames are untouched. A missing configured custom icon falls back to the game's own default with a console warning. The separate README brand logo remains `docs/branding/xengine_logo.svg`. For details, see [Default game icons](DEFAULT_GAME_ICONS.md).
+`tools/templates/BlankGame` is the canonical source for `assets/icons/xengine_icon.png` (512×512, Linux) and `assets/icons/xengine_icon.ico` (Windows). The files must be supplied by the project maintainer; patch archives never synthesize/recolor the artwork. New projects copy these files locally. **Before every game build**, `tools/build.py` runs `sync_game_configs.py`, `sync_engine_configs.py` and `sync_game_icons.py --game <name>` to synchronize the game build manifest, engine runtime settings and reserved default icons. Changed default icons are backed up; custom filenames are untouched. A missing configured custom icon falls back to the game's own default with a console warning. The separate README brand logo remains `docs/branding/xengine_logo.svg`. For details, see [Default game icons](DEFAULT_GAME_ICONS.md) and [game config synchronization](GAME_CONFIG_SYNC.md).
 
 ## Release Distribution
 

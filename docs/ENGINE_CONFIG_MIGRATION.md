@@ -56,7 +56,10 @@ Whenever modifications are necessary, the tool saves untouched original bytes un
 
 ### Scope
 
-This applies to **runtime** `assets/config/*.json` engine profiles, not the unrelated game build configuration `games/<Name>/config.json` or machine-local `tools/toolchains.local.json`.
+This tool applies only to **runtime** `assets/config/*.json` engine profiles. The
+separate game **build** configuration `games/<Name>/config.json` is synchronized
+by `tools/sync_game_configs.py` (see [game config synchronization](GAME_CONFIG_SYNC.md)).
+Neither tool edits machine-local `tools/toolchains.local.json`.
 
 ### Example
 
@@ -70,3 +73,31 @@ If you add:
 ```
 
 to the template, a game with a pre-existing customized `Collision.cellSize` of `4.0` retains `4.0`. A game without the section receives `bruteforce` and `2.0`.
+
+### Renderer backend per operating system (v16.20; scope corrected in v16.21)
+
+`Renderer.backend` is a single object containing only `windows` and `linux`
+choices, both initially `auto`. The synchronizer adds these two leaves to
+all runtime engine profiles **without resetting their other settings**.
+The preliminary v16.20 `macos` leaf was removed in v16.21, because macOS is
+not an implemented build target. The managed-key history retains that old
+path solely to **remove** stale `macos` settings from existing projects.
+Subsequent synchronization preserves a game's custom driver
+choices because they are strings of the same schema type as the template.
+The runtime validates platform keys/types and checks actual SDL driver
+availability before creating the renderer. A process-level
+`SDL_RENDER_DRIVER` override takes precedence, allowing benchmarks without
+rewriting project JSON. The OS-specific names and measured-default rationale
+are in [SDL render backends](RENDER_BACKENDS.md). The root game
+`config.json` is a build/package manifest, **not** the runtime renderer
+configuration file.
+
+**v16.25:** The meaning of `auto` additionally includes an optional
+*validated machine-local* benchmark order on Windows and Linux. Benchmark
+results are not embedded into BlankGame or the runtime JSON, so all games
+automatically share the local order only when SDL, video driver, display and
+window size match the test environment. Otherwise Windows uses its D3D11-first
+compatibility order and Linux delegates to SDL. Run the Release benchmark with
+`--install-ranking`, or validate/import an existing complete result using
+`tools/install_render_backend_ranking.py`. See
+[the complete end-user calibration procedure](RENDER_BACKENDS.md#end-user-procedure-calibrate-auto-on-your-own-computer).

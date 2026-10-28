@@ -5,10 +5,15 @@ from __future__ import annotations
 import re
 import unittest
 from pathlib import Path
-from urllib.parse import unquote
+from urllib.parse import unquote, urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[1]
+EXTERNALLY_MAINTAINED_THEME_SVGS = {
+    f"docs/branding/{stem}_{theme}.svg"
+    for stem in ("xengine_logo", "xengine_benchmark_logo")
+    for theme in ("light", "dark")
+}
 
 
 class ReadmePublicPresentationTests(unittest.TestCase):
@@ -25,20 +30,26 @@ class ReadmePublicPresentationTests(unittest.TestCase):
             for link in links:
                 if link.startswith(("http://", "https://", "mailto:", "#")):
                     continue
-                target = unquote(link.split("#", 1)[0])
+                # Strip both GitHub's theme fragment and the ?v=4 cache-buster.
+                target = unquote(urlsplit(link).path)
                 with self.subTest(document=document.name, link=link):
-                    # New SVG artwork lives in the maintainer's local checkout;
-                    # older source snapshots may not contain the new artwork.
-                    if target == "docs/branding/xengine_logo.svg" and not (document.parent / target).exists():
+                    # The themed SVGs exist in the maintainer's local checkout,
+                    # but were not included in the uploaded source snapshot.
+                    # Keep checking all other local links; assert the theme
+                    # fragment/filename relationship in test_github_theme_logos.
+                    if (target in EXTERNALLY_MAINTAINED_THEME_SVGS and
+                            not (document.parent / target).exists()):
                         continue
                     self.assertTrue((document.parent / target).exists())
 
     def test_readme_uses_original_vector_artwork_when_available(self) -> None:
-        logo = ROOT / "docs" / "branding" / "xengine_logo.svg"
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
-        self.assertIn('src="docs/branding/xengine_logo.svg"', readme)
-        if logo.exists():
-            self.assertIn("<svg", logo.read_text(encoding="utf-8"))
+        for theme in ("light", "dark"):
+            logo = ROOT / "docs" / "branding" / f"xengine_logo_{theme}.svg"
+            self.assertIn(f'src="docs/branding/xengine_logo_{theme}.svg?v=4#gh-{theme}-mode-only"',
+                          readme)
+            if logo.exists():
+                self.assertIn("<svg", logo.read_text(encoding="utf-8"))
 
     def test_readme_has_no_missing_private_migration_links_or_tools(self) -> None:
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
