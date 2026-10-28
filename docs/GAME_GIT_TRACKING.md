@@ -64,11 +64,26 @@ hook** once in that clone:
 git config --local core.hooksPath .githooks
 ```
 
+This is an **explicit, one-time choice in each local Git clone**. Neither
+`tools/build.py` (including engine/game builds) nor `tools/new_project.py`
+nor the optional VS Code integration runs `git config` or installs this hook.
+To see whether it is enabled, use:
+
+```sh
+git config --local --get core.hooksPath
+```
+
+The expected output is `.githooks`. If it is unset, Git does not invoke this
+repository's versioned hook during commits.
+
 The hook runs the equivalent of `python tools/sync_game_gitignore.py --stage`
 before the commit. If staged files change engine code or Doxygen inputs, it
 also regenerates and checks the local Doxygen documentation **when Doxygen is
 installed**. The online GitHub Pages site is rebuilt independently on pushes
-to `main`; see [GitHub Pages](GITHUB_PAGES.md). **Note:** It stages *all* changed files under the benchmark
+to `main`; see [GitHub Pages](GITHUB_PAGES.md). Building the engine can also
+refresh local Doxygen without enabling Git hooks, but a documentation error
+there is a build warning rather than a commit failure.
+**Note:** The pre-commit hook stages *all* changed files under the benchmark
 and each opted-in game and stages removal of previously tracked, unmarked game
 files. Always review what is staged. If you already use a custom
 `core.hooksPath`, integrate the hook into your existing hook rather than

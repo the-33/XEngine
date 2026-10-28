@@ -55,6 +55,18 @@ engine or documentation, enable the existing versioned Git hook in your clone:
 git config --local core.hooksPath .githooks
 ```
 
+This hook is **never enabled by cloning XEngine, building the engine or a
+game, generating a project, or setting up VS Code**. Each developer decides
+whether to enable it for their local Git clone. Check its current setting:
+
+```bash
+git config --local --get core.hooksPath
+```
+
+The output must be `.githooks` for this versioned hook to run. If another
+hooks directory is configured, integrate the behavior there instead of
+overwriting an existing custom hook setup.
+
 The hook first applies XEngine's existing marker-based game tracking and then
 inspects **staged** paths. Changes in `engine/`, `docs/`, the Doxyfiles,
 `VERSION` or Doxygen tooling trigger regeneration of both references and a
@@ -65,6 +77,12 @@ Doxygen is optional: if it is not installed, the hook warns and skips the
 local refresh. **GitHub Pages independently rebuilds the docs from each
 commit pushed to `main`**, so the published reference cannot depend on an
 individual developer's hook. Generated `build/docs` output is never staged.
+
+The normal engine build independently attempts to regenerate both references
+**after the engine library is actually recompiled**; a failed Doxygen pass
+only produces a warning in that build. The opt-in pre-commit hook instead
+checks staged engine/documentation changes and **stops the commit** if local
+Doxygen generation or validation fails. These are separate mechanisms.
 
 Like any pre-commit hook, generation reads the local working tree; partially
 staged files may therefore appear newer in the local preview than in the

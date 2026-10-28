@@ -77,7 +77,17 @@ these optional files.
 The C/C++ extension uses each `.cpp` entry in `compile_commands.json` for
 IntelliSense: type information, completion, Go to Definition, error squiggles
 and hover details. Hover descriptions come from `/** ... */` and `///`
-documentation comments in the engine/game header files. The generated
-Doxygen HTML reference is a separate browser resource; VS Code does not
-automatically read that HTML for hover documentation. Running `clang-tidy`
-for additional static analysis is a separate optional tool.
+documentation comments in the engine/game header files. The published
+Doxygen HTML reference is available at the
+[XEngine documentation portal](https://the-33.github.io/XEngine/), with separate
+[game API](https://the-33.github.io/XEngine/game/html/index.html) and
+[engine internals](https://the-33.github.io/XEngine/engine/html/index.html).
+VS Code does **not** automatically add links to those pages to native C/C++
+hovers. A clickable, symbol-specific documentation link requires an optional
+VS Code extension implementing a `HoverProvider` and resolving a symbol to
+its corresponding Doxygen HTML page and anchor. The C/C++ extension can
+continue providing the usual signature and comment hover alongside that
+extra link. `compile_commands.json` handles IntelliSense, **not** this URL
+mapping. No such hover-link extension is bundled with XEngine at present.
+Running `clang-tidy` for additional static analysis is a separate optional
+tool.

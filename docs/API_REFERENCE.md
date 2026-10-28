@@ -5,6 +5,11 @@ designed for people building gameplay code, not for modifying renderer internals
 The original declarations are the source of truth; examples in this guide use
 the regular Windows/Linux builds, with SDL2 and `nlohmann/json` installed.
 
+**Search the live API:** [Game Developer Reference](https://the-33.github.io/XEngine/game/html/index.html)
+for supported gameplay code, or [Engine Developer Reference](https://the-33.github.io/XEngine/engine/html/index.html)
+for implementation and internal APIs. Both are available from the
+[documentation portal](https://the-33.github.io/XEngine/).
+
 If you are starting a game, first follow [Your first game](GETTING_STARTED.md).
 For an overview organized by task, see the
 documentation index (repository reference: `docs/DOCUMENTATION_INDEX.md`).
@@ -96,7 +101,9 @@ for the binary layout, backup/temporary recovery policy and PlayerPrefs paths.
 
 ## Build this reference locally
 
-From the XEngine project root:
+The published [XEngine documentation](https://the-33.github.io/XEngine/) is
+available without Doxygen. To create and validate an offline copy, run from
+the XEngine project root:
 
 ```bash
 python tools/build_doxygen.py

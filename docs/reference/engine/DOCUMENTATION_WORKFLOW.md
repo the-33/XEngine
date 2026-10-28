@@ -5,6 +5,17 @@ Documentation is a product for developers: it should teach a supported task,
 state real preconditions and failure modes, and link to the relevant code.
 Do not use public manuals as release notes or descriptions of what a patch did.
 
+The canonical public site is the [XEngine documentation portal](https://the-33.github.io/XEngine/),
+with [Game Developer](https://the-33.github.io/XEngine/game/html/index.html)
+and [Engine Developer](https://the-33.github.io/XEngine/engine/html/index.html)
+references. See [GitHub Pages publishing](../../GITHUB_PAGES.md) for the
+automatic deployment workflow and optional local pre-commit checks.
+GitHub Pages rebuilds from `main` on the server without depending on a local
+hook. The versioned `.githooks/pre-commit` is opt-in: developers activate it
+once in each clone with `git config --local core.hooksPath .githooks`; the
+engine build does not install Git hooks. Engine rebuilds may refresh Doxygen
+locally, but failed regeneration is a warning rather than a failed build.
+
 ## Choose the correct audience
 
 | Audience | Location | What it may describe |

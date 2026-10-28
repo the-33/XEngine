@@ -17,6 +17,7 @@
     <a href="#quick-start">Get started</a> ·
     <a href="#features">Features</a> ·
     <a href="#documentation">Documentation</a> ·
+    <a href="https://the-33.github.io/XEngine/">Online API</a> ·
     <a href="#benchmarking-and-profiling">Benchmarks</a> ·
     <a href="#games-migrated-from-xengine-legacy">Migrated games</a> ·
     <a href="#migrating-from-xengine-legacy">Legacy migration</a>
@@ -158,7 +159,16 @@ To reconcile rules and stage opted-in games:
 python tools/sync_game_gitignore.py --stage
 ```
 
-An optional `pre-commit` hook automates this step after it has been enabled with `git config --local core.hooksPath .githooks`. It also regenerates local Doxygen when staged changes affect the engine or documentation, if Doxygen is installed; [GitHub Pages](docs/GITHUB_PAGES.md) rebuilds from committed sources independently. **The hook stages all changes in included games**, so review `git diff --cached` before committing. See [Game Git tracking](docs/GAME_GIT_TRACKING.md).
+The existing, optional `pre-commit` hook synchronizes tracked games and checks
+Doxygen when staged changes affect engine/documentation sources. Enable it **once
+per Git clone** with `git config --local core.hooksPath .githooks`; this is **not
+done automatically by the engine build, game creation or VS Code setup**.
+**The hook stages all changes in included games**, so review `git diff --cached`
+before committing. It blocks the commit if Doxygen is installed and the
+documentation check fails. The [GitHub Pages workflow](docs/GITHUB_PAGES.md)
+independently regenerates the [public documentation](https://the-33.github.io/XEngine/)
+on pushes to `main`, even when the local hook is disabled. See
+[Game Git tracking](docs/GAME_GIT_TRACKING.md).
 
 ## Platforms & builds
 
@@ -259,7 +269,9 @@ Read the [Legacy migration feasibility and proposed design](docs/LEGACY_MIGRATIO
 | [Your first game](docs/GETTING_STARTED.md) | Create a game, understand scenes and write a Behaviour |
 | [Headers and includes](docs/INCLUDES_AND_DEPENDENCIES.md) | Public headers, C++ organization, properties and dependencies |
 | [VS Code integration](docs/VSCODE_INTEGRATION.md) | Optional setup for IntelliSense, shared compile commands and game folders |
-| [Online documentation](docs/GITHUB_PAGES.md) | Automatic GitHub Pages publishing of both searchable Doxygen references |
+| [Online documentation](https://the-33.github.io/XEngine/) | Live documentation portal hosted on GitHub Pages |
+| [Game Developer Reference](https://the-33.github.io/XEngine/game/html/index.html) | Searchable public API for game developers |
+| [Engine Developer Reference](https://the-33.github.io/XEngine/engine/html/index.html) | Engine internals and implementation reference |
 | [Public API reference](docs/API_REFERENCE.md) | Doxygen reference for exported classes, methods, properties and enum values |
 | [Window, camera and UI](docs/WINDOW_AND_CAMERA.md) | Resolution/fullscreen, coordinates, aspect ratio and responsive layout |
 | [Persistence and serialization](docs/PERSISTENCE_AND_SERIALIZATION.md) | File storage, backups, binary/JSON and PlayerPrefs |
@@ -286,10 +298,15 @@ Markdown logos also follow the Doxygen theme without relying on GitHub-only
 image fragments. Generated machine-readable
 declarations live under each profile's `xml/` directory. These **generated
 files are not committed or packaged**.
-The optional [GitHub Pages workflow](docs/GITHUB_PAGES.md) publishes the same
-portal and both references at **https://the-33.github.io/XEngine/** after
-one-time activation in the repository's Pages settings. It rebuilds on every
-push to `main` without committing generated HTML.
+The [live XEngine documentation](https://the-33.github.io/XEngine/) contains both
+searchable references: the [game API](https://the-33.github.io/XEngine/game/html/index.html)
+and [engine internals](https://the-33.github.io/XEngine/engine/html/index.html).
+The [GitHub Pages workflow](docs/GITHUB_PAGES.md) keeps these pages updated on
+pushes to `main` without committing generated HTML.
+For local contributors, the optional [pre-commit hook](docs/GAME_GIT_TRACKING.md)
+regenerates and checks Doxygen when the staged files change documentation or
+engine sources; unlike the publishing workflow it requires explicit activation
+with `git config --local core.hooksPath .githooks` in each Git clone.
 Doxygen is not required to build or run games. Whenever XEngine's library is
 actually recompiled, the build attempts to regenerate this reference if
 Doxygen is installed; cache hits and game-only changes do not trigger it.

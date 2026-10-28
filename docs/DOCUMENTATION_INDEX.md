@@ -1,5 +1,11 @@
 # XEngine documentation
 
+**Online references:** [Documentation portal](https://the-33.github.io/XEngine/) ·
+[Game Developer API](https://the-33.github.io/XEngine/game/html/index.html) ·
+[Engine Developer API](https://the-33.github.io/XEngine/engine/html/index.html).
+The published references are regenerated automatically when changes reach
+`main`; see [GitHub Pages publishing](GITHUB_PAGES.md).
+
 Choose the guide that matches what you want to accomplish. These documents
 describe how to **use the engine to build games**; implementation history,
 benchmarks and experimental performance investigations are listed separately.
@@ -28,6 +34,7 @@ benchmarks and experimental performance investigations are listed separately.
 | [Runtime engine config](ENGINE_CONFIG_MIGRATION.md) | Understand `assets/config/engine.json` defaults and synchronization. |
 | [Game icons](DEFAULT_GAME_ICONS.md) | Supply Windows ICO/Linux PNG and let XEngine package application icons. |
 | [Tracking games in Git](GAME_GIT_TRACKING.md) | Choose which games to check in and how the opt-in marker works. |
+| [Pre-commit hook and GitHub Pages](GITHUB_PAGES.md) | Enable the optional local documentation checks and understand automatic online publication. |
 | [Release backend selection](RENDER_BACKENDS.md) | Configure SDL render backends and compare performance on real machines. |
 
 ## Performance, diagnostics and engine internals
@@ -65,6 +72,10 @@ above and check the shipped `engine.json` template.
 
 ## Generate the searchable API documentation
 
+You can browse the [published documentation](https://the-33.github.io/XEngine/)
+without installing Doxygen. The following instructions are only for generating
+an offline copy or validating documentation changes before publication.
+
 The source `.h` files contain Doxygen comments for the public API. Install
 Doxygen if you want the searchable reference locally, particularly when
 modifying the engine:
@@ -80,6 +91,11 @@ collapsible topic tree and the XEngine light/dark visual theme. Machine-readable
 XML is generated separately in `build/docs/game/xml/` and
 `build/docs/engine/xml/`. All generated docs are **build outputs**, not tracked
 source documentation.
+
+The [pre-commit hook](GITHUB_PAGES.md) runs the same generation and checks
+when staged files affect the engine or documentation, **only after you enable
+it in your own clone**. The engine build itself never installs Git hooks;
+GitHub Pages is updated separately on pushes to `main`.
 
 The Game Developer Reference also includes a curated selection of the
 full-length general manuals, such as `DEVELOPER_GUIDE.md`, setup,
