@@ -6,6 +6,12 @@
 #include "Behaviour.h"
 #include "Transform.h"
 #include "AssetManager.h"
+#include "InputManager.h"
+#include "UIManager.h"
+#include "SoundManager.h"
+#include "RigidBody2D.h"
+#include "Camera2D.h"
+#include "WindowManager.h"
 #include <SDL.h> // Uses the same SDL_main compatibility mapping as BlankGame.
 
 #include <cmath>
@@ -18,6 +24,7 @@ int failures = 0;
 int updates = 0;
 int destroyedControllers = 0;
 int targetFrames = 16;
+GameObject* movingBody = nullptr;
 
 void expect(bool result, const char* message) {
     if (!result) {
@@ -61,6 +68,15 @@ void checkScene(Scene* scene) {
     expect(almostEqual(detached.x, after.x) && almostEqual(detached.y, after.y),
            "detaching with keepWorld preserves world position");
 
+    movingBody = scene->CreateObject("moving-body");
+    expect(movingBody != nullptr, "physics test body is created");
+    auto* rigidBody = movingBody ? movingBody->AddComponent<RigidBody2D>() : nullptr;
+    expect(rigidBody != nullptr, "dynamic rigid body is created");
+    if (rigidBody) {
+        rigidBody->gravityScale = 0.f;
+        rigidBody->velocity = Vec2{2.f, 0.f};
+    }
+
     auto* assets = AssetManager::GetInstancePtr();
     expect(assets != nullptr, "asset manager exists");
     if (assets) {
@@ -81,16 +97,145 @@ void checkScene(Scene* scene) {
                "font alias resolves correctly");
         expect(assets->LoadFont("fonts/ui-default.ttf", "integration-font", 24) == nullptr,
                "colliding font alias is rejected");
+
+        auto* sfx = assets->LoadSFX("audio/tone.wav");
+        expect(sfx != nullptr, "SDL_mixer loads generated WAV effect");
+        expect(assets->LoadSFX("audio/tone.wav", "integration-sfx") == sfx,
+               "effect alias shares ownership with path cache");
+        expect(assets->GetSFXByKey("integration-sfx") == sfx,
+               "effect alias resolves to the cached resource");
+        expect(assets->LoadSFX("audio/other.wav", "integration-sfx") == nullptr,
+               "colliding effect alias is rejected");
+
+        auto* music = assets->LoadMusic("audio/tone.wav");
+        expect(music != nullptr, "SDL_mixer loads generated WAV music");
+        expect(assets->LoadMusic("audio/tone.wav", "integration-music") == music,
+               "music alias shares ownership with path cache");
+        expect(assets->GetMusicByKey("integration-music") == music,
+               "music alias resolves to the cached resource");
+        expect(assets->LoadMusic("audio/other.wav", "integration-music") == nullptr,
+               "colliding music alias is rejected");
+
+        auto* sound = SoundManager::GetInstancePtr();
+        expect(sound != nullptr, "sound manager exists");
+        if (sound && sfx && music) {
+            expect(sound->PlaySFX(sfx) >= 0, "dummy audio plays a real SFX sample");
+            sound->StopAllSFX();
+            expect(sound->PlayMusic(music, 0), "dummy audio plays WAV music");
+            sound->StopMusic();
+            sound->SetMasterVolume(0.35f);
+            expect(almostEqual(sound->MasterVolume(), 0.35f),
+                   "master volume round-trips through the running mixer");
+        }
     }
 }
 
 class FrameProbe final : public Behaviour {
     EntityID previousId = 0;
+    float previousBodyX = 0.f;
+    std::string firstButtonId = "integration-button";
+    std::string secondButtonId = "integration-button";
+
+    void ExerciseInputAndUI(Scene* owner) {
+        auto* input = InputManager::GetInstancePtr();
+        auto* ui = UIManager::GetInstancePtr();
+        auto* window = WindowManager::GetInstancePtr();
+        expect(input && ui && window, "input, UI and window services remain available");
+        if (!input || !ui || !window || !owner) return;
+
+        const Vec2I logicalSize = window->GetSize();
+        const Vec2I drawableSize = window->GetDrawableSize();
+        const float scaleX = logicalSize.x > 0 ?
+            static_cast<float>(drawableSize.x) / logicalSize.x : 1.f;
+        const float scaleY = logicalSize.y > 0 ?
+            static_cast<float>(drawableSize.y) / logicalSize.y : 1.f;
+        const Rect buttonRect{40.f * scaleX, 20.f * scaleY,
+                              100.f * scaleX, 60.f * scaleY};
+        if (updates == 1) {
+            input->SetTextInput(true);
+            SDL_Event motion{};
+            motion.type = SDL_MOUSEMOTION;
+            motion.motion.x = 64;
+            motion.motion.y = 36;
+            motion.motion.xrel = 64;
+            motion.motion.yrel = 36;
+            expect(SDL_PushEvent(&motion) == 1, "SDL accepts synthetic mouse motion");
+
+            SDL_Event down{};
+            down.type = SDL_MOUSEBUTTONDOWN;
+            down.button.button = SDL_BUTTON_LEFT;
+            down.button.x = 64;
+            down.button.y = 36;
+            expect(SDL_PushEvent(&down) == 1, "SDL accepts synthetic mouse press");
+
+            SDL_Event wheel{};
+            wheel.type = SDL_MOUSEWHEEL;
+            wheel.wheel.x = -1;
+            wheel.wheel.y = 2;
+            expect(SDL_PushEvent(&wheel) == 1, "SDL accepts synthetic mouse wheel");
+
+            SDL_Event textEvent{};
+            textEvent.type = SDL_TEXTINPUT;
+            std::snprintf(textEvent.text.text, sizeof(textEvent.text.text), "á");
+            expect(SDL_PushEvent(&textEvent) == 1, "SDL accepts synthetic UTF-8 input");
+        } else if (updates == 2) {
+            expect(input->MousePressed(MouseButton::Left) && input->MouseDown(MouseButton::Left),
+                   "mouse press edge is visible in the next real frame");
+            const Vec2I cursor = input->GetMousePos();
+            expect(cursor.x == 64 && cursor.y == 36, "SDL motion updates mouse position");
+            const Vec2I delta = input->GetMouseDelta();
+            expect(delta.x == 64 && delta.y == 36, "mouse delta follows SDL motion");
+            const Vec2I wheel = input->GetMouseWheel();
+            expect(wheel.x == -1 && wheel.y == 2, "wheel event reaches input manager");
+            expect(input->GetTextInput() == "á", "UTF-8 text reaches input manager");
+
+            auto* cam = owner->camera;
+            const Vec2I logical = window->GetSize();
+            if (cam && logical.x > 0 && logical.y > 0) {
+                const Vec2 view = cam->viewBase;
+                const Vec2 deltaWorld = input->GetMouseDeltaWorld();
+                expect(almostEqual(deltaWorld.x, 64.f * view.x / logical.x) &&
+                       almostEqual(deltaWorld.y, 36.f * view.y / logical.y),
+                       "mouse world delta scales without including camera offset");
+            }
+            expect(!ui->Button(firstButtonId.c_str(), buttonRect),
+                   "button does not activate on mouse press");
+
+            SDL_Event up{};
+            up.type = SDL_MOUSEBUTTONUP;
+            up.button.button = SDL_BUTTON_LEFT;
+            up.button.x = 64;
+            up.button.y = 36;
+            expect(SDL_PushEvent(&up) == 1, "SDL accepts synthetic mouse release");
+        } else if (updates == 3) {
+            expect(input->MouseReleased(MouseButton::Left) && !input->MouseDown(MouseButton::Left),
+                   "mouse release edge is visible in the next real frame");
+            expect(input->GetTextInput().empty(), "text input is cleared between frames");
+            const Vec2I wheel = input->GetMouseWheel();
+            expect(wheel.x == 0 && wheel.y == 0, "wheel input is cleared between frames");
+            expect(firstButtonId.c_str() != secondButtonId.c_str(),
+                   "button test uses distinct identifier addresses");
+            expect(ui->Button(secondButtonId.c_str(), buttonRect),
+                   "UI matches button ID text across press/release frames");
+            input->SetTextInput(false);
+        } else if (updates == 4) {
+            expect(!input->MouseReleased(MouseButton::Left), "release edge is not repeated");
+            expect(!ui->Button(firstButtonId.c_str(), buttonRect),
+                   "completed button click is not repeated");
+        }
+    }
 public:
     void Update(float) override {
         ++updates;
         Scene* owner = scene;
         expect(owner != nullptr, "behaviour has a scene");
+        ExerciseInputAndUI(owner);
+        if (movingBody) {
+            const Vec3 pos = movingBody->transform->position;
+            expect(almostEqual(pos.x - previousBodyX, 0.02f) && almostEqual(pos.y, 0.f),
+                   "dynamic rigid body advances exactly one fixed step per frame");
+            previousBodyX = pos.x;
+        }
         if (owner) {
             if (previousId != 0)
                 expect(owner->Find(previousId) == nullptr, "destroy queue flushes between frames");
@@ -143,6 +288,8 @@ int main(int argc, char** argv) {
         Engine::Stop();
         return 3;
     }
+    expect(Engine::ConfigureDeterministicFixedSteps(1),
+           "integration runs one deterministic physics step per rendered frame");
     Engine::SetInitCallback([](Engine&) {
         auto* scenes = SceneManager::GetInstancePtr();
         expect(scenes != nullptr, "scene manager exists");

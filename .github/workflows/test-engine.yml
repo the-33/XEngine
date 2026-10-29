@@ -101,3 +101,28 @@ jobs:
           SDL_VIDEODRIVER: dummy
           SDL_RENDER_DRIVER: software
         run: python tools/test_engine_integration.py --config "${{ matrix.configuration }}" --frames "$SOAK_FRAMES" --timeout 300
+
+  linux_sanitizers:
+    name: Linux / Debug / AddressSanitizer + UBSan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Install GCC, SDL2 libraries and virtual display
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            g++ pkg-config xvfb xauth \
+            libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev libsdl2-mixer-dev \
+            nlohmann-json3-dev
+      - name: Instrument and run real SDL2 integration test
+        env:
+          SDL_AUDIODRIVER: dummy
+          SDL_VIDEODRIVER: x11
+          SDL_RENDER_DRIVER: software
+          ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
+          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+        run: |
+          xvfb-run -a python3 tools/test_engine_integration.py --config Debug --sanitizers --frames 120 --timeout 180

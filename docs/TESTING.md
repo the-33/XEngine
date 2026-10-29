@@ -42,8 +42,18 @@ The integration test currently exercises:
 - `GameObject` rename and `Scene::Find` index consistency;
 - world-space translation under a scaled and rotated parent;
 - texture/font cache lookup aliases and duplicate-key rejection;
+- sound-effect/music WAV loading and alias conflicts, with real SDL_mixer
+  playback against the dummy audio driver;
+- SDL mouse down/up edges, wheel events, UTF-8 text, and world-space deltas;
+- immediate-mode UI button click on release, using different C-string
+  addresses that contain the same widget identifier;
+- deterministic fixed-step integration of a dynamic rigid body;
 - creating and destroying objects during `Update`;
 - `Engine::Stop()` inside `Update`, followed by exactly one cleanup callback.
+
+The Python runner creates a temporary copy of the template's assets and
+generates a tiny PCM WAV for audio coverage. Neither generated audio files nor
+SDL state are written into the committed BlankGame template.
 
 Run a short local soak test with a few hundred or thousand rendered frames:
 
@@ -76,6 +86,32 @@ local Doxygen HTML**. The published reference remains available at
 also tells the optional VS Code Doxygen Hover extension to prefer online
 documentation; see [VS Code integration](VSCODE_INTEGRATION.md).
 
+## Memory and undefined-behavior sanitizers
+
+On native **Linux/GCC**, run an instrumented integration test using both
+AddressSanitizer and UndefinedBehaviorSanitizer:
+
+```bash
+SDL_AUDIODRIVER=dummy SDL_VIDEODRIVER=x11 SDL_RENDER_DRIVER=software \
+  xvfb-run -a python3 tools/test_engine_integration.py \
+  --config Debug --sanitizers --frames 120 --timeout 180
+```
+
+The runner recompiles **all engine sources and the integration executable**
+with `-fsanitize=address,undefined`, frame pointers and fail-fast sanitizer
+diagnostics. This produces an isolated archive in
+`build/linux-x86_64/debug/tests/integration/sanitized/engine/` and never
+overwrites the normal `libXEngine.a` used by games or ordinary CI tests.
+Leak detection is enabled with `ASAN_OPTIONS=detect_leaks=1:halt_on_error=1`
+unless the caller explicitly overrides it. Some leaks can originate inside
+SDL or other third-party libraries; inspect the full sanitizer trace before
+attributing them to XEngine. The job is Linux-only because a Windows runtime
+with the necessary sanitizer support has not yet been validated.
+
+This catches defects in paths that execute during the integration test, not
+every possible memory error. The separately linked native libraries are not
+instrumented by this command.
+
 ## Continuous integration on GitHub
 
 The repository includes `.github/workflows/test-engine.yml`. It runs on
@@ -83,8 +119,13 @@ pushes and pull requests and builds a four-way matrix:
 
 | OS | Debug | Release |
 |---|---|---|
-| Ubuntu Linux + Xvfb | Python suite + native SDL2 test (120 frames) | Python suite + native SDL2 test (120 frames) |
-| Windows + MSYS2 UCRT64 | Python suite + native SDL2 test (120 frames) | Python suite + native SDL2 test (120 frames) |
+| Ubuntu Linux + Xvfb | Python suite + native SDL2 test (120 frames) | Native SDL2 test (120 frames) |
+| Windows + MSYS2 UCRT64 | Python suite + native SDL2 test (120 frames) | Native SDL2 test (120 frames) |
+
+The configuration-independent Python suite runs once per OS, in the Debug
+job. A separate **Linux / Debug / AddressSanitizer + UBSan** job instruments
+and reruns the native SDL2 test. Thus a successful workflow has **five green
+jobs** (four standard builds plus the sanitizer job).
 
 GitHub Actions **Test XEngine → Run workflow** also accepts `soak_frames`:
 set, for example, `2000` to run an additional integration pass on all four
