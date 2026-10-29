@@ -189,7 +189,7 @@ class FrameProbe final : public Behaviour {
             expect(wheel.x == -1 && wheel.y == 2, "wheel event reaches input manager");
             expect(input->GetTextInput() == "á", "UTF-8 text reaches input manager");
 
-            auto* cam = owner->camera;
+            Camera2D* cam = owner->camera.get();
             const Vec2I logical = window->GetSize();
             if (cam && logical.x > 0 && logical.y > 0) {
                 const Vec2 view = cam->viewBase;
