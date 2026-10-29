@@ -43,6 +43,33 @@ class PublicHeaderModulesTests(unittest.TestCase):
         self.assertIn("struct ServiceAccess final", services)
         self.assertIn("T* operator->() const noexcept", services)
 
+    @unittest.skipUnless(shutil.which("g++") and shutil.which("pkg-config"),
+                         "GCC and SDL2 pkg-config metadata are required")
+    def test_scene_camera_shortcut_uses_public_property(self):
+        flags = subprocess.run(
+            ["pkg-config", "--cflags", "sdl2", "SDL2_image", "SDL2_ttf", "SDL2_mixer"],
+            text=True, capture_output=True, check=False,
+        )
+        if flags.returncode != 0:
+            self.skipTest("SDL2 development headers are unavailable")
+        code = r"""
+#include <Scene.h>
+#include <XEngine/Services.h>
+#include <type_traits>
+static_assert(std::is_same_v<decltype(std::declval<Scene&>().camera.get()), Camera2D*>);
+bool matchesActiveCamera(Scene* owner) {
+    return CurrentCamera.get() == owner->camera.get();
+}
+"""
+        process = subprocess.run(
+            ["g++", "-std=c++20", "-Wall", "-Wextra", "-Werror",
+             "-fsyntax-only", "-x", "c++", "-I", str(INCLUDE),
+             *flags.stdout.split(), "-"],
+            input=code, text=True, capture_output=True, cwd=ROOT,
+            check=False, timeout=60,
+        )
+        self.assertEqual(process.returncode, 0, process.stdout + process.stderr)
+
     def test_private_headers_moved_but_legacy_include_paths_preserved(self):
         for header in (
             "AdaptiveBroadphase.h", "SpatialHashBroadphase.h",

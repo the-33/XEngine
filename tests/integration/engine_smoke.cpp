@@ -285,7 +285,7 @@ public:
         Scene* owner = scene;
         expect(owner != nullptr, "behaviour has a scene");
         if (owner)
-            expect(CurrentCamera.get() == owner->GetCamera(),
+            expect(CurrentCamera.get() == owner->camera.get(),
                    "typed CurrentCamera follows the active scene after activation");
         ExerciseInputAndUI(owner);
         if (movingBody) {

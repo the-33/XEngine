@@ -114,7 +114,7 @@ if (camera) {
 keeping a pointer to a camera across scene changes unless you know its
 lifetime. **During a scene-builder callback the new scene is not yet active**:
 `CurrentCamera` returns `nullptr` there, so use the callback's `Scene*` and
-`scene->GetCamera()` to configure its camera. The shortcut also returns null
+`scene->camera.get()` to configure its camera. The shortcut also returns null
 before initialization and during scene transitions or shutdown.
 To follow a target:
 
