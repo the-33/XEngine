@@ -1,20 +1,75 @@
 #!/usr/bin/env python3
-"""Opt-in VS Code IntelliSense integration for native XEngine GCC builds.
+"""Opt-in VS Code IntelliSense and separately opt-in Doxygen hover extension.
 
-No CMake, editor extension, or third-party Python module is required.
-The configuration is entirely local: .vscode/ and build/ are Git-ignored.
+Neither CMake, an editor extension nor third-party Python modules are required
+to build XEngine. Generated .vscode/ and build/ files remain Git-ignored.
 """
 from __future__ import annotations
 
 import argparse
 import hashlib
 import json
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
 import build as xbuild
 
 ROOT = Path(__file__).resolve().parent.parent
+HOVER_EXTENSION_ID = 'the-33.xengine-doxygen-hover'
+HOVER_VSIX = (Path(__file__).resolve().parent / 'vscode_doxygen_hover' /
+              'xengine-doxygen-hover-0.1.0.vsix')
+
+
+def _code_cli(command: str = 'code') -> str:
+    """Find a VS Code CLI, also accepting a path to code/code.cmd."""
+    candidate = shutil.which(command)
+    if candidate:
+        return candidate
+    if Path(command).is_file():
+        return str(Path(command).resolve())
+    raise xbuild.BuildError(
+        f'VS Code command {command!r} not found. Install VS Code and enable its '
+        'command-line launcher, or pass --code-cli with its full path '
+        '(e.g. code-insiders or code.cmd).')
+
+
+def _run_code_cli(*arguments: str, code_cli: str = 'code') -> str:
+    executable = _code_cli(code_cli)
+    result = subprocess.run([executable, *arguments], text=True,
+                            capture_output=True, check=False)
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout).strip()
+        raise xbuild.BuildError(
+            f'VS Code CLI returned {result.returncode}: {detail or "unknown error"}')
+    return result.stdout.strip()
+
+
+def hover_status(*, code_cli: str = 'code') -> bool:
+    """Query the selected VS Code installation without modifying anything."""
+    output = _run_code_cli('--list-extensions', '--show-versions', code_cli=code_cli)
+    return any(line.split('@', 1)[0].strip().casefold() == HOVER_EXTENSION_ID.casefold()
+               for line in output.splitlines())
+
+
+def hover_install(*, code_cli: str = 'code', vsix: Path = HOVER_VSIX) -> None:
+    """Install/update only when explicitly requested by the user."""
+    if not vsix.is_file():
+        raise xbuild.BuildError(
+            f'Bundled Doxygen Hover VSIX not found: {vsix}. '
+            'Re-download the complete XEngine repository or package the extension.')
+    output = _run_code_cli('--install-extension', str(vsix.resolve()), '--force',
+                           code_cli=code_cli)
+    if output:
+        print(output)
+
+
+def hover_uninstall(*, code_cli: str = 'code') -> None:
+    output = _run_code_cli('--uninstall-extension', HOVER_EXTENSION_ID,
+                           code_cli=code_cli)
+    if output:
+        print(output)
 
 
 def _data_path(root: Path) -> Path:
@@ -226,13 +281,29 @@ def disable(root: Path = ROOT) -> list[str]:
 def main() -> int:
     parser = argparse.ArgumentParser(
         description='Optional VS Code IntelliSense integration for XEngine')
-    parser.add_argument('action', choices=('setup', 'refresh', 'disable'))
+    parser.add_argument('action', choices=('setup', 'refresh', 'disable',
+                                           'hover-install', 'hover-status',
+                                           'hover-uninstall'))
     parser.add_argument('--platform', choices=('auto', 'windows', 'linux'))
     parser.add_argument('--configuration', choices=('Debug', 'Release'))
+    parser.add_argument('--code-cli', default='code',
+                        help='VS Code CLI name/path for hover commands (default: code)')
     parser.add_argument('--quiet', action='store_true')
     args = parser.parse_args()
     try:
-        if args.action == 'disable':
+        if args.action == 'hover-install':
+            hover_install(code_cli=args.code_cli)
+            if not args.quiet:
+                print('[IDE] XEngine Doxygen Hover installed; reload VS Code if needed')
+        elif args.action == 'hover-uninstall':
+            hover_uninstall(code_cli=args.code_cli)
+            if not args.quiet:
+                print('[IDE] XEngine Doxygen Hover uninstalled')
+        elif args.action == 'hover-status':
+            installed = hover_status(code_cli=args.code_cli)
+            print('[IDE] XEngine Doxygen Hover: ' +
+                  ('installed' if installed else 'not installed'))
+        elif args.action == 'disable':
             warnings = disable()
             if not args.quiet:
                 print('[IDE] VS Code integration disabled (personal edits preserved)')

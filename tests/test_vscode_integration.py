@@ -7,6 +7,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -126,6 +127,57 @@ class VSCodeIntegrationTests(unittest.TestCase):
         ignore = (ROOT / '.gitignore').read_text(encoding='utf-8')
         self.assertIn('/build/', ignore)
         self.assertIn('.vscode/', ignore)
+
+
+class DoxygenHoverExtensionTests(unittest.TestCase):
+    def test_source_and_prebuilt_vsix_are_available_without_node(self):
+        extension = ROOT / 'tools' / 'vscode_doxygen_hover'
+        package = json.loads((extension / 'package.json').read_text(encoding='utf-8'))
+        self.assertEqual(package['publisher'], 'the-33')
+        self.assertEqual(package['name'], 'xengine-doxygen-hover')
+        self.assertTrue(vscode.HOVER_VSIX.is_file())
+        self.assertGreater(vscode.HOVER_VSIX.stat().st_size, 1000)
+
+    @mock.patch.object(vscode.shutil, 'which', return_value='/opt/bin/code')
+    @mock.patch.object(vscode.subprocess, 'run')
+    def test_status_detects_extension_using_selected_cli(self, run, which):
+        run.return_value = SimpleNamespace(
+            returncode=0, stdout='some.other@1.0\nThe-33.XEngine-Doxygen-Hover@0.1.0\n',
+            stderr='')
+        self.assertTrue(vscode.hover_status(code_cli='code-insiders'))
+        which.assert_called_with('code-insiders')
+        run.assert_called_once_with(
+            ['/opt/bin/code', '--list-extensions', '--show-versions'],
+            text=True, capture_output=True, check=False)
+        run.return_value.stdout = 'some.other@1.0\n'
+        self.assertFalse(vscode.hover_status())
+
+    @mock.patch.object(vscode.shutil, 'which', return_value='/opt/bin/code')
+    @mock.patch.object(vscode.subprocess, 'run')
+    def test_install_and_uninstall_only_through_explicit_commands(self, run, _):
+        run.return_value = SimpleNamespace(returncode=0, stdout='', stderr='')
+        vscode.hover_install()
+        self.assertEqual(run.call_args.args[0], [
+            '/opt/bin/code', '--install-extension', str(vscode.HOVER_VSIX.resolve()),
+            '--force'])
+        vscode.hover_uninstall()
+        self.assertEqual(run.call_args.args[0], [
+            '/opt/bin/code', '--uninstall-extension',
+            'the-33.xengine-doxygen-hover'])
+
+    def test_missing_vsix_fails_before_running_vscode(self):
+        with mock.patch.object(vscode.subprocess, 'run') as run:
+            with self.assertRaisesRegex(Exception, 'VSIX not found'):
+                vscode.hover_install(vsix=Path('/nonexistent/xengine-test.vsix'))
+            run.assert_not_called()
+
+    @mock.patch.object(vscode.shutil, 'which', return_value='/opt/bin/code')
+    @mock.patch.object(vscode.subprocess, 'run')
+    def test_cli_errors_are_reported(self, run, _):
+        run.return_value = SimpleNamespace(returncode=3, stdout='',
+                                           stderr='Extension install failed')
+        with self.assertRaisesRegex(Exception, 'Extension install failed'):
+            vscode.hover_install()
 
 
 if __name__ == '__main__':

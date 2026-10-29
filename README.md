@@ -268,7 +268,7 @@ Read the [Legacy migration feasibility and proposed design](docs/LEGACY_MIGRATIO
 | [Documentation index](docs/DOCUMENTATION_INDEX.md) | All guides, organized by what you are trying to achieve |
 | [Your first game](docs/GETTING_STARTED.md) | Create a game, understand scenes and write a Behaviour |
 | [Headers and includes](docs/INCLUDES_AND_DEPENDENCIES.md) | Public headers, C++ organization, properties and dependencies |
-| [VS Code integration](docs/VSCODE_INTEGRATION.md) | Optional setup for IntelliSense, shared compile commands and game folders |
+| [VS Code integration](docs/VSCODE_INTEGRATION.md) | Optional IntelliSense for engine/games and a bundled Doxygen Hover extension with direct API links |
 | [Online documentation](https://the-33.github.io/XEngine/) | Live documentation portal hosted on GitHub Pages |
 | [Game Developer Reference](https://the-33.github.io/XEngine/game/html/index.html) | Searchable public API for game developers |
 | [Engine Developer Reference](https://the-33.github.io/XEngine/engine/html/index.html) | Engine internals and implementation reference |
@@ -303,6 +303,13 @@ searchable references: the [game API](https://the-33.github.io/XEngine/game/html
 and [engine internals](https://the-33.github.io/XEngine/engine/html/index.html).
 The [GitHub Pages workflow](docs/GITHUB_PAGES.md) keeps these pages updated on
 pushes to `main` without committing generated HTML.
+VS Code users can optionally add a **📖 Open in XEngine documentation** link
+to C++ symbol hovers. The source and installable VSIX ship in
+[`tools/vscode_doxygen_hover/`](tools/vscode_doxygen_hover/README.md); run
+`python tools/vscode.py hover-install` to opt in (and `hover-uninstall` to
+remove it). This uses the online Doxygen symbol indexes and does not replace
+normal IntelliSense, require Node.js or install anything during builds.
+See the [VS Code setup and hover guide](docs/VSCODE_INTEGRATION.md).
 For local contributors, the optional [pre-commit hook](docs/GAME_GIT_TRACKING.md)
 regenerates and checks Doxygen when the staged files change documentation or
 engine sources; unlike the publishing workflow it requires explicit activation

@@ -1,0 +1,51 @@
+{
+  "name": "xengine-doxygen-hover",
+  "displayName": "XEngine Doxygen Hover",
+  "description": "Optional links from C++ hovers to the published XEngine Doxygen symbol reference.",
+  "version": "0.1.0",
+  "publisher": "the-33",
+  "private": true,
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Programming Languages", "Other"],
+  "main": "./extension.js",
+  "activationEvents": ["onLanguage:cpp"],
+  "contributes": {
+    "commands": [
+      {
+        "command": "xengineDoxygen.openPortal",
+        "title": "XEngine: Open Online Documentation"
+      },
+      {
+        "command": "xengineDoxygen.refreshIndex",
+        "title": "XEngine: Refresh Doxygen Symbol Index"
+      }
+    ],
+    "configuration": {
+      "title": "XEngine Doxygen Hover",
+      "properties": {
+        "xengineDoxygen.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Add links to XEngine Doxygen symbol pages in C++ hovers."
+        },
+        "xengineDoxygen.baseUrl": {
+          "type": "string",
+          "default": "https://the-33.github.io/XEngine/",
+          "description": "HTTPS base URL of the published XEngine documentation portal."
+        },
+        "xengineDoxygen.profile": {
+          "type": "string",
+          "enum": ["auto", "game", "engine"],
+          "default": "auto",
+          "description": "Reference profile: auto selects engine for files under engine/include or engine/src, otherwise game."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "package": "vsce package --no-dependencies"
+  }
+}

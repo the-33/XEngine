@@ -1,0 +1,6 @@
+test/**
+*.vsix
+dist/**
+.git/**
+node_modules/**
+README_PARCHE.md

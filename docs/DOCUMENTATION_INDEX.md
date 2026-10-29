@@ -28,7 +28,7 @@ benchmarks and experimental performance investigations are listed separately.
 | Guide | When to use it |
 |---|---|
 | [Developer Guide](DEVELOPER_GUIDE.md) | Install Windows/Linux dependencies, build Debug/Release and troubleshoot toolchains. |
-| [Optional VS Code integration](VSCODE_INTEGRATION.md) | Enable accurate IntelliSense for the engine and games from any opened folder. |
+| [Optional VS Code integration](VSCODE_INTEGRATION.md) | Enable accurate IntelliSense and optionally install the bundled Doxygen Hover extension for clickable API links. |
 | [Cross-compilation](CROSS_COMPILATION.md) | Configure a target toolchain and matching SDK for builds between Windows and Linux. |
 | [Game build config](GAME_CONFIG_SYNC.md) | Understand `games/<Game>/config.json` and its schema synchronization. |
 | [Runtime engine config](ENGINE_CONFIG_MIGRATION.md) | Understand `assets/config/engine.json` defaults and synchronization. |

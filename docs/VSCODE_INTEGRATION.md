@@ -72,7 +72,7 @@ backup made at setup. A configuration you edited after setup is **left
 untouched**, even when disabling. XEngine always builds normally without
 these optional files.
 
-## Hover documentation and linting
+## Clickable Doxygen links in C++ hovers (optional)
 
 The C/C++ extension uses each `.cpp` entry in `compile_commands.json` for
 IntelliSense: type information, completion, Go to Definition, error squiggles
@@ -83,11 +83,53 @@ Doxygen HTML reference is available at the
 [game API](https://the-33.github.io/XEngine/game/html/index.html) and
 [engine internals](https://the-33.github.io/XEngine/engine/html/index.html).
 VS Code does **not** automatically add links to those pages to native C/C++
-hovers. A clickable, symbol-specific documentation link requires an optional
-VS Code extension implementing a `HoverProvider` and resolving a symbol to
-its corresponding Doxygen HTML page and anchor. The C/C++ extension can
-continue providing the usual signature and comment hover alongside that
-extra link. `compile_commands.json` handles IntelliSense, **not** this URL
-mapping. No such hover-link extension is bundled with XEngine at present.
+hovers. XEngine includes the optional **XEngine Doxygen Hover** extension,
+with its source code and a ready-to-install VSIX under
+`tools/vscode_doxygen_hover/`. To install it, run from the repository root:
+
+```sh
+python tools/vscode.py hover-install
+python tools/vscode.py hover-status
+```
+
+Hover over an XEngine class or method in a C++ file. Alongside the normal
+IntelliSense tooltip, the extension contributes a clickable
+**📖 Open in XEngine documentation** link. It targets the corresponding
+Doxygen class page or method anchor in your browser rather than the portal
+homepage. It reads published XML indexes from GitHub Pages and uses the
+C/C++ definition provider to disambiguate member names when available;
+ambiguous results are omitted instead of linking to an unrelated symbol.
+
+- The `game` reference is used for game code; files under `engine/include/`
+  or `engine/src/` use the full `engine` reference. Settings
+  `xengineDoxygen.profile` and `xengineDoxygen.baseUrl` can override these
+  choices. Source indexes are cached for 30 minutes and can be refreshed with
+  **XEngine: Refresh Doxygen Symbol Index** in the Command Palette.
+- The extension uses the network to read the already published XML indexes.
+  If offline, the existing C/C++ IntelliSense hover is unaffected. Some
+  overloaded or ambiguous symbols cannot be mapped reliably; those links
+  are deliberately omitted.
+- It is **not installed by** `setup`, `refresh`, compilation or game creation.
+  It is installed only by the explicit `hover-install` command or the
+  standard VS Code **Install from VSIX…** action. The source and prebuilt
+  VSIX are tracked in Git; generated `.vscode/` settings and `build/ide/`
+  are not.
+- For VS Code Insiders or a nonstandard command-line launcher, append
+  `--code-cli code-insiders` (or the absolute path to your launcher). When
+  using **Remote - WSL**, run the install command in the appropriate WSL
+  environment so that the extension is installed in the extension host used
+  for your C++ project.
+
+To remove it, run:
+
+```sh
+python tools/vscode.py hover-uninstall
+```
+
+`python tools/vscode.py disable` affects only the generated IntelliSense
+files; it deliberately does **not** uninstall an extension from your VS Code
+user profile. See [XEngine Doxygen Hover source and usage](https://github.com/the-33/XEngine/blob/main/tools/vscode_doxygen_hover/README.md)
+and [GitHub Pages publishing](GITHUB_PAGES.md).
+
 Running `clang-tidy` for additional static analysis is a separate optional
 tool.
