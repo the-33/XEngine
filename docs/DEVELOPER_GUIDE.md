@@ -64,6 +64,29 @@ XEngine's documentation, run `python tools/build_doxygen.py` whenever you
 want fresh local HTML instead. The optional Git hook and the GitHub Pages
 workflow run their own checks independently of `--no-doc`.
 
+## Validate an engine change before sharing it
+
+After changing `engine/`, first run the **fast Python regression tests** and
+then the **real SDL2 integration tests**. The latter compile and launch the
+actual engine in both build modes, exercising scenes, assets, transforms,
+safe shutdown and a short simulated session:
+
+```bash
+python -m unittest discover -s tests -p 'test_*.py' -q
+python tools/test_engine_integration.py --config Debug
+python tools/test_engine_integration.py --config Release
+```
+
+Use `--frames 600` for a longer local check. The native test runner requires
+the same compiler and SDL2 development dependencies as the game build, but
+does **not** require Doxygen, a game project or VS Code. GitHub Actions repeats
+the tests in **Windows/Linux × Debug/Release** on pushes and pull requests;
+its separate manual `soak_frames` option can run a longer session. Full
+coverage, limitations and commands: [Testing XEngine](TESTING.md).
+
+Before releasing, also test the changed features manually and review whether
+the engine needs a version increment under [Versioning](VERSIONING.md).
+
 ## Dependencies
 
 No `third_party/` vendor directory is required. Native builds use SDL2 development packages installed through the host package manager. The compiler and linker flags are obtained from `pkg-config`.

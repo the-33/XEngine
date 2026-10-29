@@ -26,6 +26,11 @@ build or run a game. You can browse this **published reference** without
 installing Doxygen; to skip regeneration on engine builds, use `--no-doc` (for
 example `./build.sh --run --no-doc` inside your game on Linux).
 
+When contributing engine code, follow the
+[testing guide](../../TESTING.md) to compile and execute real SDL2 smoke
+tests on Windows and Linux in Debug/Release. These checks are separate from
+the optional Git hooks and from Doxygen generation.
+
 ## Features by task
 
 | Feature | Read first | Important API |

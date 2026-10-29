@@ -29,12 +29,14 @@ benchmarks and experimental performance investigations are listed separately.
 | [Persistence and serialization](PERSISTENCE_AND_SERIALIZATION.md) | Read/write files, save data atomically, validate backup candidates, use binary/JSON and PlayerPrefs. |
 | [Architecture](ARCHITECTURE.md) | Understand scenes, lifecycle, platform boundaries and renderer ownership. |
 | [Versioning](VERSIONING.md) | Check the current engine version, compatibility policy and distinction from game releases. |
+| [Testing XEngine](TESTING.md) | Run Python checks and real SDL2 engine integration tests before publishing a change. |
 
 ## Install, configure and ship
 
 | Guide | When to use it |
 |---|---|
 | [Developer Guide](DEVELOPER_GUIDE.md) | Install Windows/Linux dependencies, configure optional Git hooks/VS Code/Doxygen, build Debug/Release and troubleshoot toolchains. |
+| [Continuous integration and stability](TESTING.md#continuous-integration-on-github) | Understand the Windows/Linux Debug/Release CI matrix and optional soak tests. |
 | [Optional VS Code integration](VSCODE_INTEGRATION.md) | Enable accurate IntelliSense and optionally install the bundled Doxygen Hover extension for clickable API links. |
 | [Cross-compilation](CROSS_COMPILATION.md) | Configure a target toolchain and matching SDK for builds between Windows and Linux. |
 | [Game build config](GAME_CONFIG_SYNC.md) | Understand `games/<Game>/config.json` and its schema synchronization. |

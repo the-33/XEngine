@@ -2,7 +2,7 @@
 
 XEngine uses **Semantic Versioning 2.0.0** for engine releases. Its single
 official version is the plain UTF-8 string in the repository-root **`VERSION`**
-file, currently **`0.1.4`**. Do not prefix the value with `v`, put a release
+file, currently **`0.1.5`**. Do not prefix the value with `v`, put a release
 number directly into Doxygen configuration, or increment it for every commit
 or conversation.
 
@@ -38,6 +38,12 @@ XEngine adopts the following *project policy* while major version is zero:
   Benchmark search popup palette; no C++ API changes.
 - `0.1.4`: clear and consistent selected/hovered navigation row backgrounds
   and text contrast in both sidebars, all four color schemes; no C++ API changes.
+- `0.1.5`: backwards-compatible runtime correctness and stability fixes:
+  deferred `Engine::Stop()` shutdown, cycle-safe scene parenting, consistent
+  world transforms and mouse deltas, cached asset key aliases, content-based
+  UI widget IDs and updated scene name lookup. Also adjusts HiDPI mouse/UI
+  coordinates and the affected API documentation. Game project versions do
+  not change.
 - `0.2.0`: new capabilities, substantial engine changes or an intentional
   incompatible API adjustment. Explicitly describe any migration.
 - `1.0.0`: declare a documented, tested, supported gameplay API stable.
@@ -54,6 +60,14 @@ version only when publishing a distinct snapshot intended for use by other
 developers. Never change the bytes of an already-published version's ZIP;
 publish the next version instead.
 
+**At the end of every development iteration, review the version decision.**
+Compare the accumulated changes with the latest *released* engine, decide
+whether to publish now, and record the conclusion (including **no version
+bump**) in `AI_CONTEXT.md` or the iteration handover. If a release is planned,
+choose PATCH/MINOR/MAJOR using the compatibility rules above; do not increment
+the engine version automatically just because a commit, build, or iteration
+finished.
+
 Before a release:
 
 1. Identify changes against the preceding released engine, not against the
@@ -62,11 +76,15 @@ Before a release:
 2. Select the appropriate version increment, update the root `VERSION`
    **once**, and record compatibility, supported targets and important changes
    in the release notes. Old entries in `AI_CONTEXT.md` remain historical.
-3. Run relevant game/build tests and the two Doxygen references. Review
-   `README.md`, `docs/` and Doxygen source comments for current API behavior.
+3. Run the [Python regression suite and real SDL2 integration tests](TESTING.md)
+   in Windows/Linux **Debug and Release**, review the CI matrix, perform
+   targeted manual checks for affected features, and build/validate both
+   Doxygen references. Passing tests supports a release decision but cannot
+   prove that all hardware and gameplay paths are stable. Review `README.md`,
+   `docs/` and Doxygen source comments for current API behavior.
 4. Distribute engine source with a filename derived from `VERSION`, e.g.
-   `XEngine-0.1.4-source.zip`, and use the corresponding immutable Git tag
-   `v0.1.4` when releasing through Git. The `v` is a *tag convention*;
+   `XEngine-0.1.5-source.zip`, and use the corresponding immutable Git tag
+   `v0.1.5` when releasing through Git. The `v` is a *tag convention*;
    it is not part of the canonical `VERSION` content.
 
 Optional pre-releases follow normal SemVer notation, e.g.
@@ -78,11 +96,11 @@ From the XEngine repository root:
 
 ```sh
 python tools/engine_version.py
-# 0.1.4
+# 0.1.5
 python tools/engine_version.py --archive-name source
-# XEngine-0.1.4-source.zip
+# XEngine-0.1.5-source.zip
 python tools/engine_version.py --archive-name patch
-# XEngine-0.1.4-patch.zip
+# XEngine-0.1.5-patch.zip
 python tools/build_doxygen.py
 ```
 
@@ -104,7 +122,7 @@ Each game sets its own `project.version` in
 package and is preserved by the project's configuration synchronization.
 It must not read or overwrite XEngine's root `VERSION`.
 
-For example, a game may be `2.3.4` while using XEngine `0.1.4`; upgrading
+For example, a game may be `2.3.4` while using XEngine `0.1.5`; upgrading
 the engine does not implicitly publish a new game version. The game developer
 decides when to version the game itself.
 

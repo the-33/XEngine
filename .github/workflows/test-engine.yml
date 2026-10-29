@@ -1,0 +1,99 @@
+name: Test XEngine
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      soak_frames:
+        description: 'Optional extended real SDL2 soak run (0 disables it)'
+        required: false
+        default: '0'
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    name: Linux / ${{ matrix.configuration }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration: [Debug, Release]
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Install GCC, SDL2 libraries and virtual display
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            g++ pkg-config xvfb xauth \
+            libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev libsdl2-mixer-dev \
+            nlohmann-json3-dev
+      - name: Python regression suite
+        run: python3 -m unittest discover -s tests -p 'test_*.py' -q
+      - name: Native SDL2 smoke and short soak
+        env:
+          SDL_AUDIODRIVER: dummy
+          SDL_VIDEODRIVER: x11
+          SDL_RENDER_DRIVER: software
+        run: |
+          xvfb-run -a python3 tools/test_engine_integration.py --config "${{ matrix.configuration }}" --frames 120 --timeout 120
+      - name: Optional extended soak
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.soak_frames != '0' }}
+        env:
+          SOAK_FRAMES: ${{ inputs.soak_frames }}
+          SDL_AUDIODRIVER: dummy
+          SDL_VIDEODRIVER: x11
+          SDL_RENDER_DRIVER: software
+        run: |
+          xvfb-run -a python3 tools/test_engine_integration.py --config "${{ matrix.configuration }}" --frames "$SOAK_FRAMES" --timeout 300
+
+  windows:
+    name: Windows UCRT64 / ${{ matrix.configuration }}
+    runs-on: windows-2022
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration: [Debug, Release]
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-binutils
+            mingw-w64-ucrt-x86_64-python
+            mingw-w64-ucrt-x86_64-pkgconf
+            mingw-w64-ucrt-x86_64-SDL2
+            mingw-w64-ucrt-x86_64-SDL2_image
+            mingw-w64-ucrt-x86_64-SDL2_ttf
+            mingw-w64-ucrt-x86_64-SDL2_mixer
+            mingw-w64-ucrt-x86_64-nlohmann-json
+      - name: Python regression suite
+        run: python -m unittest discover -s tests -p 'test_*.py' -q
+      - name: Native SDL2 smoke and short soak
+        env:
+          SDL_AUDIODRIVER: dummy
+          SDL_VIDEODRIVER: dummy
+          SDL_RENDER_DRIVER: software
+        run: python tools/test_engine_integration.py --config "${{ matrix.configuration }}" --frames 120 --timeout 120
+      - name: Optional extended soak
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.soak_frames != '0' }}
+        env:
+          SOAK_FRAMES: ${{ inputs.soak_frames }}
+          SDL_AUDIODRIVER: dummy
+          SDL_VIDEODRIVER: dummy
+          SDL_RENDER_DRIVER: software
+        run: python tools/test_engine_integration.py --config "${{ matrix.configuration }}" --frames "$SOAK_FRAMES" --timeout 300

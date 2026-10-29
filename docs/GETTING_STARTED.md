@@ -70,6 +70,14 @@ you actively edit the engine and want to inspect new or unpublished APIs.
 
 ## 2. Create and run a game
 
+If you later modify **XEngine's own C++ source** (rather than only your game),
+you can validate it with `python tools/test_engine_integration.py --config Debug`
+and `--config Release`. These tests use real SDL2 and run without generating
+Doxygen; GitHub Actions checks Windows and Linux automatically. The full
+[testing guide](TESTING.md) explains what they cover and why passing tests
+does not guarantee that a game is entirely bug-free. No tests or optional Git
+hooks need to be enabled just to create and run a game.
+
 Run the project generator from **XEngine's root**, not from inside `tools/`.
 Quote names containing spaces.
 

@@ -4,7 +4,7 @@
   <h1>XEngine</h1>
   <p><strong>A lightweight, cross-platform 2D game engine built with C++20 and SDL2.</strong></p>
   <p><em>Build 2D games in C++. Understand the engine. Own your code.</em></p>
-  <p><small>Engine release: <strong>0.1.4</strong> · <a href="docs/VERSIONING.md">Version policy</a></small></p>
+  <p><small>Engine release: <strong>0.1.5</strong> · <a href="docs/VERSIONING.md">Version policy</a></small></p>
   <p><small>Modern successor to <a href="https://github.com/the-33/XEngine-Legacy">XEngine-Legacy</a> (Visual Studio / MSVC)</small></p>
   <p>
     <a href="https://en.cppreference.com/w/cpp/20"><img alt="C++20" src="https://img.shields.io/badge/C%2B%2B-20-00599C?logo=cplusplus&amp;logoColor=white" /></a>
@@ -110,6 +110,22 @@ the hover extension will then prefer the
 [online reference](https://the-33.github.io/XEngine/) until the next successful
 build without the flag.
 
+**Testing engine changes:** run the Python regression suite, then compile and
+launch the **real SDL2 engine** in Debug and Release:
+
+```bash
+python -m unittest discover -s tests -p 'test_*.py' -q
+python tools/test_engine_integration.py --config Debug
+python tools/test_engine_integration.py --config Release
+```
+
+The [testing guide](docs/TESTING.md) explains the native SDL2 requirements,
+headless mode, `--frames` soak option and limits of automated checks. The new
+`Test XEngine` GitHub Actions workflow runs on Windows and Linux in both
+configurations; the Doxygen publishing workflow remains independent. The
+test runner passes `--no-doc` internally, so running tests never requires
+generating local HTML.
+
 ## Project structure
 
 ```text
@@ -129,7 +145,7 @@ XEngine/
 ├── docs/                     # Architecture and advanced guides
 ├── Doxyfile_Games            # Public game-development Doxygen configuration
 ├── Doxyfile_Engine           # Full engine internals Doxygen configuration
-├── tests/                    # Regression tests
+├── tests/                    # Python regression + native SDL2 integration tests
 └── README.md
 ```
 

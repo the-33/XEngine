@@ -242,16 +242,15 @@ def redirect_empty_markdown_file_references(html_directory: Path) -> int:
 
 
 def prune_duplicate_markdown_search(html_directory: Path) -> int:
-    """Suppress .md File Reference hits when a usable guide page exists.
+    """Suppress empty .md File Reference hits from Doxygen search.
 
     Doxygen's search JS includes Markdown *files* as well as Markdown *pages*.
-    The former are empty and confusing. Only remove entries whose empty file
-    pages were successfully linked to a real guide. Keep the latter searchable.
+    The former are empty and confusing. Doxygen versions can fail to match a
+    file reference with its rendered guide by title; still remove the empty
+    file hit while keeping the actual guide/page entries searchable.
     """
-    redirect_marker = 'data-xengine-guide-redirect="1"'
-    linked_refs = {page.name for page in html_directory.glob('*_8md.html')
-                   if redirect_marker in page.read_text(encoding='utf-8')}
-    if not linked_refs:
+    file_refs = {page.name for page in html_directory.glob('*_8md.html')}
+    if not file_refs:
         return 0
     removed = 0
     for index in (html_directory / 'search').glob('*.js'):
@@ -262,7 +261,7 @@ def prune_duplicate_markdown_search(html_directory: Path) -> int:
         for line in original.splitlines(keepends=True):
             stripped = line.strip()
             if stripped.startswith('[') and stripped.endswith(('],', ']]', ']],', ']]],')) and any(
-                f"{ref}'" in line or f'{ref}"' in line for ref in linked_refs
+                f"{ref}'" in line or f'{ref}"' in line for ref in file_refs
             ):
                 removed += 1
                 continue

@@ -94,6 +94,25 @@ class DualDoxygenTests(unittest.TestCase):
                 encoding='utf-8')
             self.assertEqual(docs.redirect_empty_markdown_file_references(html_dir), 1)
 
+    def test_unmatched_empty_markdown_file_does_not_pollute_search(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            html_dir = Path(tmp)
+            search_dir = html_dir / 'search'
+            search_dir.mkdir()
+            (html_dir / 'UNMATCHED_8md.html').write_text(
+                '<html><head><title>XEngine: UNMATCHED.md File Reference</title></head>'
+                '<body><div class="contents"></div></body></html>', encoding='utf-8')
+            (search_dir / 'all_1.js').write_text(
+                "var searchData=\n[\n"
+                "  ['unmatched_1',['UNMATCHED.md',['../UNMATCHED_8md.html',1]]],\n"
+                "  ['real_2',['Full guide',['../md_docs_2REAL.html',1]]]  \n];\n",
+                encoding='utf-8')
+            self.assertEqual(docs.redirect_empty_markdown_file_references(html_dir), 0)
+            self.assertEqual(docs.prune_duplicate_markdown_search(html_dir), 1)
+            content = (search_dir / 'all_1.js').read_text(encoding='utf-8')
+            self.assertNotIn('UNMATCHED_8md.html', content)
+            self.assertIn('md_docs_2REAL.html', content)
+
     def test_theme_assets_and_two_readable_profiles(self):
         for name in ('xengine_logo_light.png', 'xengine_logo_dark.png',
                      'xengine_benchmark_logo_light.png', 'xengine_benchmark_logo_dark.png',
