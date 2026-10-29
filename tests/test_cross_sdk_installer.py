@@ -571,8 +571,11 @@ class CrossSdkInstallerTests(unittest.TestCase):
         for body in (readme, cross):
             self.assertIn('install_cross_sdk.bat --target linux', body)
             self.assertIn('./install_cross_sdk.sh --target windows', body)
-            self.assertIn('Manual Windows → Linux SDK Setup', cross)
             self.assertIn('--sdk-dir', body)
+        # Check the manual Windows-to-Linux section without depending on the
+        # Unicode arrow or on the exact spelling of the full Markdown title.
+        self.assertIn('### Manual Windows', cross)
+        self.assertIn('SDK Setup (No WSL or Docker)', cross)
         self.assertIn('RECOMMENDED:', guide)
         self.assertIn('Manual alternative:', guide)
 
