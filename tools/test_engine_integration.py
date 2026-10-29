@@ -24,7 +24,7 @@ def prepare_fixture_assets(source: Path, destination: Path) -> None:
     """Create isolated assets, including two valid little-endian PCM WAVs."""
     shutil.copytree(source, destination)
     audio = destination / 'audio'
-    audio.mkdir()
+    audio.mkdir(exist_ok=True)
     for name, sample_count in (('tone.wav', 2205), ('other.wav', 4410)):
         with wave.open(str(audio / name), 'wb') as wav:
             wav.setnchannels(1)
