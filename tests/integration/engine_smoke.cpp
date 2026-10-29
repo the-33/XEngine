@@ -133,6 +133,7 @@ void checkScene(Scene* scene) {
 class FrameProbe final : public Behaviour {
     EntityID previousId = 0;
     float previousBodyX = 0.f;
+    Vec2I mousePositionBeforeMotion{0, 0};
     std::string firstButtonId = "integration-button";
     std::string secondButtonId = "integration-button";
 
@@ -152,6 +153,7 @@ class FrameProbe final : public Behaviour {
         const Rect buttonRect{40.f * scaleX, 20.f * scaleY,
                               100.f * scaleX, 60.f * scaleY};
         if (updates == 1) {
+            mousePositionBeforeMotion = input->GetMousePos();
             input->SetTextInput(true);
             SDL_Event motion{};
             motion.type = SDL_MOUSEMOTION;
@@ -184,7 +186,10 @@ class FrameProbe final : public Behaviour {
             const Vec2I cursor = input->GetMousePos();
             expect(cursor.x == 64 && cursor.y == 36, "SDL motion updates mouse position");
             const Vec2I delta = input->GetMouseDelta();
-            expect(delta.x == 64 && delta.y == 36, "mouse delta follows SDL motion");
+            const Vec2I expectedDelta{cursor.x - mousePositionBeforeMotion.x,
+                                      cursor.y - mousePositionBeforeMotion.y};
+            expect(delta.x == expectedDelta.x && delta.y == expectedDelta.y,
+                   "mouse delta follows SDL motion relative to the previous frame");
             const Vec2I wheel = input->GetMouseWheel();
             expect(wheel.x == -1 && wheel.y == 2, "wheel event reaches input manager");
             expect(input->GetTextInput() == "á", "UTF-8 text reaches input manager");
@@ -194,8 +199,8 @@ class FrameProbe final : public Behaviour {
             if (cam && logical.x > 0 && logical.y > 0) {
                 const Vec2 view = cam->viewBase;
                 const Vec2 deltaWorld = input->GetMouseDeltaWorld();
-                expect(almostEqual(deltaWorld.x, 64.f * view.x / logical.x) &&
-                       almostEqual(deltaWorld.y, 36.f * view.y / logical.y),
+                expect(almostEqual(deltaWorld.x, expectedDelta.x * view.x / logical.x) &&
+                       almostEqual(deltaWorld.y, expectedDelta.y * view.y / logical.y),
                        "mouse world delta scales without including camera offset");
             }
             expect(!ui->Button(firstButtonId.c_str(), buttonRect),
@@ -232,7 +237,8 @@ public:
         ExerciseInputAndUI(owner);
         if (movingBody) {
             const Vec3 pos = movingBody->transform->position;
-            expect(almostEqual(pos.x - previousBodyX, 0.02f) && almostEqual(pos.y, 0.f),
+            const float expectedStep = 2.f * Engine::GetInstancePtr()->fixedDelta.get();
+            expect(almostEqual(pos.x - previousBodyX, expectedStep) && almostEqual(pos.y, 0.f),
                    "dynamic rigid body advances exactly one fixed step per frame");
             previousBodyX = pos.x;
         }
