@@ -901,8 +901,10 @@ def package_game(game:Path, project:str,version:str,target:str,arch:str,output:P
         # setup_desktop.sh generates the desktop entry when run on Linux.
         if tooling and tooling.cross:
             log('[DESKTOP] Run ./setup_desktop.sh on Linux after copying the Release package')
-        else:
+        elif os.name != 'nt':
             command(['bash', str(destination / 'setup_desktop.sh')])
+        else:
+            log('[DESKTOP] Run ./setup_desktop.sh on Linux after transferring the Release package')
     return destination
 
 def _gcc_target_dll(compiler: str, dll: str) -> Path | None:

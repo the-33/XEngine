@@ -9,6 +9,7 @@ SDL2 SDK. This is not a substitute for the real SDL2 compile/link build.
 
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -52,7 +53,8 @@ class BehaviourLinuxCompileTest(unittest.TestCase):
                         "-fsyntax-only",
                         f"-DXENGINE_{config}=1",
                         *(["-DNDEBUG"] if config == "RELEASE" else []),
-                        "-DXENGINE_TARGET_LINUX=1",
+                        "-DXENGINE_TARGET_WINDOWS=1" if sys.platform == 'win32'
+                        else "-DXENGINE_TARGET_LINUX=1",
                         f"-I{stub}",
                         f"-I{ROOT / 'engine' / 'include'}",
                         str(ROOT / "engine" / "src" / "Behaviour.cpp"),

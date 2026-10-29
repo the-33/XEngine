@@ -451,8 +451,7 @@ def build(doxygen: str) -> int:
         # empty left tree. Doxygen 1.18 can leave the newly generated
         # navtreedata.js ungrouped on repeated local builds; a final pass
         # ensures its Markdown entries are nested before version stamping.
-        tree_source = (output / 'html' / 'navtreedata.js').read_text(encoding='utf-8')
-        if number and '"Guides and manuals"' not in tree_source:
+        if number and '"Guides and manuals"' not in (output / 'html' / 'navtreedata.js').read_text(encoding='utf-8'):
             recovered = group_markdown_navigation(output / 'html', profile)
             if not recovered or '"Guides and manuals"' not in (
                     output / 'html' / 'navtreedata.js').read_text(encoding='utf-8'):

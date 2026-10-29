@@ -34,6 +34,9 @@ jobs:
             libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev libsdl2-mixer-dev \
             nlohmann-json3-dev
       - name: Python regression suite
+        # The suite is configuration-independent; run it once per OS while
+        # keeping the real SDL2 smoke test in both Debug and Release.
+        if: matrix.configuration == 'Debug'
         run: python3 -m unittest discover -s tests -p 'test_*.py' -q
       - name: Native SDL2 smoke and short soak
         env:
@@ -82,6 +85,7 @@ jobs:
             mingw-w64-ucrt-x86_64-SDL2_mixer
             mingw-w64-ucrt-x86_64-nlohmann-json
       - name: Python regression suite
+        if: matrix.configuration == 'Debug'
         run: python -m unittest discover -s tests -p 'test_*.py' -q
       - name: Native SDL2 smoke and short soak
         env:

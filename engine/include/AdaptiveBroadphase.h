@@ -226,7 +226,18 @@ private:
             const unsigned count = std::min(samples, static_cast<unsigned>(recent.size()));
             if (!count) return 0.f;
             std::array<float, 9> values = recent;
-            std::sort(values.begin(), values.begin() + count);
+            // At most nine samples: an insertion sort is small, deterministic
+            // and avoids GCC 16's false-positive -Warray-bounds diagnostic
+            // in std::sort's heap implementation for this bounded subrange.
+            for (unsigned i = 1; i < count; ++i) {
+                const float current = values[i];
+                unsigned j = i;
+                while (j > 0 && values[j - 1] > current) {
+                    values[j] = values[j - 1];
+                    --j;
+                }
+                values[j] = current;
+            }
             const unsigned trim = count >= 5 ? 1u : 0u;
             float sum = 0.f;
             for (unsigned i = trim; i < count - trim; ++i) sum += values[i];

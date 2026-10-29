@@ -99,6 +99,12 @@ class LinuxDesktopIconTests(unittest.TestCase):
             self.assertFalse((result / 'config/engine.json').exists())
             self.assertFalse((result / 'scripts/script.hpp').exists())
             self.assertTrue((result / 'textures/ground.png').exists())
+            if os.name == 'nt':
+                # Windows can package a Linux release, but cannot execute its
+                # desktop installer until the release is transferred to Linux.
+                self.assertTrue((result / 'setup_desktop.sh').exists())
+                self.assertFalse((result / 'My Princess Run.desktop').exists())
+                return
             desktop = result / 'My Princess Run.desktop'
             self.assertIn('Exec="' + str(result / 'run.sh') + '"', desktop.read_text())
             self.assertIn('Icon=' + str(icon_path), desktop.read_text())
@@ -130,7 +136,11 @@ class LinuxDesktopIconTests(unittest.TestCase):
             binary.write_bytes(b'ELF-test')
             with mock.patch.object(mod, 'package_linux_libs', side_effect=fake_linux_libs):
                 result = mod.package_game(game, 'NoIcon', '0.1.0', 'linux', 'x86_64', binary)
-            self.assertIn('Icon=applications-games', (result / 'NoIcon.desktop').read_text())
+            if os.name != 'nt':
+                self.assertIn('Icon=applications-games', (result / 'NoIcon.desktop').read_text())
+            else:
+                self.assertFalse((result / 'NoIcon.desktop').exists())
+                self.assertTrue((result / 'setup_desktop.sh').exists())
             self.assertTrue((result / 'run.sh').exists())
 
     def test_blank_game_template_has_cross_platform_icon_fields(self):

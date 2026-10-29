@@ -141,10 +141,11 @@ class DoxygenHoverExtensionTests(unittest.TestCase):
         self.assertTrue(vscode.HOVER_VSIX.is_file())
         self.assertGreater(vscode.HOVER_VSIX.stat().st_size, 1000)
         with ZipFile(vscode.HOVER_VSIX) as archive:
-            self.assertEqual(archive.read('extension/extension.js'),
-                             (extension / 'extension.js').read_bytes())
-            self.assertEqual(archive.read('extension/index.js'),
-                             (extension / 'index.js').read_bytes())
+            # A Windows Git checkout may normalize JS line endings to CRLF.
+            # VSIX archives retain the original LF bytes, which are equivalent.
+            for name in ('extension.js', 'index.js'):
+                self.assertEqual(archive.read('extension/' + name).replace(b'\r\n', b'\n'),
+                                 (extension / name).read_bytes().replace(b'\r\n', b'\n'))
 
     @mock.patch.object(vscode.shutil, 'which', return_value='/opt/bin/code')
     @mock.patch.object(vscode.subprocess, 'run')

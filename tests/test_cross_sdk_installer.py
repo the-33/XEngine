@@ -11,6 +11,7 @@ import tarfile
 import tempfile
 import unittest
 import sys
+import os
 from types import SimpleNamespace
 from unittest import mock
 
@@ -30,9 +31,11 @@ class CrossSdkInstallerTests(unittest.TestCase):
         self.assertEqual(legacy, user / '.xengine/sdk/linux-x86_64')
         linux, _ = sdk.sdk_locations('linux', 'windows', environ={}, home=user)
         self.assertEqual(linux, user / '.local/share/xengine/sdk/windows-x86_64')
+        # A valid absolute path must use the syntax of the host filesystem.
+        xdg_root = 'C:/custom/data' if sys.platform == 'win32' else '/custom/data'
         xdg, _ = sdk.sdk_locations('linux', 'windows',
-                                   environ={'XDG_DATA_HOME': '/custom/data'}, home=user)
-        self.assertEqual(xdg, Path('/custom/data/xengine/sdk/windows-x86_64'))
+                                   environ={'XDG_DATA_HOME': xdg_root}, home=user)
+        self.assertEqual(xdg, Path(xdg_root) / 'xengine/sdk/windows-x86_64')
         with tempfile.TemporaryDirectory() as temp:
             base = Path(temp)
             target = base / 'new'
@@ -223,8 +226,10 @@ class CrossSdkInstallerTests(unittest.TestCase):
             original = folder / 'libExample.so'
             alias = folder / 'LIBEXAMPLE.so'
             original.write_bytes(b'ELF library')
-            import os
-            os.link(original, alias)
+            # On case-insensitive filesystems the differently cased alias
+            # already names the original file, and cannot be created again.
+            if not alias.exists():
+                os.link(original, alias)
             self.assertTrue(alias.samefile(original))
             with mock.patch.object(sdk.shutil, 'copy2', side_effect=AssertionError('alias self-copy')):
                 sdk.normalized_links(root, [(alias, 'libExample.so')])
@@ -566,7 +571,7 @@ class CrossSdkInstallerTests(unittest.TestCase):
         for body in (readme, cross):
             self.assertIn('install_cross_sdk.bat --target linux', body)
             self.assertIn('./install_cross_sdk.sh --target windows', body)
-            self.assertIn('Manual Windows → Linux', cross)
+            self.assertIn('Manual Windows → Linux SDK Setup', cross)
             self.assertIn('--sdk-dir', body)
         self.assertIn('RECOMMENDED:', guide)
         self.assertIn('Manual alternative:', guide)
