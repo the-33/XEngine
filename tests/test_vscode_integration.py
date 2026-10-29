@@ -8,6 +8,7 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
+from zipfile import ZipFile
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -135,8 +136,15 @@ class DoxygenHoverExtensionTests(unittest.TestCase):
         package = json.loads((extension / 'package.json').read_text(encoding='utf-8'))
         self.assertEqual(package['publisher'], 'the-33')
         self.assertEqual(package['name'], 'xengine-doxygen-hover')
+        self.assertEqual(vscode.HOVER_VSIX.name,
+                         f"xengine-doxygen-hover-{package['version']}.vsix")
         self.assertTrue(vscode.HOVER_VSIX.is_file())
         self.assertGreater(vscode.HOVER_VSIX.stat().st_size, 1000)
+        with ZipFile(vscode.HOVER_VSIX) as archive:
+            self.assertEqual(archive.read('extension/extension.js'),
+                             (extension / 'extension.js').read_bytes())
+            self.assertEqual(archive.read('extension/index.js'),
+                             (extension / 'index.js').read_bytes())
 
     @mock.patch.object(vscode.shutil, 'which', return_value='/opt/bin/code')
     @mock.patch.object(vscode.subprocess, 'run')

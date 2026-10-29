@@ -15,6 +15,13 @@ hook. The versioned `.githooks/pre-commit` is opt-in: developers activate it
 once in each clone with `git config --local core.hooksPath .githooks`; the
 engine build does not install Git hooks. Engine rebuilds may refresh Doxygen
 locally, but failed regeneration is a warning rather than a failed build.
+Developers who do not want locally generated documentation can pass
+`--no-doc` to `tools/build.py engine` or `tools/build.py game`: this suppresses
+Doxygen during the build and selects online-only lookups in the optional VS
+Code Doxygen Hover extension. The preference lasts until the next successful
+build without `--no-doc` and does not disable the separate pre-commit hook
+or the GitHub Pages publication workflow. The full onboarding instructions
+are in the [Developer Guide](../../DEVELOPER_GUIDE.md#first-checkout-optional-contributor-tools).
 
 ## Choose the correct audience
 

@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
 const {
-  DEFAULT_SITE, parseIndex, chooseProfile, scopeBefore,
+  DEFAULT_SITE, parseIndex, parseLocalIndex, localCommandLink, chooseProfile, scopeBefore,
   findLinks, formatHover, normalizeBaseUrl,
 } = require('../index');
 
@@ -32,6 +32,21 @@ test('parses precise class and member HTML anchors from Doxygen XML', () => {
   assert.equal(findLinks(index, 'SetActive', { scope: 'GameObject' })[0].url,
     `${DEFAULT_SITE}game/html/classGameObject.html#a1b2c`);
   assert.equal(findLinks(index, 'LoadTexture', { scope: 'AssetManager' }).length, 2);
+});
+
+test('local XML creates native file URLs and an allowlisted command link', () => {
+  const local = parseLocalIndex(FIXTURE, 'game', '/some/XEngine/build/docs/game/html');
+  const memberUrl = findLinks(local, 'SetActive', { scope: 'GameObject' })[0].url;
+  assert.equal(memberUrl,
+    'file:///some/XEngine/build/docs/game/html/classGameObject.html#a1b2c');
+  const remoteUrl = `${DEFAULT_SITE}game/html/classGameObject.html#a1b2c`;
+  const command = localCommandLink(memberUrl, remoteUrl);
+  assert.match(command, /^command:xengineDoxygen\.openLocal\?/);
+  assert.deepEqual(JSON.parse(decodeURIComponent(command.split('?')[1])),
+    [memberUrl, remoteUrl]);
+  assert.throws(() => localCommandLink('https://other.invalid/file.html', remoteUrl),
+    /local Doxygen/);
+  assert.throws(() => localCommandLink(memberUrl, 'javascript:alert(1)'), /HTTPS/);
 });
 
 test('omits ambiguous unqualified methods when definition is unknown', () => {

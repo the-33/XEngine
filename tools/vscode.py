@@ -19,7 +19,7 @@ import build as xbuild
 ROOT = Path(__file__).resolve().parent.parent
 HOVER_EXTENSION_ID = 'the-33.xengine-doxygen-hover'
 HOVER_VSIX = (Path(__file__).resolve().parent / 'vscode_doxygen_hover' /
-              'xengine-doxygen-hover-0.1.0.vsix')
+              'xengine-doxygen-hover-0.2.0.vsix')
 
 
 def _code_cli(command: str = 'code') -> str:

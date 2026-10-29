@@ -102,6 +102,29 @@ class DoxygenBuildTests(unittest.TestCase):
                     docs.assert_not_called()
                     command.assert_not_called()
 
+                # --no-doc suppresses documentation even on a real rebuild.
+                with mock.patch.object(build, 'compile_sources', return_value=([], True)):
+                    build.create_engine(target='linux', profile='debug',
+                                        arch='x86_64', tooling=tooling, no_doc=True)
+                    docs.assert_not_called()
+
+    def test_no_doc_cli_controls_the_local_online_only_marker(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            with mock.patch.object(build, 'ROOT', root), \
+                 mock.patch.object(build, 'prepare_tools', return_value=object()), \
+                 mock.patch.object(build, 'create_engine', return_value=root / 'lib.a') as engine:
+                with mock.patch.object(build.sys, 'argv', ['build.py', 'engine', '--no-doc']):
+                    self.assertEqual(build.main(), 0)
+                engine.assert_called_with(target=mock.ANY, profile='debug',
+                                          arch=mock.ANY, tooling=mock.ANY, no_doc=True)
+                marker = root / 'build' / 'ide' / 'doxygen_online_only'
+                self.assertEqual(marker.read_text(encoding='ascii'), 'online\n')
+
+                with mock.patch.object(build.sys, 'argv', ['build.py', 'engine']):
+                    self.assertEqual(build.main(), 0)
+                self.assertFalse(marker.exists())
+
 
 if __name__ == '__main__':
     unittest.main()

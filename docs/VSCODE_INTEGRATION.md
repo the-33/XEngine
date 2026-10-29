@@ -96,17 +96,36 @@ Hover over an XEngine class or method in a C++ file. Alongside the normal
 IntelliSense tooltip, the extension contributes a clickable
 **📖 Open in XEngine documentation** link. It targets the corresponding
 Doxygen class page or method anchor in your browser rather than the portal
-homepage. It reads published XML indexes from GitHub Pages and uses the
+homepage. It reads local or published Doxygen XML indexes and uses the
 C/C++ definition provider to disambiguate member names when available;
 ambiguous results are omitted instead of linking to an unrelated symbol.
 
+- **Local first:** after you run `python tools/build_doxygen.py`, the
+  extension automatically uses `build/docs/game/xml/index.xml` with
+  `build/docs/game/html/`, or the corresponding `engine` profile, from the
+  current XEngine checkout. It detects local index updates without requiring
+  a VS Code restart. If the local index, HTML page or requested symbol is
+  missing, it falls back to the online Doxygen reference. A local hover
+  displays *Local Doxygen reference* beneath the link.
 - The `game` reference is used for game code; files under `engine/include/`
   or `engine/src/` use the full `engine` reference. Settings
   `xengineDoxygen.profile` and `xengineDoxygen.baseUrl` can override these
-  choices. Source indexes are cached for 30 minutes and can be refreshed with
+  choices. The online XML indexes are cached for 30 minutes and can be refreshed with
   **XEngine: Refresh Doxygen Symbol Index** in the Command Palette.
-- The extension uses the network to read the already published XML indexes.
-  If offline, the existing C/C++ IntelliSense hover is unaffected. Some
+- **Prefer online?** Set `xengineDoxygen.preferLocal` to `false` in VS Code
+  settings. This can be useful with Remote - WSL if the default browser cannot
+  access a Linux `file://` URL. Opening a local link uses the system's default
+  handler, with a best-effort online fallback if that fails.
+- **Build without Doxygen:** `python tools/build.py engine --no-doc` (or
+  `python tools/build.py game --project "My Game" --no-doc`) skips Doxygen
+  generation even if the engine must be recompiled. After a successful build,
+  the extension uses the **online reference only**, even when older local HTML
+  remains. The choice is kept in ignored `build/ide/` state. Your next
+  successful build **without** `--no-doc` restores local-first behavior.
+  `--no-doc` does not disable the separately opt-in Git pre-commit check or
+  the GitHub Pages publishing workflow.
+- Online symbol lookup uses the network; matching local references work
+  offline. If neither source is available, native C/C++ hover is unaffected. Some
   overloaded or ambiguous symbols cannot be mapped reliably; those links
   are deliberately omitted.
 - It is **not installed by** `setup`, `refresh`, compilation or game creation.

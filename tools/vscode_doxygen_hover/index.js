@@ -4,6 +4,8 @@
 // Keeping these functions independent of VS Code makes them testable with
 // the actual XML emitted by the XEngine documentation build.
 const DEFAULT_SITE = 'https://the-33.github.io/XEngine/';
+const path = require('node:path');
+const { pathToFileURL } = require('node:url');
 const MEMBER_KINDS = new Set([
   'function', 'variable', 'typedef', 'enum', 'enumvalue',
   'define', 'property', 'signal', 'slot',
@@ -37,10 +39,9 @@ function normalizeBaseUrl(raw) {
   return url.toString();
 }
 
-function parseIndex(xml, profile, baseUrl = DEFAULT_SITE) {
+function parseIndexAtRoot(xml, profile, root) {
   if (!['game', 'engine'].includes(profile)) throw new Error('Unknown Doxygen profile');
   if (!/<doxygenindex\b/.test(xml)) throw new Error('Not a Doxygen index.xml file');
-  const root = new URL(`${profile}/html/`, normalizeBaseUrl(baseUrl)).toString();
   const symbols = new Map();
   function add(name, record) {
     if (!name || !/^[A-Za-z0-9_]+$/.test(record.refid)) return;
@@ -85,6 +86,27 @@ function parseIndex(xml, profile, baseUrl = DEFAULT_SITE) {
 
   if (symbols.size === 0) throw new Error('Doxygen index has no recognized symbols');
   return symbols;
+}
+
+function parseIndex(xml, profile, baseUrl = DEFAULT_SITE) {
+  const root = new URL(`${profile}/html/`, normalizeBaseUrl(baseUrl)).toString();
+  return parseIndexAtRoot(xml, profile, root);
+}
+
+function parseLocalIndex(xml, profile, htmlDirectory) {
+  // pathToFileURL encodes spaces, non-ASCII and Windows drive letters correctly.
+  const root = pathToFileURL(path.resolve(htmlDirectory) + path.sep).toString();
+  return parseIndexAtRoot(xml, profile, root);
+}
+
+function localCommandLink(fileUrl, fallbackUrl) {
+  const parsed = new URL(fileUrl);
+  const fallback = new URL(fallbackUrl);
+  if (parsed.protocol !== 'file:' || !parsed.pathname.endsWith('.html')) {
+    throw new Error('Not a local Doxygen HTML page');
+  }
+  if (fallback.protocol !== 'https:') throw new Error('Fallback must use HTTPS');
+  return `command:xengineDoxygen.openLocal?${encodeURIComponent(JSON.stringify([fileUrl, fallbackUrl]))}`;
 }
 
 function chooseProfile(fileName, configured = 'auto') {
@@ -149,6 +171,6 @@ function formatHover(records) {
 }
 
 module.exports = {
-  DEFAULT_SITE, normalizeBaseUrl, parseIndex, chooseProfile,
-  scopeBefore, findLinks, formatHover,
+  DEFAULT_SITE, normalizeBaseUrl, parseIndex, parseLocalIndex, localCommandLink,
+  chooseProfile, scopeBefore, findLinks, formatHover,
 };

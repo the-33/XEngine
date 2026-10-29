@@ -75,6 +75,13 @@ exactly one XEngine build-mode macro, and Release must also define `NDEBUG`.
 When compiling game code manually outside the supported build driver, you
 must provide the same target/mode definitions consistently.
 
+The optional build flag **`--no-doc`** affects *documentation generation*,
+not C++ macro definitions or Debug/Release output. It skips local Doxygen
+when the engine rebuilds and selects the public online API in the optional
+VS Code hover integration until the next successful build without that flag.
+See the [newcomer setup](../../DEVELOPER_GUIDE.md#first-checkout-optional-contributor-tools)
+for Git hooks, VS Code and documentation options.
+
 There are **two different ways to test macros**:
 
 ```cpp

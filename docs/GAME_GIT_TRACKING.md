@@ -83,6 +83,12 @@ installed**. The online GitHub Pages site is rebuilt independently on pushes
 to `main`; see [GitHub Pages](GITHUB_PAGES.md). Building the engine can also
 refresh local Doxygen without enabling Git hooks, but a documentation error
 there is a build warning rather than a commit failure.
+Passing `--no-doc` to `tools/build.py` skips generation **during that build**
+and selects the online reference in the optional VS Code hover extension; it
+does **not** bypass documentation checks in an enabled pre-commit hook.
+For the complete beginner setup (Git, VS Code and documentation choices),
+see [First checkout](DEVELOPER_GUIDE.md#first-checkout-optional-contributor-tools).
+
 **Note:** The pre-commit hook stages *all* changed files under the benchmark
 and each opted-in game and stages removal of previously tracked, unmarked game
 files. Always review what is staged. If you already use a custom

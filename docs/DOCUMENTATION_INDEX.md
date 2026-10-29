@@ -6,6 +6,13 @@
 The published references are regenerated automatically when changes reach
 `main`; see [GitHub Pages publishing](GITHUB_PAGES.md).
 
+**New to XEngine?** Start with [Your first game](GETTING_STARTED.md), then
+the [Developer Guide's optional first-checkout setup](DEVELOPER_GUIDE.md#first-checkout-optional-contributor-tools).
+It explains the optional Git hooks, per-game VS Code IntelliSense, Doxygen
+Hover extension, and `--no-doc` build flag for developers who prefer the
+online API instead of generating HTML locally. None of these integrations
+is required to make a game.
+
 Choose the guide that matches what you want to accomplish. These documents
 describe how to **use the engine to build games**; implementation history,
 benchmarks and experimental performance investigations are listed separately.
@@ -27,7 +34,7 @@ benchmarks and experimental performance investigations are listed separately.
 
 | Guide | When to use it |
 |---|---|
-| [Developer Guide](DEVELOPER_GUIDE.md) | Install Windows/Linux dependencies, build Debug/Release and troubleshoot toolchains. |
+| [Developer Guide](DEVELOPER_GUIDE.md) | Install Windows/Linux dependencies, configure optional Git hooks/VS Code/Doxygen, build Debug/Release and troubleshoot toolchains. |
 | [Optional VS Code integration](VSCODE_INTEGRATION.md) | Enable accurate IntelliSense and optionally install the bundled Doxygen Hover extension for clickable API links. |
 | [Cross-compilation](CROSS_COMPILATION.md) | Configure a target toolchain and matching SDK for builds between Windows and Linux. |
 | [Game build config](GAME_CONFIG_SYNC.md) | Understand `games/<Game>/config.json` and its schema synchronization. |

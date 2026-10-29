@@ -17,6 +17,15 @@ when you are modifying XEngine itself.
    each file. For JSON and registered classes, also include
    `<JsonSerializer.h>` or `<Serialization.h>` explicitly.
 
+**Optional first-time contributor setup:** the
+[Developer Guide](../../DEVELOPER_GUIDE.md#first-checkout-optional-contributor-tools)
+explains how to activate the per-clone Git pre-commit hook for tracked games
+and Doxygen checks, configure VS Code IntelliSense for your games and install
+the optional Doxygen Hover extension. You do not need any of these tools to
+build or run a game. You can browse this **published reference** without
+installing Doxygen; to skip regeneration on engine builds, use `--no-doc` (for
+example `./build.sh --run --no-doc` inside your game on Linux).
+
 ## Features by task
 
 | Feature | Read first | Important API |

@@ -524,7 +524,7 @@ def regenerate_engine_api_docs() -> None:
     except OSError as error:
         log(f'[WARN] Cannot run Doxygen: {error}. The engine build was not affected.')
 
-def create_engine(*,target,profile,arch,tooling) -> Path:
+def create_engine(*,target,profile,arch,tooling,no_doc:bool=False) -> Path:
     compiler,archiver,pkg_cflags,version=tooling.compiler,tooling.archiver,tooling.pkg_cflags,tooling.version
     out=ROOT/'build'/f'{target}-{arch}'/profile/'engine'
     lib=out/'libXEngine.a'
@@ -539,7 +539,10 @@ def create_engine(*,target,profile,arch,tooling) -> Path:
         # Remove stale library before archiving, so removed .cpp files are not retained.
         if lib.exists(): lib.unlink()
         command([archiver,'rcs',str(lib),*(str(o) for o in objs)])
-        regenerate_engine_api_docs()
+        if no_doc:
+            log('[DOCS] Skipped local Doxygen generation (--no-doc; online reference preferred)')
+        else:
+            regenerate_engine_api_docs()
     else: log('[CACHE] XEngine library unchanged')
     return lib
 
@@ -767,7 +770,8 @@ def sync_before_game_build(project: str) -> None:
         command([sys.executable, str(ROOT / 'tools' / tool), '--game', project], cwd=ROOT)
 
 
-def game_build(project: str, *,target,profile,arch,tooling,run:bool=False) -> Path:
+def game_build(project: str, *,target,profile,arch,tooling,run:bool=False,
+               no_doc:bool=False) -> Path:
     game=ROOT/'games'/project
     if not game.is_dir(): raise BuildError(f'Game not found: games/{project}')
     sync_before_game_build(project)
@@ -780,7 +784,8 @@ def game_build(project: str, *,target,profile,arch,tooling,run:bool=False) -> Pa
     if profile=='release' and config.get('shipping',{}).get('copy_runtime_assets',True) is False:
         raise BuildError('Release must include runtime assets for a shippable game')
     compiler,pkg_cflags,pkg_libs,compiler_ver=tooling.compiler,tooling.pkg_cflags,tooling.pkg_libs,tooling.version
-    library=create_engine(target=target,profile=profile,arch=arch,tooling=tooling)
+    library=create_engine(target=target,profile=profile,arch=arch,tooling=tooling,
+                          no_doc=no_doc)
     out=ROOT/'build'/f'{target}-{arch}'/profile/'games'/project
     generated=generate_game_config(game,out,profile,cross=tooling.cross)
     sources=game_sources(game,target,generated)
@@ -1215,6 +1220,8 @@ def main():
                        help='Alias for --show warnings')
         p.add_argument('--raw-log', type=Path,
                        help='Save all commands and unfiltered compiler output to this file')
+        p.add_argument('--no-doc', action='store_true',
+                       help='Skip Doxygen and prefer the online reference in XEngine Doxygen Hover')
         if action=='game':
             x=p.add_mutually_exclusive_group(required=True)
             x.add_argument('--project')
@@ -1248,10 +1255,22 @@ def main():
             raise BuildError(f'--run is not supported when building for {target} from {host_platform()}')
         tooling=prepare_tools(target)
         if game:
-            game_build(args.project,target=target,profile=profile,arch=arch,tooling=tooling,run=args.run)
+            game_build(args.project,target=target,profile=profile,arch=arch,tooling=tooling,
+                       run=args.run,no_doc=args.no_doc)
         else:
-            lib=create_engine(target=target,profile=profile,arch=arch,tooling=tooling)
+            lib=create_engine(target=target,profile=profile,arch=arch,tooling=tooling,
+                              no_doc=args.no_doc)
             log(f'[OK] {lib}')
+        # This is local, ignored build state, not a VS Code setting or tracked
+        # editor configuration. It selects online docs even if older HTML exists.
+        docs_marker = ROOT / 'build' / 'ide' / 'doxygen_online_only'
+        if args.no_doc:
+            docs_marker.parent.mkdir(parents=True, exist_ok=True)
+            docs_marker.write_text('online\n', encoding='ascii')
+            log('[DOCS] Online Doxygen reference selected for this checkout (--no-doc)')
+        elif docs_marker.is_file():
+            docs_marker.unlink()
+            log('[DOCS] Local Doxygen reference preference restored')
         # Local opt-in: never create VS Code files for developers who have not
         # enabled the integration. IDE refresh must not break a valid build.
         if (ROOT / 'build' / 'ide' / 'vscode.json').is_file():

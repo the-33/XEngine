@@ -2,7 +2,7 @@
   "name": "xengine-doxygen-hover",
   "displayName": "XEngine Doxygen Hover",
   "description": "Optional links from C++ hovers to the published XEngine Doxygen symbol reference.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "the-33",
   "private": true,
   "engines": {
@@ -29,6 +29,11 @@
           "type": "boolean",
           "default": true,
           "description": "Add links to XEngine Doxygen symbol pages in C++ hovers."
+        },
+        "xengineDoxygen.preferLocal": {
+          "type": "boolean",
+          "default": true,
+          "description": "Prefer locally generated build/docs Doxygen XML and HTML when they exist in the opened XEngine checkout; otherwise use GitHub Pages."
         },
         "xengineDoxygen.baseUrl": {
           "type": "string",

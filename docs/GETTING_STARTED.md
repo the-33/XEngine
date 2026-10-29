@@ -31,8 +31,42 @@ REM Windows CMD
 check_dependencies.bat
 ```
 
-You do not need Doxygen to compile games. It is recommended if you will read
-or modify XEngine's C++ API: see [API documentation](API_REFERENCE.md).
+You do not need Doxygen to compile games or read the published API. It is useful
+only when you want to generate documentation for local engine changes; see
+[API documentation](API_REFERENCE.md).
+
+### Optional setup for contributors and VS Code users
+
+From the XEngine repository root, you can enable these **independent,
+optional** integrations once:
+
+```bash
+# Only if you contribute with Git: local pre-commit hooks for game tracking
+# and documentation checks on staged engine/docs changes.
+git config --local core.hooksPath .githooks
+
+# Only if you use VS Code: C++ IntelliSense for the engine and your games.
+python tools/vscode.py setup
+
+# Optional clickable documentation links in C++ hovers.
+python tools/vscode.py hover-install
+```
+
+No Git hook or VS Code extension is automatically installed by XEngine.
+The pre-commit hook can stage changes to games you have opted into Git;
+always review the staged files before committing. See the
+[Git hook and game tracking guide](GAME_GIT_TRACKING.md) and the
+[VS Code integration guide](VSCODE_INTEGRATION.md).
+
+**Prefer using the online documentation?** You can always read
+[the published XEngine API](https://the-33.github.io/XEngine/) without
+installing Doxygen. Add `--no-doc` to a build, for example
+`python tools/build.py engine --no-doc` from the root or `./build.sh --run --no-doc`
+from a Linux game directory (`build.bat --run --no-doc` on Windows). That build
+will skip local Doxygen generation, and the optional hover extension will use
+online documentation even when old generated HTML exists. A successful build
+without `--no-doc` restores local-first lookup. Doxygen remains useful if
+you actively edit the engine and want to inspect new or unpublished APIs.
 
 ## 2. Create and run a game
 

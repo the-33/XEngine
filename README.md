@@ -97,6 +97,19 @@ cd "games/My Game"
 
 To build a distributable version, run `build.bat --config Release` (Windows) or `./build.sh --config Release` (Linux) inside the game directory. See the [Release distribution guide](docs/DEVELOPER_GUIDE.md#release-distribution) for packaging, icons, assets and runtime dependencies.
 
+**Optional setup for newcomers and contributors:** Git hooks, VS Code and
+Doxygen are **not required** to compile games. From the engine root, enable
+`git config --local core.hooksPath .githooks` only if you want game-tracking
+and staged documentation checks, `python tools/vscode.py setup` for editor
+IntelliSense and `python tools/vscode.py hover-install` for clickable API links
+in hovers. All are opt-in. See the
+[complete first-checkout setup](docs/DEVELOPER_GUIDE.md#first-checkout-optional-contributor-tools)
+and [your first game](docs/GETTING_STARTED.md#optional-setup-for-contributors-and-vs-code-users).
+To build without generating Doxygen, add `--no-doc` to the engine/game build;
+the hover extension will then prefer the
+[online reference](https://the-33.github.io/XEngine/) until the next successful
+build without the flag.
+
 ## Project structure
 
 ```text
@@ -304,11 +317,16 @@ and [engine internals](https://the-33.github.io/XEngine/engine/html/index.html).
 The [GitHub Pages workflow](docs/GITHUB_PAGES.md) keeps these pages updated on
 pushes to `main` without committing generated HTML.
 VS Code users can optionally add a **📖 Open in XEngine documentation** link
-to C++ symbol hovers. The source and installable VSIX ship in
+to C++ symbol hovers, preferring locally generated Doxygen HTML with an online
+fallback. The source and installable VSIX ship in
 [`tools/vscode_doxygen_hover/`](tools/vscode_doxygen_hover/README.md); run
 `python tools/vscode.py hover-install` to opt in (and `hover-uninstall` to
-remove it). This uses the online Doxygen symbol indexes and does not replace
+remove it). It reads local or online Doxygen symbol indexes and does not replace
 normal IntelliSense, require Node.js or install anything during builds.
+To skip local Doxygen generation on a build and make the extension use only
+the online reference, add `--no-doc` to `python tools/build.py engine` or
+`python tools/build.py game --project "My Game"`. A later successful build
+without that flag restores the local-first preference.
 See the [VS Code setup and hover guide](docs/VSCODE_INTEGRATION.md).
 For local contributors, the optional [pre-commit hook](docs/GAME_GIT_TRACKING.md)
 regenerates and checks Doxygen when the staged files change documentation or

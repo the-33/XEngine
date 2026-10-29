@@ -25,6 +25,45 @@ For resolution, camera projection and responsive UI specifically, use
 
 > **Note:** Example commands run from the repository root unless they first change directory. Create your own game using `new_project` before following commands targeting `games/My Game`.
 
+## First checkout: optional contributor tools
+
+Only the compiler, Python and SDL2 development dependencies below are needed
+to build games. **Git hooks, VS Code and Doxygen are independent opt-in tools.**
+After installing the required dependencies, you can enable the following in
+your own clone (from the XEngine repository root):
+
+| Optional tool | One-time setup | What it does |
+|---|---|---|
+| Git pre-commit hooks | `git config --local core.hooksPath .githooks` | Synchronizes opted-in game files with Git and checks staged engine/documentation changes using Doxygen when available. |
+| VS Code C++ IntelliSense | `python tools/vscode.py setup` | Creates Git-ignored compiler commands and per-folder editor configurations for the engine and games. |
+| XEngine Doxygen Hover | `python tools/vscode.py hover-install` | Adds clickable symbol links to local Doxygen HTML (when generated) or the published API pages. |
+
+None of these is installed or activated by the normal build. The hook applies
+only to **this Git clone** and may stage changes in games explicitly included
+in Git; review staged files before committing. To check the VS Code extension,
+run `python tools/vscode.py hover-status`. Read the detailed
+[Git tracking and hook guide](GAME_GIT_TRACKING.md),
+[VS Code setup](VSCODE_INTEGRATION.md) and
+[GitHub Pages/Doxygen guide](GITHUB_PAGES.md) if you use these tools.
+
+**No local Doxygen required:** browse the
+[online API reference](https://the-33.github.io/XEngine/) at any time. To
+compile **without generating documentation** even when engine code changes,
+add `--no-doc` to the build command:
+
+```bash
+python tools/build.py engine --no-doc
+python tools/build.py game --project "My Game" --run --no-doc
+```
+
+Your VS Code Doxygen Hover extension will then use the published reference,
+even if old local HTML files remain. This preference is recorded under the
+ignored `build/ide/` directory for that checkout. A successful build without
+`--no-doc` restores the default local-first lookup. If you actively maintain
+XEngine's documentation, run `python tools/build_doxygen.py` whenever you
+want fresh local HTML instead. The optional Git hook and the GitHub Pages
+workflow run their own checks independently of `--no-doc`.
+
 ## Dependencies
 
 No `third_party/` vendor directory is required. Native builds use SDL2 development packages installed through the host package manager. The compiler and linker flags are obtained from `pkg-config`.
@@ -375,6 +414,10 @@ that have to rebuild their engine library.
   warning recommending its installation for XEngine development and continues.
 - A documentation-generation error is also reported as a warning: a successful
   C++ build is not turned into a failed game build by this optional tool.
+- Add `--no-doc` to an `engine` or `game` build to skip this step entirely;
+  successful builds with that flag also select the online-only reference in
+  the optional VS Code Doxygen Hover extension. The mode lasts until another
+  successful build without the flag, and never modifies VS Code settings.
 
 To generate docs independently of engine compilation, run from the repository
 root:

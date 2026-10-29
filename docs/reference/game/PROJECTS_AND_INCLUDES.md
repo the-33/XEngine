@@ -47,6 +47,13 @@ When game headers change, the game recompiles, but an unchanged engine library
 remains cached. Doxygen is optional: its two references are regenerated only
 after the engine library is actually rebuilt, or by the explicit
 `python tools/build_doxygen.py` command from the repository root.
+To build without regenerating the local API, pass `--no-doc` to your normal
+game build (e.g. `./build.sh --run --no-doc` or `build.bat --run --no-doc`).
+The optional VS Code Doxygen Hover extension will then use the published
+reference rather than any old local HTML; a later build without the flag
+restores local-first lookup. The
+[one-time setup guide](../../DEVELOPER_GUIDE.md#first-checkout-optional-contributor-tools)
+explains optional Git hooks and VS Code integration for newcomers.
 
 Windows/Linux support the same public game API, but each target requires
 its own compatible compiler and SDL2 development/runtime libraries.
