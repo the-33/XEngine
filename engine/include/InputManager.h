@@ -93,21 +93,21 @@ public:
 	 *       update this cached absolute position.
 	 */
 	Vec2I GetMousePos() const noexcept;
-	/** @brief Returns the last mouse-motion delta reported this frame.
-	 * @note This is not an accumulation across multiple motion events.
+	/** @brief Returns the mouse displacement during the current input frame.
+	 * @note Relative-mode movement is summed across SDL motion events; in
+	 *       absolute mode the delta is current minus previous frame position.
 	 */
 	Vec2I GetMouseDelta() const noexcept;
-	/** @brief Projects the current cached mouse position through the active camera.
-	 * @note Without an active camera it returns the raw coordinates. The camera
-	 *       projection uses drawable pixel dimensions; the cached mouse position
-	 *       comes from SDL window coordinates, which may differ on HiDPI displays.
+	/** @brief Projects the cached logical-window mouse position into world units.
+	 * @note Converts logical window coordinates to drawable pixels first, so
+	 *       HiDPI scaling does not offset the camera projection. Without an
+	 *       active scene/camera, returns the raw mouse position.
 	 */
 	Vec2 GetMousePosWorld() const noexcept;
-	/** @brief Applies the camera's screen-to-world *position* conversion to mouse delta.
-	 * @warning The current implementation includes the camera's world-space origin
-	 *          in the result. It is NOT a reliable world-space displacement; do not
-	 *          use it for camera-relative movement without correcting the offset.
-	 * @note Without an active camera it returns the unconverted mouse delta.
+	/** @brief Converts the frame's logical-window mouse displacement to world units.
+	 * @details Uses the difference between two screen-to-world positions, so
+	 *          camera translation cancels and HiDPI scaling is respected.
+	 * @note Without an active scene/camera, returns the unconverted mouse delta.
 	 */
 	Vec2 GetMouseDeltaWorld() const noexcept;
 

@@ -24,8 +24,9 @@ Vec2I logicalSize = Window->size.get();
 Vec2I drawablePixels = Window->drawableSize.get();
 ```
 
-Logical window dimensions are used for ordinary UI positioning; drawable
-dimensions can differ on HiDPI displays. `Window->resizeRevision` changes
+Screen-space rendering and `UIManager` use drawable pixel coordinates, which
+can differ from logical window dimensions on HiDPI displays. Mouse hit testing
+is scaled automatically inside `UIManager`. `Window->resizeRevision` changes
 when the window mode or dimensions change. `Camera2D::matchWindowAspect`
 keeps the vertical world span while adapting the horizontal span by default.
 Do not assume camera projection and UI pixels are the same coordinate space.
@@ -43,7 +44,7 @@ if (camera) {
 
 Change world-space positions through `Transform`; position menus and buttons
 in screen space. When resizing, recalculate screen-space layout from the
-current `Window->size` rather than hardcoding coordinates for 1280x720.
+current `Window->drawableSize` rather than hardcoding coordinates for 1280x720.
 
 ## Immediate-mode controls
 
@@ -53,7 +54,7 @@ must be stable and unique for each interactive control, and the rectangle
 must be computed in screen coordinates.
 
 ```cpp
-Vec2I size = Window->size.get();
+Vec2I size = Window->drawableSize.get();
 Rect action{static_cast<float>(size.x) - 180.f, 20.f, 160.f, 42.f};
 if (UI->Button("pause_button", action, "Pause")) {
     Time->timeScale = 0.f;

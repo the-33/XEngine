@@ -98,11 +98,10 @@ public:
      */
     ~Transform() override = default;
 
-    /** @brief Adds a delta directly to cached world-position coordinates.
+    /** @brief Moves the transform by a world-space displacement.
      * @param delta World-space XYZ increment.
-     * @warning This implementation does not update local position or mark the
-     *          hierarchy dirty. A subsequent world-pose recomputation can lose
-     *          the translation; prefer `position = position.get() + delta`.
+     * @note Recomputes local coordinates relative to the current parent and
+     *       invalidates cached world transforms of descendants.
      */
     void Translate(const Vec3& delta) noexcept;
     /** @brief Points local +X toward a world-space target in the XY plane.
@@ -197,8 +196,7 @@ public:
      */
     using UpProp = PropertyRO<Transform, Vec3, &Transform::GetUp>;
     /** @endcond */
-    /** @brief Positive Y axis rotated by cached world Z rotation.
-     * @warning This getter does not refresh a dirty world-transform cache.
+    /** @brief Positive Y axis rotated by up-to-date world Z rotation.
      */
     UpProp up{ this };
 
@@ -207,8 +205,7 @@ public:
      */
     using RightProp = PropertyRO<Transform, Vec3, &Transform::GetRight>;
     /** @endcond */
-    /** @brief Positive X axis rotated by cached world Z rotation.
-     * @warning This getter does not refresh a dirty world-transform cache.
+    /** @brief Positive X axis rotated by up-to-date world Z rotation.
      */
     RightProp right{ this };
 };

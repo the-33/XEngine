@@ -33,9 +33,36 @@ std::unique_ptr<GameObject> GameObject::Create(const std::string& name, EntityID
     return std::unique_ptr<GameObject>(new GameObject(name, id, scene));
 }
 
+void GameObject::SetName(std::string name) noexcept
+{
+    if (name == mName) return;
+    if (!mScene || mScene->mById.find(id) == mScene->mById.end())
+    {
+        mName = std::move(name);
+        return;
+    }
+
+    // A scene name must identify exactly one entity. Keep the original name
+    // if another object already owns the requested one.
+    const auto existing = mScene->mByName.find(name);
+    if (existing != mScene->mByName.end() && existing->second != this) return;
+
+    const auto old = mScene->mByName.find(mName);
+    if (old != mScene->mByName.end() && old->second == this)
+        mScene->mByName.erase(old);
+    mName = std::move(name);
+    mScene->mByName[mName] = this;
+}
+
 void GameObject::SetParent(GameObject* newParent, bool keepWorld) noexcept
 {
     if (newParent == mParent) return;
+    if (newParent && newParent->mScene != mScene) return;
+    // Walking the proposed parent's ancestry also rejects self-parenting.
+    for (auto* ancestor = newParent; ancestor; ancestor = ancestor->mParent)
+        if (ancestor == this) return;
+
+    const bool wasActive = IsActiveInHierarchy();
 
     // Save world pose if it needs to be preserved
     Vec3 wpos{}, wrot{};
@@ -55,13 +82,13 @@ void GameObject::SetParent(GameObject* newParent, bool keepWorld) noexcept
     mParent = newParent;
     if (mParent) {
         mParent->AddChild(this);
+    }
+    else mParentActive = true;
 
-        const bool wasActive = (mActive && mParentActive);
-        mParentActive = (mParent ? (mParent->activeInHierarchy) : true);
-        const bool isActiveNow = (mActive && mParentActive);
-
-        if (!wasActive && isActiveNow && mAwoken && mStarted) OnEnable();
-        else if (wasActive && !isActiveNow)                   OnDisable();
+    const bool isActiveNow = IsActiveInHierarchy();
+    if (mAwoken && mStarted && wasActive != isActiveNow) {
+        if (isActiveNow) OnEnable();
+        else OnDisable();
     }
 
     // ajusta pose

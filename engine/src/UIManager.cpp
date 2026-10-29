@@ -2,17 +2,20 @@
 
 #include <cstring>
 #include <string>
+#include <optional>
 #include <algorithm>   // std::clamp
+#include <cmath>
 
 #include "RenderManager.h"
 #include "InputManager.h"
+#include "WindowManager.h"
 #include "AssetManager.h"
 #include "ErrorHandler.h"
 #include "SDL_ttf.h"
 
 // State global IMGUI (tu estilo actual)
-static const char* gHotID = nullptr;
-static const char* gActiveID = nullptr;
+static std::string gHotID;
+static std::optional<std::string> gActiveID;
 static bool        gMouseDown = false;
 static bool        gMousePressed = false;
 static bool        gMouseReleased = false;
@@ -34,8 +37,8 @@ bool UIManager::Init(const UIStyle& defaultStyle) noexcept
             "'. Labels/Buttons without explicit font will not show text.");
     }
 
-    gHotID = nullptr;
-    gActiveID = nullptr;
+    gHotID.clear();
+    gActiveID.reset();
     gMouseDown = gMousePressed = gMouseReleased = false;
     gMousePos = { 0,0 };
     mCmds.clear();
@@ -48,18 +51,29 @@ void UIManager::Shutdown() noexcept
     mCmds.clear();
     mDefaultFont = nullptr;
 
-    gHotID = nullptr;
-    gActiveID = nullptr;
+    gHotID.clear();
+    gActiveID.reset();
     gMouseDown = gMousePressed = gMouseReleased = false;
     gMousePos = { 0,0 };
 }
 
 void UIManager::Begin() noexcept
 {
-    gHotID = nullptr;
+    gHotID.clear();
 
     if (auto* input = InputManager::GetInstancePtr()) {
         gMousePos = input->GetMousePos();
+        if (auto* window = WindowManager::GetInstancePtr()) {
+            const Vec2I logical = window->GetSize();
+            const Vec2I drawable = window->GetDrawableSize();
+            if (logical.x > 0 && logical.y > 0 &&
+                drawable.x > 0 && drawable.y > 0) {
+                gMousePos.x = static_cast<int>(std::lround(
+                    static_cast<double>(gMousePos.x) * drawable.x / logical.x));
+                gMousePos.y = static_cast<int>(std::lround(
+                    static_cast<double>(gMousePos.y) * drawable.y / logical.y));
+            }
+        }
         gMouseDown = input->MouseDown(MouseButton::Left);
         gMousePressed = input->MousePressed(MouseButton::Left);
         gMouseReleased = input->MouseReleased(MouseButton::Left);
@@ -92,17 +106,18 @@ UIManager::ButtonState UIManager::ButtonBehavior_(const char* id, const Rect& r)
     if (st.hovered && gMousePressed)
         gActiveID = id;
 
-    st.held = (gActiveID == id && gMouseDown);
+    const bool active = gActiveID && *gActiveID == id;
+    st.held = (active && gMouseDown);
 
     // Click = release while active and hovered
-    if (gMouseReleased && gActiveID == id && st.hovered) {
+    if (gMouseReleased && active && st.hovered) {
         st.pressed = true;
-        gActiveID = nullptr;
+        gActiveID.reset();
     }
 
     // Release fuera: suelta igualmente
-    if (gMouseReleased && gActiveID == id && !st.hovered) {
-        gActiveID = nullptr;
+    if (gMouseReleased && active && !st.hovered) {
+        gActiveID.reset();
     }
 
     return st;
@@ -378,20 +393,11 @@ bool UIManager::Button(const char* id, const Rect& r,
     RenderManager* render = RenderManager::GetInstancePtr();
     if (!id || !render) return false;
 
-    const bool hovered =
-        (gMousePos.x >= r.x && gMousePos.x <= r.x + r.w &&
-            gMousePos.y >= r.y && gMousePos.y <= r.y + r.h);
-
-    if (hovered) gHotID = id;
-    if (hovered && gMousePressed) gActiveID = id;
-
-    bool clicked = false;
-    if (gMouseReleased && gActiveID == id && hovered) { clicked = true; gActiveID = nullptr; }
-    if (gMouseReleased && gActiveID == id && !hovered) { gActiveID = nullptr; }
+    const ButtonState state = ButtonBehavior_(id, r);
 
     Color fill = colors.normal;
-    if (gActiveID == id && gMouseDown) fill = colors.active;
-    else if (hovered)                 fill = colors.hover;
+    if (state.held) fill = colors.active;
+    else if (state.hovered) fill = colors.hover;
 
     PushPanel_(r, fill, colors.outline);
 
@@ -406,7 +412,7 @@ bool UIManager::Button(const char* id, const Rect& r,
         PushTextInRect_(r, use, label, mTextDefaultColor, hAlign, vAlign, pad);
     }
 
-    return clicked;
+    return state.pressed;
 }
 
 // --------------------------
@@ -521,5 +527,5 @@ void UIManager::End() noexcept
     mCmds.clear();
 
     if (gMouseReleased && gActiveID && !gMouseDown)
-        gActiveID = nullptr;
+        gActiveID.reset();
 }

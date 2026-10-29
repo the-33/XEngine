@@ -77,6 +77,11 @@ bool AssetManager::Init(const std::string& assetsFolderPath) noexcept
     mFonts.clear();
     mSfx.clear();
     mMusic.clear();
+    mTextureAliases.clear();
+    mFontAliases.clear();
+    mSfxAliases.clear();
+    mMusicAliases.clear();
+    memoryUsed = 0;
 
     // SDL_image
     const int wantImg = IMG_INIT_PNG | IMG_INIT_JPG;
@@ -104,6 +109,11 @@ void AssetManager::Shutdown() noexcept
     mFonts.clear();
     mSfx.clear();
     mMusic.clear();
+    mTextureAliases.clear();
+    mFontAliases.clear();
+    mSfxAliases.clear();
+    mMusicAliases.clear();
+    memoryUsed = 0;
 }
 
 Font* AssetManager::GetEngineDefaultFont(bool bold) noexcept
@@ -117,15 +127,7 @@ Font* AssetManager::GetEngineDefaultFont(bool bold) noexcept
 // TEXTURAS
 // =======================
 
-// LA IDEA ES DOCUMENTAR TODAS LAS FUNCIONES DEL MOTOR QUE SEAN PUBLICAS PARA EL USUARIO
-// TENGO QUE REHACERLO CON UN MAPA DE KEYS Y PATHS PARA QUE FUNCIONE TANTO CON KEY COMO
-// SIN KEY BIEN, AHORA MISMO LOS QUE GUARDAN TEXTURAS CON KEY NO HACEN BIEN EL CACHE HIT
-
-/*  
-    @brief Loads a texture into the texture manager for further use
-    @param path The path of the texture relative to the assets folder, format: "path/to/the/texture.fileType"
-    @return A unique pointer to the loaded texture or nullptr if loading failed
-*/  
+// The cache owns one resource per path; custom keys are aliases only.
 
 #include <SDL.h>
 
@@ -219,63 +221,13 @@ Texture* AssetManager::LoadTexture(const std::string& path, float pixelsPerUnit)
 
 Texture* AssetManager::LoadTexture(const std::string& path, const std::string& key, float pixelsPerUnit) noexcept
 {
-    if (pixelsPerUnit <= 0)
-    {
-        LogError("AssetManager warning",
-            "LoadTexture(): Pixels per unit (PPP) can not be set to less than 1. Setting PPP to default value (100.0)");
-        pixelsPerUnit = 100.f;
-    }
+    const std::string fullPath = basePath + "/" + path;
+    if (const auto alias = mTextureAliases.find(key); alias != mTextureAliases.end() &&
+        alias->second != fullPath) return nullptr;
 
-    std::string fullPath = basePath + "/" + path;
-    // Cache hit
-    auto it = mTextures.find(fullPath);
-    if (it != mTextures.end())
-        return it->second.get();
-
-    if (!IsFileValid(fullPath)) {
-        LogError("AssetManager warning", "LoadTexture(): Texture path does not exist or is not accessible.");
-        return nullptr;
-    }
-
-    SDL_Renderer* renderer = RenderManager::GetInstancePtr()
-        ? RenderManager::GetInstance().SDL()
-        : nullptr;
-
-    if (!renderer) {
-        LogError("AssetManager warning", "LoadTexture(): Renderer not avaliable to load '" + fullPath + "'.");
-        return nullptr;
-    }
-
-    // Load directly to texture using SDL_image
-    SDL_Texture* sdlTex = IMG_LoadTexture(renderer, fullPath.c_str());
-    if (!sdlTex) {
-        LogError("AssetManager::LoadTexture()", "IMG_LoadTexture failed for '" + fullPath + "'.", IMG_GetError());
-        return nullptr;
-    }
-
-    // Crear Texture y rellenar datos
-    auto up = std::make_unique<Texture>();
-    up->mTexture = sdlTex;
-
-    // Rellenamos ancho y alto reales
-    int w = 0, h = 0;
-    if (SDL_QueryTexture(sdlTex, nullptr, nullptr, &w, &h) == 0) {
-        up->mW = w;
-        up->mH = h;
-    }
-    else {
-        up->mW = up->mH = 0;
-        LogError("AssetManager::LoadTexture()", "SDL_QueryTexture failed for '" + fullPath + "'.", SDL_GetError());
-        return nullptr;
-    }
-
-    up->SetPixelsPerUnit(pixelsPerUnit);
-
-    // Cachear y devolver
-    Texture* raw = up.get();
-    memoryUsed += GetTextureMemoryBytes(raw) / (1024 * 2);
-    mTextures.emplace(key, std::move(up));
-    return raw;
+    Texture* texture = LoadTexture(path, pixelsPerUnit);
+    if (texture) mTextureAliases[key] = fullPath;
+    return texture;
 }
 
 Texture* AssetManager::GetTexture(const std::string& path) const noexcept
@@ -289,6 +241,10 @@ Texture* AssetManager::GetTexture(const std::string& path) const noexcept
 
 Texture* AssetManager::GetTextureByKey(const std::string& key) const noexcept
 {
+    if (const auto alias = mTextureAliases.find(key); alias != mTextureAliases.end()) {
+        if (const auto it = mTextures.find(alias->second); it != mTextures.end())
+            return it->second.get();
+    }
     if (auto it = mTextures.find(key); it != mTextures.end())
         return it->second.get();
     return nullptr;
@@ -329,52 +285,25 @@ Font* AssetManager::LoadFont(const std::string& path, int ptSize) noexcept
     up->mPointSize = ptSize;
 
     Font* raw = up.get();
+    try {
+        memoryUsed += static_cast<double>(fs::file_size(fullPath)) / (1024 * 2);
+    } catch (...) {
+        // Font is still usable if filesystem metadata cannot be read.
+    }
     mFonts.emplace(key, std::move(up));
     return raw;
 }
 
 Font* AssetManager::LoadFont(const std::string& path, const std::string& key, int ptSize) noexcept
 {
-    if (ptSize <= 0)
-    {
-        LogError("AssetManager warning", "LoadFont(): ptSize can not be set to less than 1.");
-        return nullptr;
-    }
+    const std::string fullPath = basePath + "/" + path;
+    const std::string canonical = MakeFontKey(fullPath, ptSize);
+    if (const auto alias = mFontAliases.find(key); alias != mFontAliases.end() &&
+        alias->second != canonical) return nullptr;
 
-    std::string fullPath = basePath + "/" + path;
-
-    // Cache hit
-    if (auto it = mFonts.find(key); it != mFonts.end())
-        return it->second.get();
-
-    if (!IsFileValid(fullPath)) {
-        LogError("AssetManager warning", "LoadFont(): Font path does not exist or is not accessible.");
-        return nullptr;
-    }
-
-    TTF_Font* ttf = TTF_OpenFont(fullPath.c_str(), ptSize);
-    if (!ttf) {
-        LogError("AssetManager::LoadFont()", "TTF_OpenFont failed for '" + fullPath + "' (" + std::to_string(ptSize) + " pt).", TTF_GetError());
-        return nullptr;
-    }
-
-    auto up = std::make_unique<Font>();
-    up->mFont = ttf;
-    up->mPointSize = ptSize;
-
-    float fontSize = 0.f;
-
-    try {
-        fontSize = (float) fs::file_size(fullPath);
-    }
-    catch (...) {
-        fontSize = 0.f;
-    }
-
-    Font* raw = up.get();
-    memoryUsed += fontSize / (1024 * 2);
-    mFonts.emplace(key, std::move(up));
-    return raw;
+    Font* font = LoadFont(path, ptSize);
+    if (font) mFontAliases[key] = canonical;
+    return font;
 }
 
 Font* AssetManager::GetFont(const std::string& path, int ptSize) const noexcept
@@ -389,6 +318,10 @@ Font* AssetManager::GetFont(const std::string& path, int ptSize) const noexcept
 
 Font* AssetManager::GetFontByKey(const std::string& key) const noexcept
 {
+    if (const auto alias = mFontAliases.find(key); alias != mFontAliases.end()) {
+        if (const auto it = mFonts.find(alias->second); it != mFonts.end())
+            return it->second.get();
+    }
     if (auto it = mFonts.find(key); it != mFonts.end())
         return it->second.get();
     return nullptr;
@@ -421,6 +354,7 @@ SoundEffect* AssetManager::LoadSFX(const std::string& path) noexcept
     up->mChunk = chunk;
 
     SoundEffect* raw = up.get();
+    memoryUsed += static_cast<double>(chunk->alen) / (1024 * 2);
     mSfx.emplace(fullPath, std::move(up));
     return raw;
 }
@@ -433,30 +367,13 @@ size_t GetSFXMemoryBytes(const SoundEffect* s) {
 
 SoundEffect* AssetManager::LoadSFX(const std::string& path, const std::string& key) noexcept
 {
-    std::string fullPath = basePath + "/" + path;
+    const std::string fullPath = basePath + "/" + path;
+    if (const auto alias = mSfxAliases.find(key); alias != mSfxAliases.end() &&
+        alias->second != fullPath) return nullptr;
 
-    // Cache hit
-    if (auto it = mSfx.find(fullPath); it != mSfx.end())
-        return it->second.get();
-
-    if (!IsFileValid(fullPath)) {
-        LogError("AssetManager warning", "LoadSFX(): SFX path does not exist or is not accessible.");
-        return nullptr;
-    }
-
-    Mix_Chunk* chunk = Mix_LoadWAV(fullPath.c_str());
-    if (!chunk) {
-        LogError("AssetManager::LoadSFX()", "Mix_LoadWAV failed for '" + fullPath + "'.", Mix_GetError());
-        return nullptr;
-    }
-
-    auto up = std::make_unique<SoundEffect>();
-    up->mChunk = chunk;
-
-    SoundEffect* raw = up.get();
-    memoryUsed += GetSFXMemoryBytes(raw) / (1024*2);
-    mSfx.emplace(key, std::move(up));
-    return raw;
+    SoundEffect* sfx = LoadSFX(path);
+    if (sfx) mSfxAliases[key] = fullPath;
+    return sfx;
 }
 
 SoundEffect* AssetManager::GetSFX(const std::string& path) const noexcept
@@ -470,6 +387,10 @@ SoundEffect* AssetManager::GetSFX(const std::string& path) const noexcept
 
 SoundEffect* AssetManager::GetSFXByKey(const std::string& key) const noexcept
 {
+    if (const auto alias = mSfxAliases.find(key); alias != mSfxAliases.end()) {
+        if (const auto it = mSfx.find(alias->second); it != mSfx.end())
+            return it->second.get();
+    }
     if (auto it = mSfx.find(key); it != mSfx.end())
         return it->second.get();
     return nullptr;
@@ -508,29 +429,13 @@ Music* AssetManager::LoadMusic(const std::string& path) noexcept
 
 Music* AssetManager::LoadMusic(const std::string& path, const std::string& key) noexcept
 {
-    std::string fullPath = basePath + "/" + path;
+    const std::string fullPath = basePath + "/" + path;
+    if (const auto alias = mMusicAliases.find(key); alias != mMusicAliases.end() &&
+        alias->second != fullPath) return nullptr;
 
-    // Cache hit
-    if (auto it = mMusic.find(fullPath); it != mMusic.end())
-        return it->second.get();
-
-    if (!IsFileValid(fullPath)) {
-        LogError("AssetManager warning", "LoadMusic(): Music path does not exist or is not accessible.");
-        return nullptr;
-    }
-
-    Mix_Music* mus = Mix_LoadMUS(fullPath.c_str());
-    if (!mus) {
-        LogError("AssetManager::LoadMusic()", "Mix_LoadMUS failed for '" + fullPath + "'.", Mix_GetError());
-        return nullptr;
-    }
-
-    auto up = std::make_unique<Music>();
-    up->mMusic = mus;
-
-    Music* raw = up.get();
-    mMusic.emplace(key, std::move(up));
-    return raw;
+    Music* music = LoadMusic(path);
+    if (music) mMusicAliases[key] = fullPath;
+    return music;
 }
 
 Music* AssetManager::GetMusic(const std::string& path) const noexcept
@@ -544,6 +449,10 @@ Music* AssetManager::GetMusic(const std::string& path) const noexcept
 
 Music* AssetManager::GetMusicByKey(const std::string& key) const noexcept
 {
+    if (const auto alias = mMusicAliases.find(key); alias != mMusicAliases.end()) {
+        if (const auto it = mMusic.find(alias->second); it != mMusic.end())
+            return it->second.get();
+    }
     if (auto it = mMusic.find(key); it != mMusic.end())
         return it->second.get();
     return nullptr;

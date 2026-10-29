@@ -44,17 +44,17 @@ struct UIButtonColors {
     Color outline;
 };
 
-/** @brief Immediate-mode widgets and draw commands in window screen coordinates.
+/** @brief Immediate-mode widgets and draw commands in drawable screen pixels.
  *
- * Call widgets every frame from the UI phase; their rectangles use the same
- * coordinates as InputManager's mouse position. Buttons activate on *release*
+ * Call widgets every frame from the UI phase; their rectangles use the SDL
+ * renderer's drawable pixel coordinates. Logical mouse positions are scaled
+ * to these coordinates on HiDPI displays. Buttons activate on *release*
  * inside the rectangle after a press began inside it. UI returns true only on
  * that activation frame, and queued drawings are flushed at the end of UI.
  *
- * @warning Widget IDs are compared by `const char*` pointer identity, not by
- *          string contents. Use stable string literals or another pointer
- *          with stable identity across frames; transient `c_str()` addresses
- *          can break press/release tracking.
+ * Widget IDs are compared by their text content and copied while held, so
+ * a temporary `std::string::c_str()` is safe for press/release tracking as
+ * long as the identifier text remains consistent between frames.
  * @ingroup xengine_render
  */
 class UIManager : public Singleton<UIManager>

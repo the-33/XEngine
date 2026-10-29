@@ -70,8 +70,9 @@ void InputManager::Update() noexcept
         case SDL_MOUSEMOTION:
             if (mMouseRelative)
             {
-                mMouseDeltaX = e.motion.xrel;
-                mMouseDeltaY = e.motion.yrel;
+                // Several motion events can arrive in the same frame.
+                mMouseDeltaX += e.motion.xrel;
+                mMouseDeltaY += e.motion.yrel;
             }
             else
             {
@@ -185,23 +186,40 @@ Vec2 InputManager::GetMousePosWorld() const noexcept
 {
     if (!scn || !win) return { (float)mMouseX, (float)mMouseY };
 
-    const Camera2D* cam = scn->GetActive()->camera;
+    const Scene* active = scn->GetActive();
+    if (!active) return { (float)mMouseX, (float)mMouseY };
+    const Camera2D* cam = active->camera;
     if (!cam) return { (float)mMouseX, (float)mMouseY };
 
+    const Vec2I logical = win->GetSize();
     const Vec2I drawable = win->GetDrawableSize();
-    
-    return cam->ScreenToWorld((float)mMouseX, (float)mMouseY, drawable.x, drawable.y);
+    if (logical.x <= 0 || logical.y <= 0 || drawable.x <= 0 || drawable.y <= 0)
+        return { (float)mMouseX, (float)mMouseY };
+
+    // SDL motion positions are in logical window units. Camera2D uses the
+    // renderer's drawable pixel dimensions, which can differ on HiDPI.
+    const float x = static_cast<float>(mMouseX) * drawable.x / logical.x;
+    const float y = static_cast<float>(mMouseY) * drawable.y / logical.y;
+    return cam->ScreenToWorld(x, y, drawable.x, drawable.y);
 }
 
 Vec2 InputManager::GetMouseDeltaWorld() const noexcept
 {
     if (!scn || !win) return { (float)mMouseDeltaX, (float)mMouseDeltaY };
 
-    const Camera2D* cam = scn->GetActive()->camera;
+    const Scene* active = scn->GetActive();
+    if (!active) return { (float)mMouseDeltaX, (float)mMouseDeltaY };
+    const Camera2D* cam = active->camera;
     if (!cam) return { (float)mMouseDeltaX, (float)mMouseDeltaY };
 
+    const Vec2I logical = win->GetSize();
     const Vec2I drawable = win->GetDrawableSize();
+    if (logical.x <= 0 || logical.y <= 0 || drawable.x <= 0 || drawable.y <= 0)
+        return { (float)mMouseDeltaX, (float)mMouseDeltaY };
 
-    // Convertimos pos anterior y actual a mundo y restamos
-    return cam->ScreenToWorld((float)mMouseDeltaX, (float)mMouseDeltaY, drawable.x, drawable.y);
+    const float dx = static_cast<float>(mMouseDeltaX) * drawable.x / logical.x;
+    const float dy = static_cast<float>(mMouseDeltaY) * drawable.y / logical.y;
+    const Vec2 origin = cam->ScreenToWorld(0.f, 0.f, drawable.x, drawable.y);
+    const Vec2 moved = cam->ScreenToWorld(dx, dy, drawable.x, drawable.y);
+    return {moved.x - origin.x, moved.y - origin.y};
 }

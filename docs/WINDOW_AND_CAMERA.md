@@ -64,9 +64,10 @@ the current fullscreen drawable area is controlled by the display.
 
 **Logical coordinates and drawable pixels are not interchangeable.** On a
 HiDPI display the framebuffer can contain more pixels than the logical client
-area. For screen-space UI rectangles, use `GetSize()`/`Window->size`, not the
-framebuffer size. For pixel-oriented diagnostics and output details, use
-`GetDrawableSize()`.
+area. XEngine's screen-space renderer (including `UIManager`) uses **drawable
+pixels**, so lay out UI rectangles with `GetDrawableSize()`/
+`Window->drawableSize`. `InputManager::GetMousePos()` returns logical window
+coordinates; `UIManager` scales its hit testing to drawable pixels internally.
 
 Apply SDL/window changes on the main thread, where the engine owns its event
 processing and renderer. Let XEngine process resize events; do not try to
@@ -149,7 +150,7 @@ update its rectangle.
 For example, inside a gameplay `Behaviour::Render()` callback:
 
 ```cpp
-Vec2I size = Window->size.get();
+Vec2I size = Window->drawableSize.get();
 const Rect centeredButton{
     size.x * 0.5f - 100.f,
     size.y * 0.5f - 20.f,
@@ -174,8 +175,8 @@ same coordinate system.
 
 | Symptom | Check |
 |---|---|
-| UI appears tiny or offset on HiDPI | Use logical `Window->size` for UI, not `drawableSize`. |
-| UI falls off the edge after resize | Recalculate screen-space rectangles using current logical dimensions. |
+| UI appears tiny or offset on HiDPI | Use drawable `Window->drawableSize` for UI rectangles; `UIManager` converts mouse coordinates automatically. |
+| UI falls off the edge after resize | Recalculate screen-space rectangles using current drawable dimensions. |
 | Fullscreen changes the apparent window size | Desktop fullscreen uses the display dimensions; check `windowedSize` for the stored windowed resolution. |
 | World geometry appears squashed at a new aspect | Check `camera->matchWindowAspect` and your world-space vs screen-space drawing path. |
 | A camera pointer stops working after a scene change | Obtain the current scene's camera again; do not hold a stale non-owning pointer. |

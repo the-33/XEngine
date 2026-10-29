@@ -151,21 +151,23 @@ void Transform::MarkDirty() noexcept {
 
 Vec3 Transform::GetRight() const noexcept
 {
+    RecalcWorld_();
     Vec2 vec2 = Rotate({ 1.f, 0.f }, mWorldRotZ);
     return Vec3(vec2.x, vec2.y, 0.f);
 }
 
 Vec3 Transform::GetUp() const noexcept
 {
+    RecalcWorld_();
     Vec2 vec2 = Rotate({ 0.f, 1.f }, mWorldRotZ);
     return Vec3(vec2.x, vec2.y, 0.f);
 }
 
 void Transform::Translate(const Vec3& delta) noexcept
 {
-    mWorldX += delta.x;
-    mWorldY += delta.y;
-    mWorldZ += delta.z;
+    const Vec3 current = GetWorldPosition();
+    SetWorldPosition({current.x + delta.x, current.y + delta.y,
+                      current.z + delta.z});
 }
 
 static inline float RadToDeg(float r) noexcept { return r * 180.f / 3.14159265358979323846f; }

@@ -16,10 +16,9 @@
  * Paths are relative to the configured assets root. Returned pointers are
  * non-owning and become invalid on cache shutdown. Loading may return nullptr
  * when an asset is missing, invalid, or its SDL subsystem is unavailable.
- * @warning Keyed and path-based cache entries use different keys; prefer a
- *          single lookup style for each resource. In the current implementation
- *          keyed loads look up their original path but store under the custom
- *          key, so repeated keyed loads can fail to hit the intended cache.
+ * A resource is owned once under its canonical path (and font size for fonts).
+ * Explicit keys are aliases to that resource: keyed and path-based lookups
+ * return the same pointer. Reusing a key for a different asset is rejected.
  * @ingroup xengine_services
  */
 class AssetManager final : public Singleton<AssetManager>
@@ -33,6 +32,11 @@ private:
 	std::unordered_map<std::string, std::unique_ptr<Font>>       mFonts;
 	std::unordered_map<std::string, std::unique_ptr<SoundEffect>> mSfx;
 	std::unordered_map<std::string, std::unique_ptr<Music>>       mMusic;
+	// Logical-key aliases point to canonical cache keys, never owning duplicates.
+	std::unordered_map<std::string, std::string> mTextureAliases;
+	std::unordered_map<std::string, std::string> mFontAliases;
+	std::unordered_map<std::string, std::string> mSfxAliases;
+	std::unordered_map<std::string, std::string> mMusicAliases;
 
 	std::string basePath = "";
 
@@ -57,12 +61,12 @@ public:
 	 * @return Cached non-owning pointer, or nullptr if loading fails.
 	 */
 	Texture* LoadTexture(const std::string& path, float pixelsPerUnit = 100.f) noexcept;
-	/** @brief Loads a texture and stores it under a custom lookup key.
+	/** @brief Loads/reuses a texture and registers a custom lookup alias.
 	 * @param path Resource path relative to the game assets directory.
 	 * @param key Application-defined lookup key.
 	 * @param pixelsPerUnit Texture pixels represented by one world-space unit.
-	 * @warning The current cache lookup checks the path, but storage uses `key`.
-	 *          Repeating this call may reload the texture instead of reusing it.
+	 * @return The same texture as LoadTexture(path), or nullptr if loading fails
+	 *         or `key` already identifies a different texture.
 	 */
 	Texture* LoadTexture(const std::string& path, const std::string& key, float pixelsPerUnit = 100.f) noexcept;
 	/** @brief Finds a texture previously cached using its resource path.
@@ -80,10 +84,12 @@ public:
 	 * @param ptSize Font point size.
 	 */
 	Font* LoadFont(const std::string& path, int ptSize) noexcept;
-	/** @brief Loads/caches a font of the requested point size, optionally under a logical key.
+	/** @brief Loads/reuses a font and assigns an alias for its path/size pair.
 	 * @param path Resource path relative to the game assets directory.
 	 * @param key Application-defined lookup key.
 	 * @param ptSize Font point size.
+	 * @return Existing or new font; nullptr if the key was bound to another
+	 *         font or the requested font could not be loaded.
 	 */
 	Font* LoadFont(const std::string& path, const std::string& key, int ptSize) noexcept;
 	/** @brief Finds a font loaded by path and point size, or nullptr.
@@ -101,9 +107,10 @@ public:
 	 * @param path Resource path relative to the game assets directory.
 	 */
 	SoundEffect* LoadSFX(const std::string& path) noexcept;
-	/** @brief Loads/caches an SDL_mixer sound effect from the assets directory.
+	/** @brief Loads/reuses an SDL_mixer effect and assigns a logical key alias.
 	 * @param path Resource path relative to the game assets directory.
 	 * @param key Application-defined lookup key.
+	 * @return Cached effect, or nullptr on failure/key conflict.
 	 */
 	SoundEffect* LoadSFX(const std::string& path, const std::string& key) noexcept;
 	/** @brief Finds a sound effect previously loaded by its relative path.
@@ -120,9 +127,10 @@ public:
 	 * @param path Resource path relative to the game assets directory.
 	 */
 	Music* LoadMusic(const std::string& path) noexcept;
-	/** @brief Loads/caches streamed music from the assets directory.
+	/** @brief Loads/reuses streamed music and assigns a logical key alias.
 	 * @param path Resource path relative to the game assets directory.
 	 * @param key Application-defined lookup key.
+	 * @return Cached music, or nullptr on failure/key conflict.
 	 */
 	Music* LoadMusic(const std::string& path, const std::string& key) noexcept;
 	/** @brief Finds music previously loaded by its relative path.

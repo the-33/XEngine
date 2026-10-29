@@ -111,7 +111,7 @@ private:
     inline EntityID GetID() const noexcept { return id; }
     inline Scene* GetScene() const noexcept { return mScene; }
     inline std::string GetName() const noexcept { return mName; }
-    inline void SetName(std::string name) noexcept { mName = name; }
+    void SetName(std::string name) noexcept;
     inline std::string GetTag() const noexcept { return mTag; }
     inline void SetTag(std::string tag) noexcept { mTag = tag; }
     inline GameObject* GetParent() const noexcept { return mParent; }
@@ -141,8 +141,8 @@ public:
     /** @brief Reparents this object; optionally preserves its world-space pose.
      * @param newParent Replacement parent object, or null to detach.
      * @param keepWorld Preserve the current world transform while changing parent.
-     * @warning The current implementation does not reject ancestor/self cycles.
-     *          Pass only an object from the same scene that is not a descendant.
+     * @note Self-parenting, ancestor cycles and cross-scene reparenting are
+     *       rejected without changing the existing hierarchy.
      */
     void SetParent(GameObject* newParent, bool keepWorld = true) noexcept;
 
@@ -226,9 +226,9 @@ public:
 	 */
 	using NameProp = Property<GameObject, std::string, &GameObject::GetName, &GameObject::SetName>;
 	/** @endcond */
-	/** @brief Display/debug name, initially also indexed by Scene::Find(name).
-	 * @warning Renaming does not update the scene's name lookup table: the
-	 *          original registered name remains the key to Scene::Find(name).
+	/** @brief Display/debug name kept in sync with Scene::Find(name).
+	 * @note Names must be unique within a scene; renaming to an occupied name
+	 *       is ignored to preserve the lookup invariant.
 	 */
 	NameProp name{ this };
 

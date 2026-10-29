@@ -374,6 +374,7 @@ private:
     float mFixedDt = 1/60.f;
     bool mStarted = false;
     bool mRunning = false;
+    bool mShuttingDown = false;
     bool SafeToQuit = true;
     float mAccumulator = 0.f;
     // 0: regular real-time accumulator. Nonzero: exactly N fixed steps per frame.
@@ -556,32 +557,60 @@ public:
     {
         if (auto* e = GetInstancePtr())
         {
+            // A Stop() request from the initialization callback must be
+            // deferred until this entry point can safely destroy the engine.
+            e->mRunning = true;
+            e->SafeToQuit = false;
             // Optional user initialization callback
             if (e->mOnInit)
                 e->mOnInit(*e);
 
-            if (!(e->ApplyStartingScene())) Stop();
-
-            if (!e->mCfg.multiThreading)
-                return e->RunSingleThreadingImpl();
+            int result = 0;
+            if (!e->mRunning)
+            {
+                // Initialization explicitly requested a clean exit.
+                e->SafeToQuit = true;
+            }
+            else if (!e->ApplyStartingScene())
+            {
+                e->SafeToQuit = true;
+                result = -1;
+            }
             else
-				return e->RunMultiThreadingImpl();
+            {
+                // Scene activation callbacks can request Stop() too.
+                if (e->mRunning)
+                    result = e->mCfg.multiThreading
+                        ? e->RunMultiThreadingImpl()
+                        : e->RunSingleThreadingImpl();
+            }
+
+            // All member functions and frame callbacks have now returned.
+            e->SafeToQuit = true;
+            e->StopImpl();
+            DestroySingleton();
+            return result;
         }
         return -1;
     }
 
-    /** @brief Marks the engine as stopped and invokes singleton destruction.
-     * @warning Unlike a deferred quit request, this method calls
-     *          `DestroySingleton()` immediately. Calling it from a gameplay
-     *          callback while a frame is executing can invalidate live engine
-     *          pointers; prefer letting the window-close event end the loop.
+    /** @brief Requests a safe engine shutdown.
+     * @details During Run(), the request stops subsequent frames and defers
+     * cleanup and singleton destruction until the loop has returned. Outside
+     * Run(), the initialized engine is shut down and destroyed immediately.
      */
     static void Stop() noexcept
     {
         if (auto* e = GetInstancePtr())
         {
+            if (e->mShuttingDown) return;
+            if (e->mRunning || !e->SafeToQuit)
+            {
+                e->mRunning = false;
+                return;
+            }
             e->StopImpl();
-            DestroySingleton();    // Destroy the Engine here; Stop shuts down SDL, singletons, etc.
+            DestroySingleton();
         }
     }
 

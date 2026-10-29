@@ -426,7 +426,7 @@ bool Engine::StartImpl(const std::string configPath, bool inlineJson) noexcept
     }
     printf("OK\n");
 
-    SafeToQuit = false;
+    SafeToQuit = true;
     mStarted = true;
     printf("\nXEngine started successfully.\n\n");
 
@@ -614,7 +614,6 @@ int Engine::RunSingleThreadingImpl() noexcept
 
     SafeToQuit = true;
     WriteProfiles_();
-    StopImpl();
     return 0;
 }
 
@@ -725,9 +724,10 @@ void Engine::WriteProfiles_() noexcept
 
 void Engine::StopImpl() noexcept
 {
-    if (!mStarted) return;
+    if (!mStarted || mShuttingDown) return;
     mRunning = false;
     if (!SafeToQuit) return;
+    mShuttingDown = true;
 
     auto* win = WindowManager::GetInstancePtr();
     auto* input = InputManager::GetInstancePtr();
@@ -792,7 +792,7 @@ void Engine::StopImpl() noexcept
     printf("OK\n");
 
     mStarted = false;
-    DestroySingleton();
+    mShuttingDown = false;
 }
 
 bool Engine::ApplyStartingScene() const noexcept
