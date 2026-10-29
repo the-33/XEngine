@@ -62,7 +62,7 @@ bool matchesActiveCamera(Scene* owner) {
 }
 """
         process = subprocess.run(
-            ["g++", "-std=c++20", "-Wall", "-Wextra", "-Werror",
+            ["g++", "-std=c++20", "-DXENGINE_DEBUG=1", "-Wall", "-Wextra", "-Werror",
              "-fsyntax-only", "-x", "c++", "-I", str(INCLUDE),
              *flags.stdout.split(), "-"],
             input=code, text=True, capture_output=True, cwd=ROOT,
