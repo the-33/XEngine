@@ -39,11 +39,11 @@ struct ServiceAccess final {
     }
 };
 
-/** @brief Read-only view of the active scene camera. */
+/** @brief Read-only view of the active scene camera, null during scene construction. */
 struct CameraAccess final {
-    /** @brief Gets the current camera or null when no engine is active. */
+    /** @brief Gets the active camera or null before activation, during transitions or shutdown. */
     [[nodiscard]] Camera2D* get() const noexcept {
-        Engine* engine = Engine::GetInstancePtr();
+        Engine* engine = Engine::GetInstancePtr_NO_ERROR_MSG();
         return engine ? engine->camera.get() : nullptr;
     }
     /** @brief Converts to the current camera pointer. */
@@ -56,7 +56,7 @@ struct CameraAccess final {
 struct FixedDeltaAccess final {
     /** @brief Gets the configured fixed timestep, or zero without an engine. */
     [[nodiscard]] float get() const noexcept {
-        Engine* engine = Engine::GetInstancePtr();
+        Engine* engine = Engine::GetInstancePtr_NO_ERROR_MSG();
         return engine ? engine->fixedDelta.get() : 0.f;
     }
     /** @brief Converts to a float representing the current fixed timestep. */
@@ -85,7 +85,7 @@ inline constexpr xengine::detail::ServiceAccess<WindowManager> Window{};
 inline constexpr xengine::detail::ServiceAccess<PhysicsManager> Physics{};
 /** @brief Non-owning shortcut to RandomManager (available after startup). */
 inline constexpr xengine::detail::ServiceAccess<RandomManager> Random{};
-/** @brief Read-only accessor for the current camera; may be null. */
+/** @brief Read-only accessor for the active camera; null while a scene is being built. */
 inline constexpr xengine::detail::CameraAccess CurrentCamera{};
 /** @brief Read-only accessor for Engine's fixed simulation timestep. */
 inline constexpr xengine::detail::FixedDeltaAccess FixedDT{};

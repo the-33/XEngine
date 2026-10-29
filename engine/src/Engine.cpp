@@ -807,7 +807,12 @@ bool Engine::ApplyStartingScene() const noexcept
 	return true;
 }
 
-Camera2D* Engine::GetCamera() noexcept { return SceneManager::GetInstancePtr()->GetActive()->GetCamera(); }
+Camera2D* Engine::GetCamera() noexcept {
+    auto* scenes = SceneManager::GetInstancePtr_NO_ERROR_MSG();
+    if (!scenes) return nullptr;
+    auto* active = scenes->GetActive();
+    return active ? active->GetCamera() : nullptr;
+}
 
 inline float Engine::GetFPS() noexcept
 {

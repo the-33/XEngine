@@ -699,6 +699,10 @@ private:
     static PhysicsManager* Physics() noexcept;
     static RandomManager* Random() noexcept;
 
+    /** @brief Returns the active scene camera, or nullptr while no scene is active.
+     * @note A scene-builder callback runs before activation; use its Scene* to
+     * access the scene being constructed rather than this global accessor.
+     */
     static Camera2D* GetCamera() noexcept;
 
     static inline float FixedDelta() noexcept 

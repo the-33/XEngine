@@ -124,8 +124,8 @@ void checkScene(Scene* scene) {
     expect(Assets.get() == assets, "typed Assets shortcut resolves current manager");
     expect(Scenes.get() == SceneManager::GetInstancePtr(),
            "typed Scenes shortcut resolves current manager");
-    expect(CurrentCamera.get() == scene->camera.get(),
-           "typed CurrentCamera follows the active scene");
+    expect(CurrentCamera.get() == nullptr,
+           "typed CurrentCamera is null while the scene builder is running");
     expect(FixedDT.get() >= 0.f, "typed FixedDT reads live engine state");
     if (assets) {
         auto* texture = assets->LoadTexture("textures/pixel.png");
@@ -284,6 +284,9 @@ public:
         ++updates;
         Scene* owner = scene;
         expect(owner != nullptr, "behaviour has a scene");
+        if (owner)
+            expect(CurrentCamera.get() == owner->GetCamera(),
+                   "typed CurrentCamera follows the active scene after activation");
         ExerciseInputAndUI(owner);
         if (movingBody) {
             const Vec3 pos = movingBody->transform->position;

@@ -112,7 +112,11 @@ if (camera) {
 
 `CurrentCamera` is only meaningful when an active scene has a camera. Avoid
 keeping a pointer to a camera across scene changes unless you know its
-lifetime. To follow a target:
+lifetime. **During a scene-builder callback the new scene is not yet active**:
+`CurrentCamera` returns `nullptr` there, so use the callback's `Scene*` and
+`scene->GetCamera()` to configure its camera. The shortcut also returns null
+before initialization and during scene transitions or shutdown.
+To follow a target:
 
 ```cpp
 camera->Follow(targetWorldPosition, 5.f, dt);
