@@ -9,7 +9,11 @@
 #include "BaseTypes.h"
 #include "GameObject.h"
 
-/** @brief Exposes world/local position, rotation and scale using owner-bound properties.
+/** @brief Stores a 2D-oriented transform with parent-relative and composed world properties.
+ *
+ * XY positions are scaled and rotated by the parent's Z rotation; Z position
+ * is translated only. World X/Y rotation components are added through the
+ * parent chain but do not rotate XY geometry. Scales must be nonnegative.
  * @ingroup xengine_math
  */
 class Transform final : public Component
@@ -94,13 +98,17 @@ public:
      */
     ~Transform() override = default;
 
-    /** @brief Applies an additional translation to this transform.
-     * @param delta Change applied to the current value.
+    /** @brief Adds a delta directly to cached world-position coordinates.
+     * @param delta World-space XYZ increment.
+     * @warning This implementation does not update local position or mark the
+     *          hierarchy dirty. A subsequent world-pose recomputation can lose
+     *          the translation; prefer `position = position.get() + delta`.
      */
     void Translate(const Vec3& delta) noexcept;
-    /** @brief Orients the transform to face the supplied target.
-     * @param target Target point, vector or transform for this operation.
-     * @param offsetDeg Additional rotation in degrees.
+    /** @brief Points local +X toward a world-space target in the XY plane.
+     * @param target Target world XY position. Equal current/target positions do nothing.
+     * @param offsetDeg Additional Z-axis angle in degrees.
+     * @note Preserves X/Y rotation and sets world Z rotation via `atan2`.
      */
     void LookAt(const Vec2& target, float offsetDeg = 0.f) noexcept;
 
@@ -140,7 +148,9 @@ public:
         &Transform::SetWorldScale>;
     /** @endcond */
 
-    /** @brief World-space scale, accounting for the parent transform.
+    /** @brief World-space XY scale, multiplied component-wise through parents.
+     * @note Negative assignments are ignored. Near-zero parent scale makes
+     *       world-to-local conversion approximate.
      */
     ScaleProp scale{ this };
 
@@ -177,7 +187,8 @@ public:
         &Transform::SetLocalRotation>;
     /** @endcond */
 
-    /** @brief Rotation relative to the parent, in degrees.
+    /** @brief XYZ Euler angles relative to the parent, in degrees.
+     * @note Only Z rotates 2D positions and sprites in this implementation.
      */
     LocalRotationProp localRotation{ this };
 
@@ -186,7 +197,8 @@ public:
      */
     using UpProp = PropertyRO<Transform, Vec3, &Transform::GetUp>;
     /** @endcond */
-    /** @brief Read-only world-space up direction of this transform.
+    /** @brief Positive Y axis rotated by cached world Z rotation.
+     * @warning This getter does not refresh a dirty world-transform cache.
      */
     UpProp up{ this };
 
@@ -195,7 +207,8 @@ public:
      */
     using RightProp = PropertyRO<Transform, Vec3, &Transform::GetRight>;
     /** @endcond */
-    /** @brief Read-only world-space right direction of this transform.
+    /** @brief Positive X axis rotated by cached world Z rotation.
+     * @warning This getter does not refresh a dirty world-transform cache.
      */
     RightProp right{ this };
 };

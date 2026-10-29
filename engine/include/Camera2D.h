@@ -13,7 +13,10 @@
 #include "Scene.h"
 #include "RenderManager.h"
 
-/** @brief Maps world positions into the window; may match the current window aspect ratio.
+/** @brief Maps 2D world positions to drawable pixels, with zoom and optional aspect matching.
+ *
+ * World Y increases downward, as does screen Y. The scene owns its camera;
+ * gameplay code accesses it through `scene->camera` or `engine.camera`.
  * @ingroup xengine_render
  */
 class Camera2D
@@ -60,10 +63,11 @@ public:
     // --- Comportamientos avanzados ---
     // Follow: smooth defaults to 0. The dt parameter must be supplied explicitly;
     // do not rely on its default value in time-dependent logic.
-    /** @brief Moves the camera toward a target with optional exponential smoothing and explicit delta time.
-     * @param target Target point, vector or transform for this operation.
-     * @param smooth Follow speed; nonpositive values move instantly.
-     * @param dt Elapsed frame time in seconds.
+    /** @brief Follows a world position, snapping immediately or easing exponentially.
+     * @param target Desired world-space camera center.
+     * @param smooth Rate in inverse seconds; values <= 0 snap to the target.
+     * @param dt Elapsed time in seconds. Pass a real frame delta when `smooth > 0`;
+     *           the default `0` produces no movement with positive smoothing.
      */
     void Follow(const Vec2& target, float smooth = 0.f, float dt = 0.f /* dt must be supplied explicitly */) noexcept;
     /** @brief Clamps the visible camera rectangle within world bounds, centering if the world is smaller.
@@ -89,7 +93,7 @@ public:
         &Camera2D::GetZoom,
         &Camera2D::SetZoom>;
     /** @endcond */
-    /** @brief Camera zoom factor; higher values show a smaller world area.
+    /** @brief Camera zoom factor, clamped to [0.01, 100]; larger values show less world area.
      */
     ZoomProperty zoom{ this };
 
@@ -100,7 +104,10 @@ public:
         &Camera2D::GetViewBase,
         &Camera2D::SetViewBase>;
     /** @endcond */
-    /** @brief Base world-space dimensions of the view before zoom and aspect adjustment.
+    /** @brief Effective visible world-space width and height, after zoom and aspect matching.
+     * @note Assignment sets the *unzoomed* base dimensions (each component must exceed
+     *       0.001); reading applies zoom and, when enabled, replaces the width using
+     *       the window's current aspect ratio. It is not a symmetric get/set property.
      */
     ViewProperty viewBase{ this };
 
@@ -124,12 +131,14 @@ public:
      */
     ViewRectProperty viewRect{ this };
 
-	/** @brief Converts world-space coordinates to screen-space coordinates.
+	/** @brief Converts a world position to drawable-framebuffer pixel coordinates.
 	 * @param worldPos Point in world coordinates.
+	 * @return Pixel position relative to the drawable output, not necessarily
+	 *         the logical SDL window size on HiDPI displays.
 	 */
 	Vec2 WorldToScreen(const Vec2& worldPos) const noexcept;
-	/** @brief Converts screen-space coordinates to world-space coordinates.
-	 * @param screenPos Point in logical screen coordinates.
+	/** @brief Converts a drawable-framebuffer pixel position to world coordinates.
+	 * @param screenPos Point in drawable pixels (not logical window points on HiDPI).
 	 */
 	Vec2 ScreenToWorld(const Vec2& screenPos) const noexcept;
 };

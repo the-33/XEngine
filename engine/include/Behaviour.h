@@ -13,7 +13,11 @@ class Transform;
 class Scene;
 struct CollisionInfo2D;
 
-/** @brief Derive gameplay scripts from this class and override the supported lifecycle hooks.
+/** @brief Gameplay-script component with enable/disable and collision callbacks.
+ *
+ * Use `gameObject`, `transform` and `scene` for non-owning access to its owner.
+ * `enabled` controls lifecycle updates and callbacks; activation of the
+ * GameObject hierarchy is an additional independent condition.
  * @ingroup xengine_core
  */
 class Behaviour : public Component
@@ -65,30 +69,30 @@ protected:
     Behaviour() = default;
 
     // Hooks that scripts can override
-    /** @brief Lifecycle callback invoked for disable.
+    /** @brief Called when an initialized enabled behaviour is deactivated.
      */
     virtual void OnDisable() {}
-    /** @brief Lifecycle callback invoked for enable.
+    /** @brief Called when an initialized behaviour becomes enabled in an active hierarchy.
      */
     virtual void OnEnable() {}
 
-    /** @brief Lifecycle callback invoked for collision enter.
+    /** @brief Called on the first detected non-trigger contact with another collider.
      */
     virtual void OnCollisionEnter(const CollisionInfo2D&) {}
-    /** @brief Lifecycle callback invoked for collision stay.
+    /** @brief Called while a non-trigger collider pair continues to overlap.
      */
     virtual void OnCollisionStay(const CollisionInfo2D&) {}
-    /** @brief Lifecycle callback invoked for collision exit.
+    /** @brief Called after a previously detected non-trigger contact ends.
      */
     virtual void OnCollisionExit(const CollisionInfo2D&) {}
 
-    /** @brief Lifecycle callback invoked for trigger enter.
+    /** @brief Called when a pair involving a trigger first overlaps.
      */
     virtual void OnTriggerEnter(const CollisionInfo2D&) {}
-    /** @brief Lifecycle callback invoked for trigger stay.
+    /** @brief Called while a trigger pair continues to overlap.
      */
     virtual void OnTriggerStay(const CollisionInfo2D&) {}
-    /** @brief Lifecycle callback invoked for trigger exit.
+    /** @brief Called after a trigger overlap ends.
      */
     virtual void OnTriggerExit(const CollisionInfo2D&) {}
 

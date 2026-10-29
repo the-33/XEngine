@@ -47,7 +47,9 @@ public:
 	using DeltaProp = PropertyRO < TimeManager, float,
 		&TimeManager::Delta>;
 	/** @endcond */
-	/** @brief Elapsed scaled time between rendered frames, in seconds.
+	/** @brief Delta between successive frames, scaled by `timeScale` and capped before scaling.
+	 * @note Raw frame delta is capped to 0.25 seconds before multiplying by the
+	 *       nonnegative time scale; the first frame starts at zero.
 	 */
 	DeltaProp deltaTime{ this };
 
@@ -57,7 +59,8 @@ public:
 	using TimeStampProp = PropertyRO < TimeManager, uint64_t,
 		&TimeManager::GetHighResTimestamp>;
 	/** @endcond */
-	/** @brief High-resolution timestamp exposed for timing measurements.
+	/** @brief Raw SDL performance-counter ticks (not seconds).
+	 * @note Convert an interval to seconds using `SDL_GetPerformanceFrequency()`.
 	 */
 	TimeStampProp highResTimeStamp{ this };
 
@@ -77,7 +80,7 @@ public:
 	using SinceStartProp = PropertyRO < TimeManager, double,
 		&TimeManager::SinceStart>;
 	/** @endcond */
-	/** @brief Accumulated time since engine startup, in seconds.
+	/** @brief Real elapsed seconds since initialization, unaffected by `timeScale`.
 	 */
 	SinceStartProp timeSinceStart{ this };
 
@@ -88,7 +91,9 @@ public:
 		&TimeManager::TimeScale,
 		&TimeManager::SetTimeScale>;
 	/** @endcond */
-	/** @brief Multiplier applied to game simulation time; 0 pauses scaled updates.
+	/** @brief Nonnegative multiplier applied to frame delta; 0 pauses scaled updates.
+	 * @note Setting a negative value clamps it to zero; `timeSinceStart` still
+	 *       advances at real-world speed.
 	 */
 	TimeScaleProp timeScale{ this };
 };

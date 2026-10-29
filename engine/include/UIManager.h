@@ -44,7 +44,17 @@ struct UIButtonColors {
     Color outline;
 };
 
-/** @brief Immediate-mode UI drawing and input widgets in screen coordinates.
+/** @brief Immediate-mode widgets and draw commands in window screen coordinates.
+ *
+ * Call widgets every frame from the UI phase; their rectangles use the same
+ * coordinates as InputManager's mouse position. Buttons activate on *release*
+ * inside the rectangle after a press began inside it. UI returns true only on
+ * that activation frame, and queued drawings are flushed at the end of UI.
+ *
+ * @warning Widget IDs are compared by `const char*` pointer identity, not by
+ *          string contents. Use stable string literals or another pointer
+ *          with stable identity across frames; transient `c_str()` addresses
+ *          can break press/release tracking.
  * @ingroup xengine_render
  */
 class UIManager : public Singleton<UIManager>
@@ -130,7 +140,8 @@ public:
     // --------------------------
     // Buttons
     // --------------------------
-    /** @brief Draws and evaluates an immediate-mode button with a stable widget ID.
+    /** @brief Queues a styled button and reports a completed left-mouse click.
+     * @return True on release inside the button if the same widget received the press.
      * @param id Stable identifier chosen by the caller.
      * @param r Rectangle in the coordinate space specified by the method.
      * @param text Text to render or serialize.
@@ -201,20 +212,22 @@ public:
     bool Button(const char* id, const Rect& r, const Font& font, const UIButtonColors& colors, const std::string& text, AlignH hAlign, AlignV vAlign, float textPadding = -1.f) noexcept;
 
 
-    /** @brief Evaluates an invisible interactive rectangle without drawing it.
+    /** @brief Evaluates a clickable rectangle without enqueuing any drawing.
      * @param id Stable identifier chosen by the caller.
      * @param r Rectangle in the coordinate space specified by the method.
+     * @return True on a matching left-button press/release inside the rectangle.
      */
     bool InvisibleButton(const char* id, const Rect& r) noexcept; // input only; does not draw
 
     // ImageButton: use UIButtonColors as tints (normal/hover/active), and outline as a border
-    /** @brief Draws an image-backed immediate-mode button and reports activation.
+    /** @brief Queues a texture button tinted for normal/hover/pressed state.
      * @param id Stable identifier chosen by the caller.
      * @param r Rectangle in the coordinate space specified by the method.
      * @param tex Texture to draw or cache.
      * @param srcPixels Optional source rectangle in texture pixels; null uses the full texture.
      * @param tints Optional per-item color multipliers.
-     * @param drawFrame Whether the button should draw its frame.
+     * @param drawFrame Whether to draw the outline frame (texture is always queued).
+     * @return True only on a completed left-mouse click.
      */
     bool ImageButton(const char* id,
         const Rect& r,
@@ -332,18 +345,19 @@ public:
     // Widget construction helpers
     // --------------------------
 
-    /** @brief Draws a checkbox and updates the bool pointed to by value when activated.
+    /** @brief Queues a checkbox and toggles a caller-owned bool on release inside its bounds.
      * @param id Stable identifier chosen by the caller.
      * @param r Rectangle in the coordinate space specified by the method.
-     * @param value Value to store, convert, draw or compare.
+     * @param value Non-owning pointer to the boolean changed on activation; null is ignored.
      * @param label Text shown to the user.
+     * @return True if the checkbox was toggled this frame.
      */
     bool Checkbox(const char* id, const Rect& r, bool* value, const std::string& label = "") noexcept;
 
     /** @brief Draws a progress indicator with a normalized value from 0 to 1.
      * @param value01 Normalized value in the interval from 0 to 1.
      * @param r Rectangle in the coordinate space specified by the method.
-     * @param back Backend instance used for the requested operation.
+     * @param back Background RGBA color of the bar.
      * @param fill Fill color or fill-mode setting.
      * @param outline Border or outline color.
      */

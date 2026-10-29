@@ -1,4 +1,7 @@
 #pragma once
+/** @file SpatialHashBroadphase.h
+ * @brief Deterministic broad-phase candidate enumeration through an AABB grid.
+ */
 // Spatial hash broadphase: deterministic candidate enumeration, no SDL dependency.
 // AABB cell ranges are inclusive so touching boundaries cannot lose candidates.
 #include <algorithm>
@@ -9,14 +12,21 @@
 #include <unordered_map>
 #include <vector>
 
+/** @brief CPU-only collision-grid helper used by CollisionManager. */
 namespace SpatialHashBroadphase {
+/** @brief Inclusive world AABB edges (touching boundaries may be candidates). */
 struct Bounds { double minX, minY, maxX, maxY; };
 
+/** @brief Hash-grid accumulator retaining oversized/invalid bounds globally.
+ * @note Query candidate lists are sorted/unique; callers still perform
+ *       actual narrow-phase tests. Not a public scene or collider container.
+ */
 class Grid {
 public:
     explicit Grid(double cellSize = 2.0) noexcept
         : mCellSize(std::isfinite(cellSize) && cellSize > 0.0 ? cellSize : 2.0) {}
 
+    /** @brief Rebuilds cell occupancy from a snapshot of collider AABBs. */
     void Build(const std::vector<Bounds>& bounds) {
         mCells.clear(); mGlobal.clear(); mRanges.clear();
         mRanges.resize(bounds.size());
@@ -33,6 +43,11 @@ public:
 
     // Exact superset of overlapping AABBs, in the same ascending pair order
     // as nested loops (i,j), j>i. Global/oversized colliders never disappear.
+    /** @brief Produces candidate indices j > i with deterministic ascending order.
+     * @param i Index of the querying collider in the last Build input.
+     * @param count Total collider count used to enumerate global/fallback entries.
+     * @param out Replaced with candidate indices, not confirmed collisions.
+     */
     void Candidates(std::size_t i, std::size_t count, std::vector<std::size_t>& out) const {
         out.clear();
         if (i >= mRanges.size()) return;

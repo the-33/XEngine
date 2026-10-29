@@ -7,7 +7,11 @@
 #include "Assets.h"
 #include "BaseTypes.h"
 
-/** @brief Renders a texture using a GameObject transform and optional tint/source rectangle.
+/** @brief Renders a sprite from a non-owning Texture pointer and its Transform.
+ *
+ * Pixel dimensions divided by Texture::PixelsPerUnit() determine the world
+ * dimensions before the Transform's scale. Rotation is around `pivot01` and
+ * a local offset is projected with the sprite pose.
  * @ingroup xengine_render
  */
 class SpriteRenderer : public Behaviour
@@ -128,7 +132,9 @@ public:
         &SpriteRenderer::GetTexture,
 		&SpriteRenderer::SetTexture>;
     /** @endcond */
-	/** @brief Texture or sprite resource rendered by this component.
+	/** @brief Non-owning texture pointer rendered by the component.
+	 * @warning The current setter ignores `nullptr`; assigning null does not
+	 *          clear an already configured sprite. Keep the asset alive.
 	 */
 	TextureProp sprite{ this };
 
@@ -139,7 +145,9 @@ public:
         &SpriteRenderer::GetSource,
 		&SpriteRenderer::SetSource>;
     /** @endcond */
-	/** @brief Optional source rectangle selecting pixels within the texture.
+	/** @brief Source rectangle in texture pixels, clamped against the texture on assignment.
+	 * @note Requires a texture to have been assigned first. A nonpositive source
+	 *       width/height selects the full texture dimension at render time.
 	 */
 	SourceProp source{ this };
 };

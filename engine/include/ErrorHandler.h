@@ -19,7 +19,9 @@
 #include <windows.h>
 #endif
 
-/** @brief Available error log result modes for ErrorHandler.h.
+/** @brief Dialog response values, or `Error` when no response was returned.
+ * @note On Linux, the current implementation shows an SDL error dialog when
+ *       video is initialized, logs through SDL and returns `Error`.
  */
 enum class ErrorLogResult
 {
@@ -38,9 +40,15 @@ enum class ErrorLogResult
 };
 
 // Cross-platform error logging
-/** @brief Reports an engine error through the configured logging mechanism.
- * @param caption Visible label on the widget.
+/** @brief Reports an engine error in a platform dialog and/or SDL log.
+ * @details On Windows, MessageBoxA is used first; otherwise SDL displays a
+ * message box if video is initialized. The message is also sent to SDL_Log
+ * unless the Windows dialog returned a result first. When `Engine::logErrors`
+ * is false, the call is suppressed and returns `OK`.
+ * @param caption Title of the error dialog and prefix of the log entry.
  * @param error Error condition to report.
+ * @return A Windows dialog selection, or `Error` if no response is available;
+ *         `OK` if engine error logging has been disabled.
  */
 ErrorLogResult LogError(const std::string& caption,
     const std::string& error
@@ -49,10 +57,12 @@ ErrorLogResult LogError(const std::string& caption,
 #endif
 );
 
-/** @brief Reports an engine error through the configured logging mechanism.
- * @param caption Visible label on the widget.
+/** @brief As LogError(caption, error), appending an SDL error string.
+ * @param caption Title of the error dialog and prefix of the log entry.
  * @param error Error condition to report.
- * @param sdlError SDL error message associated with the failed operation.
+ * @param sdlError Non-null, null-terminated SDL error message; pass SDL_GetError()
+ *                 when reporting an SDL failure.
+ * @return A Windows dialog selection, `Error`, or suppressed-logging `OK`.
  */
 ErrorLogResult LogError(const std::string& caption,
     const std::string& error,

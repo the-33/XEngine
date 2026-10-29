@@ -9,7 +9,11 @@
 
 #include "GameObject.h"
 
-/** @brief Base class for objects attached to GameObject; lifecycle is managed by the engine.
+/** @brief Base class for scene-owned components attached to a GameObject.
+ *
+ * Awake is called once when initialized, Start once before first use, then
+ * FixedUpdate/Update/Render while the owner participates in the engine loop.
+ * `gameObject` is a non-owning property; it is null before attachment.
  * @ingroup xengine_core
  */
 class Component 
@@ -95,15 +99,15 @@ public:
     /** @brief Lifecycle hook for start; the engine controls invocation order.
      */
     virtual void Start() {}
-    /** @brief Lifecycle callback invoked for destroy.
+    /** @brief Called on scene/object destruction for component cleanup.
      */
     virtual void OnDestroy() {}
 
     // Bucle
-    /** @brief Lifecycle hook for fixed update; the engine controls invocation order.
+    /** @brief Called during fixed simulation steps with the fixed timestep in seconds.
      */
     virtual void FixedUpdate(float) {}
-    /** @brief Lifecycle hook for update; the engine controls invocation order.
+    /** @brief Called once per frame after fixed updates; argument is scaled elapsed seconds.
      */
     virtual void Update(float) {}
     /** @brief Lifecycle hook for render; the engine controls invocation order.

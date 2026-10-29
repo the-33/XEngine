@@ -29,7 +29,7 @@ public:
      * @param seed Seed that determines the pseudo-random number sequence.
      */
     void SetSeed(uint64_t seed) noexcept;
-    /** @brief Returns the seed of RandomManager.
+    /** @brief Returns the active generator seed, or 0 if no manager exists.
      */
     uint64_t GetSeed() noexcept;
 
@@ -43,14 +43,15 @@ public:
      */
     int   Sign() noexcept;
 
-    /** @brief Samples a value from the specified inclusive/exclusive or inclusive float range.
+    /** @brief Samples an integer from [minInclusive, maxExclusive).
      * @param minInclusive Inclusive lower bound of the requested random interval.
      * @param maxExclusive Exclusive upper bound of the requested random interval.
      */
     int   Range(int minInclusive, int maxExclusive) noexcept;
-    /** @brief Samples a value from the specified inclusive/exclusive or inclusive float range.
+    /** @brief Samples a floating-point value using std::uniform_real_distribution.
      * @param minInclusive Inclusive lower bound of the requested random interval.
-     * @param maxInclusive Inclusive upper bound of the requested random interval.
+     * @param maxInclusive Named upper bound (the standard distribution is normally half-open).
+     * @note Pass the lower bound before the upper bound.
      */
     float Range(float minInclusive, float maxInclusive) noexcept;
 

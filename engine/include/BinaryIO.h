@@ -70,22 +70,22 @@ public:
     /** @brief Moves the accumulated byte buffer out of the writer.
      */
     std::vector<std::byte> TakeData() { AlignToByte(); return std::move(bytes_); }
-    /** @brief Returns the number of bytes or the dimensions of this value, as appropriate.
+    /** @brief Returns the number of bytes currently written to the buffer.
      */
     std::size_t Size() const noexcept { return bytes_.size(); }
-    /** @brief Reports whether byte aligned is currently true.
+    /** @brief Reports whether the next write starts at a byte boundary.
      */
     bool IsByteAligned() const noexcept { return bitOffset_ == 0; }
     /** @brief Pads the current bit field to the next byte before writing byte-aligned primitives.
      */
     void AlignToByte() noexcept { bitOffset_ = 0; }
 
-    /** @brief Writes byte using the specified format and bounds.
-     * @param value Value to store, convert, draw or compare.
+    /** @brief Appends one unsigned byte, requiring byte alignment.
+     * @param value Byte value to append.
      */
     void WriteByte(std::uint8_t value) { RequireAligned(); bytes_.push_back(static_cast<std::byte>(value)); }
-    /** @brief Writes bool using the specified format and bounds.
-     * @param value Value to store, convert, draw or compare.
+    /** @brief Writes a boolean as one byte (0 or 1), requiring alignment.
+     * @param value Boolean value to append.
      */
     void WriteBool(bool value) { WriteByte(value ? 1 : 0); }
     /** @brief Writes exactly the supplied number of bytes, without an implicit prefix or padding.

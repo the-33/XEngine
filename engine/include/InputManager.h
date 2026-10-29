@@ -14,7 +14,9 @@
 class SceneManager;
 class WindowManager;
 
-/** @brief Reports current and edge-triggered keyboard and mouse state per frame.
+/** @brief Reports SDL keyboard, mouse, wheel and UTF-8 text events per engine frame.
+ * @note Edge events are available for the frame in which SDL input is polled.
+ * Text and wheel data are cleared at the beginning of each new input update.
  * @ingroup xengine_services
  */
 class InputManager : public Singleton<InputManager>
@@ -59,16 +61,16 @@ private:
 
 public:
 	// Teclado
-	/** @brief Reports whether the scancode is held in the current frame.
-	 * @param key Application-defined lookup key.
+	/** @brief Reports whether the SDL scancode is held in the current frame.
+     * @param key Physical key identity (`Key`, based on SDL scancodes).
 	 */
 	bool KeyDown(Key key) const noexcept;
 	/** @brief Reports the key-down edge: pressed now but not in the preceding frame.
-	 * @param key Application-defined lookup key.
+	 * @param key Physical key identity (`Key`, based on SDL scancodes).
 	 */
 	bool KeyPressed(Key key) const noexcept;
 	/** @brief Reports the key-up edge: released now after being held last frame.
-	 * @param key Application-defined lookup key.
+	 * @param key Physical key identity (`Key`, based on SDL scancodes).
 	 */
 	bool KeyReleased(Key key) const noexcept;
 
@@ -86,24 +88,34 @@ public:
 	 */
 	bool MouseReleased(MouseButton button) const noexcept;
 
-	/** @brief Returns the mouse pos of InputManager.
+	/** @brief Returns the most recently reported mouse position in window coordinates.
+	 * @note In relative mouse mode, motion events update the delta but do not
+	 *       update this cached absolute position.
 	 */
 	Vec2I GetMousePos() const noexcept;
-	/** @brief Returns the mouse delta of InputManager.
+	/** @brief Returns the last mouse-motion delta reported this frame.
+	 * @note This is not an accumulation across multiple motion events.
 	 */
 	Vec2I GetMouseDelta() const noexcept;
-	/** @brief Converts current mouse position into world coordinates using the current camera.
+	/** @brief Projects the current cached mouse position through the active camera.
+	 * @note Without an active camera it returns the raw coordinates. The camera
+	 *       projection uses drawable pixel dimensions; the cached mouse position
+	 *       comes from SDL window coordinates, which may differ on HiDPI displays.
 	 */
 	Vec2 GetMousePosWorld() const noexcept;
-	/** @brief Converts mouse motion into world-space displacement.
+	/** @brief Applies the camera's screen-to-world *position* conversion to mouse delta.
+	 * @warning The current implementation includes the camera's world-space origin
+	 *          in the result. It is NOT a reliable world-space displacement; do not
+	 *          use it for camera-relative movement without correcting the offset.
+	 * @note Without an active camera it returns the unconverted mouse delta.
 	 */
 	Vec2 GetMouseDeltaWorld() const noexcept;
 
-	/** @brief Returns the mouse wheel of InputManager.
+	/** @brief Returns the last SDL mouse-wheel event's X/Y amounts this frame.
 	 */
 	Vec2I GetMouseWheel() const noexcept;
 
-	/** @brief Changes the mouse mode of InputManager.
+	/** @brief Enables/disables relative mouse input and cursor visibility.
 	 * @param relativeLocked Whether to use relative/locked mouse input.
 	 * @param visible Whether the mouse cursor should remain visible.
 	 */
@@ -112,11 +124,12 @@ public:
 	 */
 	inline bool IsMouseRelative() const noexcept { return mMouseRelative; }
 
-	/** @brief Starts or stops collecting SDL text input into the engine text buffer.
-	 * @param enabled Whether to enable the named feature.
+	/** @brief Starts/stops SDL text input, used for text entry rather than key binding.
+     * @param enabled True to collect SDL_TEXTINPUT UTF-8 events.
 	 */
 	void SetTextInput(bool enabled) noexcept;
-	/** @brief Returns the text input of InputManager.
+	/** @brief Returns UTF-8 text accumulated from SDL_TEXTINPUT events in this frame.
+	 * @note The reference is invalidated/cleared on the next input update.
 	 */
 	inline const std::string& GetTextInput() const noexcept { return mTextInputBuffer; }
 	/** @brief Clears accumulated user text input.

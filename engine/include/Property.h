@@ -16,7 +16,7 @@ namespace detail
 
     template<class X>
     /** @brief Returns the underlying value represented by a property accessor.
-     * @param x Horizontal coordinate or component.
+     * @param x A regular value or owner-bound property accessor.
      */
     constexpr decltype(auto) unwrap(const X& x) noexcept
     {
@@ -49,12 +49,12 @@ struct PropertyRO
     /** @brief Reads the current value from its owning object.
      */
     constexpr T get() const noexcept { return (self->*Getter)(); }
-    /** @brief Implements operator t for this value or property type.
+    /** @brief Implicit conversion that reads the current value via its getter.
      */
     constexpr operator T() const noexcept { return get(); }
 
     // operator->:
-    /** @brief Implements operator-> for this value or property type.
+    /** @brief For pointer values, returns the current pointer from the owner.
      */
     constexpr auto operator->() const noexcept
         requires (std::is_pointer_v<T>)
@@ -62,7 +62,9 @@ struct PropertyRO
         return get();
     }
 
-    /** @brief Implements operator-> for this value or property type.
+    /** @brief For value types, returns a pointer to a cached copy of the getter result.
+     * @warning The returned pointer is invalidated by the next property arrow
+     *          access and must not be stored; modifying it does not call a setter.
      */
     constexpr const T* operator->() const noexcept
         requires (!std::is_pointer_v<T>)
@@ -132,13 +134,13 @@ struct Property
     /** @brief Reads the current value from its owning object.
      */
     constexpr T get() const noexcept { return (self->*Getter)(); }
-    /** @brief Implements operator t for this value or property type.
+    /** @brief Implicit conversion that reads the current owner value.
      */
     constexpr operator T() const noexcept { return get(); }
 
     // Escritura
-    /** @brief Implements operator= for this value or property type.
-     * @param value Value to store, convert, draw or compare.
+    /** @brief Assigns a value by invoking the owner's setter (which may validate it).
+     * @param value Value passed to the owner setter.
      */
     constexpr Property& operator=(T value) noexcept {
         (self->*Setter)(value);
@@ -153,7 +155,7 @@ struct Property
     }
 
     // operator->:
-    /** @brief Implements operator-> for this value or property type.
+    /** @brief For pointer values, returns the current pointer from the owner.
      */
     constexpr auto operator->() const noexcept
         requires (std::is_pointer_v<T>)
@@ -161,7 +163,8 @@ struct Property
         return get();
     }
 
-    /** @brief Implements operator-> for this value or property type.
+    /** @brief For value types, returns a pointer to a cached copy of the getter result.
+     * @warning Writing through this pointer does not invoke the owner's setter.
      */
     constexpr const T* operator->() const noexcept
         requires (!std::is_pointer_v<T>)

@@ -1,4 +1,7 @@
 #pragma once
+/** @file ParallelExecutor.h
+ * @brief Persistent CPU worker pool for independent indexed preparation jobs.
+ */
 
 #include <algorithm>
 #include <atomic>
@@ -11,11 +14,19 @@
 #include <thread>
 #include <vector>
 
-// Persistent CPU workers for independent, non-mutating jobs. SDL and game
-// lifecycle calls must remain on the main thread. Jobs must not throw.
+/** @brief Reuses worker threads for CPU-only, independent jobs.
+ * @warning Jobs must not throw and must be safe to execute in arbitrary index
+ * order and concurrently with the caller. SDL rendering and game lifecycle
+ * callbacks must remain on the main thread. `Run` is not reentrant and cannot
+ * be called by simultaneous dispatchers.
+ */
 class ParallelExecutor final
 {
 public:
+    /** @brief Starts the requested number of persistent worker threads.
+     * @param workers Worker threads in addition to the calling thread, which
+     *                also processes jobs during Run().
+     */
     explicit ParallelExecutor(unsigned workers)
     {
         threads_.reserve(workers);
@@ -53,11 +64,20 @@ public:
     ParallelExecutor(const ParallelExecutor&) = delete;
     ParallelExecutor& operator=(const ParallelExecutor&) = delete;
 
+    /** @brief Number of background threads, excluding the caller.
+     */
     unsigned WorkerCount() const noexcept { return static_cast<unsigned>(threads_.size()); }
+    /** @brief Time the caller spent waiting after processing its own jobs, in milliseconds.
+     * @note This is **not** total dispatch or execution time.
+     */
     float LastWaitMs() const noexcept { return lastWaitMs_; }
 
-    // The caller also processes jobs, so short workloads can stay on one thread.
-    // This function must not be called concurrently from multiple dispatchers.
+    /** @brief Invokes task(i) once for each index in [0, count) and waits for all jobs.
+     * @param count Total independent jobs; count < 2 runs on the caller only.
+     * @param task Callback valid for the duration of Run; must not throw or
+     *             access shared mutable state without synchronization.
+     * @warning Never call concurrently, recursively or from one of the jobs.
+     */
     void Run(std::size_t count, const std::function<void(std::size_t)>& task)
     {
         lastWaitMs_ = 0.f;

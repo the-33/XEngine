@@ -77,23 +77,27 @@ private:
 public:
     // --- Scene management ---
 
-    /** @brief Registers a named scene-builder callback to construct a scene on activation.
+    /** @brief Registers/replaces a builder for future activation of a scene ID.
      * @param id Stable identifier chosen by the caller.
      * @param builder Callback invoked to populate the new scene.
+     * @note Empty IDs are replaced by generated `unnamed_N` identifiers.
      */
     void Register(const std::string& id, SceneBuilder builder) noexcept;
-    /** @brief Controls whether the named scene instance is retained across scene switches.
+    /** @brief Configures caching of a scene instance across future transitions.
      * @param id Stable identifier chosen by the caller.
-     * @param persistent Whether to retain the value across relevant operations.
+     * @param persistent True to retain and reactivate the same instance; false
+     *                   to rebuild it on subsequent activations.
+     * @note Has no effect for an unregistered ID.
      */
     void SetPersistent(const std::string& id, bool persistent) noexcept;
 
-    /** @brief Requests scene activation at the engine's safe transition boundary.
-     * @param s Scalar multiplier, divisor or input value.
+    /** @brief Queues an owned scene instance for activation at the next scene boundary.
+     * @param s Scene ownership moved into the manager; do not retain raw pointers to it.
      */
     void SetActive(std::unique_ptr<Scene> s) noexcept;
-    /** @brief Requests scene activation at the engine's safe transition boundary.
+    /** @brief Queues activation of a registered scene ID at the next scene boundary.
      * @param id Stable identifier chosen by the caller.
+     * @return False if the ID is not registered; no scene change is then queued.
      */
     bool SetActive(const std::string& id) noexcept;
 

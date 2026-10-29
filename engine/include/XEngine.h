@@ -1,6 +1,8 @@
 #pragma once
 /** @file XEngine.h
- * @brief Common include and manager access macros for XEngine games.
+ * @brief Umbrella include and optional manager access macros for XEngine games.
+ * @note Macros such as `Input` expand to non-owning manager pointers, not
+ *       references. Call them only after the engine is initialized.
  */
 /** @defgroup xengine_core Engine and scene lifecycle
  *  Public entities, behaviours, scenes and game-loop services.
@@ -99,10 +101,13 @@
  */
 #define Random	  RandomManager::GetInstancePtr()
 
-/** @brief Convenience alias for accessing current camera from gameplay code.
+/** @brief Gets the current scene camera property through the engine singleton.
+ * @warning Dereferences Engine::GetInstancePtr(); only use after successful
+ *          initialization and when an active scene exists.
  */
 #define CurrentCamera Engine::GetInstancePtr()->camera
 
-/** @brief Convenience alias for accessing fixed dt from gameplay code.
+/** @brief Gets the engine's fixed simulation timestep property.
+ * @warning Dereferences the engine singleton; it must already be initialized.
  */
 #define FixedDT Engine::GetInstancePtr()->fixedDelta

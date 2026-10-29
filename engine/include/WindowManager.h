@@ -68,18 +68,26 @@ public:
     /** @brief Returns the actual logical size of the SDL client area, not HiDPI framebuffer pixels.
      */
     Vec2I GetSize() const noexcept;         // logical coordinates (points)
-    /** Set the windowed resolution (1..16384 each axis). In fullscreen, queue it for restoration. */
+    /** @brief Sets the windowed client size (1..16384 on each axis).
+     * @param newWidth Requested logical window width.
+     * @param newHeight Requested logical window height.
+     * @return False for invalid dimensions or absent window; when windowed,
+     *         false also indicates that SDL did not produce the exact size.
+     * @note In desktop fullscreen the requested dimensions are saved for
+     *       restoration; the fullscreen drawable size does not change.
+     */
     bool SetSize(int newWidth, int newHeight) noexcept;
     /** @brief Returns drawable pixel dimensions; may differ from logical window size on HiDPI displays.
      */
     Vec2I GetDrawableSize() const noexcept; // framebuffer (pixels)
-    /** @brief Changes the title of an initialized SDL window.
+    /** @brief Sets the window caption when the window and title pointer are valid.
      * @param title Text used as the window title.
      */
     void SetTitle(const char* title) noexcept;
 
-    /** @brief Enables or disables desktop fullscreen while preserving the requested windowed resolution.
+    /** @brief Requests SDL desktop fullscreen without changing stored windowed size.
      * @param enabled Whether to enable the named feature.
+     * @note If SDL rejects the transition, the cached fullscreen state is unchanged.
      */
     void SetFullscreen(bool enabled) noexcept; // change at runtime if the backend supports it
     /** @brief Reports the cached fullscreen state after the last successful transition.

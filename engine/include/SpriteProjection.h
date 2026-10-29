@@ -1,4 +1,7 @@
 #pragma once
+/** @file SpriteProjection.h
+ * @brief Pure CPU projection of immutable sprite pose into world-space geometry.
+ */
 
 // CPU-only sprite geometry. Plain input values are copied from the scene on
 // the main thread; this function can run on ParallelExecutor workers without
@@ -6,8 +9,13 @@
 #include <algorithm>
 #include <cmath>
 
+/** @brief Workload-independent sprite geometry functions, safe for CPU workers. */
 namespace SpriteProjection {
 
+/** @brief Copied transform and source-rectangle data, independent of SDL objects.
+ * @note X/Y tilt scales projected width/height by clamped cosines; Z controls
+ *       2D rotation and the local offset orientation.
+ */
 struct Pose {
     float x = 0.f, y = 0.f;
     float scaleX = 1.f, scaleY = 1.f;
@@ -18,6 +26,10 @@ struct Pose {
 };
 struct Rect { float x, y, w, h; };
 
+/** @brief Computes a sprite's world-space rectangle from its immutable pose.
+ * @param pose Numeric geometry captured on the engine thread.
+ * @return Projected world bounds used by later camera preparation.
+ */
 inline Rect Project(const Pose& pose) noexcept {
     constexpr float radiansPerDegree = 3.14159265358979323846f / 180.f;
     // Cos(0) == 1. Skip two transcendentals for typical un-tilted sprites.

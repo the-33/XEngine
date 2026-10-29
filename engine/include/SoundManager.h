@@ -12,7 +12,11 @@
 // Forward declarations
 class TimeManager;
 
-/** @brief Plays and controls music and SFX with a shared master volume.
+/** @brief Plays SDL_mixer music/SFX using a shared normalized master volume.
+ *
+ * Music uses one playback stream; SFX use numbered mixer channels. Volumes
+ * are perceptually transformed before being sent to SDL_mixer. Optionally,
+ * playing SFX ducks the music volume over configured attack/release times.
  * @ingroup xengine_services
  */
 class SoundManager : public Singleton<SoundManager>
@@ -56,7 +60,7 @@ public:
      * @param v01 Normalized volume from 0 to 1.
      */
     void  SetMasterVolume(float v01) noexcept; // 0..1
-    /** @brief Gets or updates the global audio volume multiplier.
+    /** @brief Returns the current normalized master volume (does not modify it).
      */
     float MasterVolume() const noexcept;
 
@@ -70,7 +74,7 @@ public:
     /** @brief Stops music playback.
      */
     void StopMusic() noexcept;
-    /** @brief Reports whether music playing is currently true.
+    /** @brief True if SDL_mixer reports music currently playing.
      */
     bool IsMusicPlaying() const noexcept;
 
@@ -78,8 +82,9 @@ public:
     // Return the assigned channel for optional stopping/querying; use of the result is NOT required.
     /** @brief Plays an effect and returns its assigned mixer channel, or a failure indicator.
      * @param sfx Loaded sound effect; must remain valid during use.
-     * @param loops Additional playback repetitions; a negative music value requests indefinite playback.
+     * @param loops Additional playback repetitions; negative values repeat indefinitely.
      * @param gain01 Normalized gain multiplier from 0 to 1.
+     * @return Assigned channel index, or -1 when playback fails.
      */
     int  PlaySFX(const SoundEffect* sfx, int loops = 0, float gain01 = 1.0f) noexcept;
     /** @brief Stops all currently playing sound effects.
@@ -89,13 +94,13 @@ public:
      * @param channel Mixer channel index previously returned by playback.
      */
     void StopSFXChannel(int channel) noexcept; // opcional
-    /** @brief Reports whether any sfxplaying is currently true.
+    /** @brief True if one or more mixer channels are currently playing an effect.
      */
     bool IsAnySFXPlaying() const noexcept;
 
     // --- Config en runtime ---
-    /** @brief Changes the sfxchannel count of SoundManager.
-     * @param count Number of elements or bits to read/write, as stated by the method.
+    /** @brief Resizes the SFX channel pool, stopping currently playing effects.
+     * @param count Requested number of mixer channels; negatives become zero.
      */
     void SetSFXChannelCount(int count) noexcept;  // resize the channel pool if supported by the backend
     /** @brief Returns the number of sound-effect playback channels.

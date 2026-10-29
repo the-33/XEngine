@@ -14,7 +14,12 @@
 class GameObject;
 class PhysicsManager;
 
-/** @brief Physical component for forces, velocity, mass and constraint settings.
+/** @brief Integrates dynamic or kinematic XY movement and Z-axis angular motion.
+ *
+ * The physics solver runs at fixed timesteps. Dynamic bodies respond to force,
+ * gravity and contacts; kinematic bodies use their configured velocities and
+ * ignore forces; static bodies are not integrated. A Rigidbody must be active
+ * and awakened for its force methods to have an effect.
  * @ingroup xengine_physics
  */
 class RigidBody2D : public Behaviour
@@ -36,7 +41,7 @@ public:
         Discrete,  ///< Check contacts at discrete simulation steps.
         Continuous ///< Enable additional continuous collision detection for fast movement.
     };
-    /** @brief Available force mode modes for RigidBody2D.
+    /** @brief How AddForce/AddTorque apply their input to accumulated or current motion.
      */
     enum class ForceMode : uint8_t {
         Force,          ///< Apply an ongoing force that depends on mass and timestep.
@@ -135,9 +140,12 @@ public:
      */
     ~RigidBody2D() override = default;
 
-    /** @brief Adds force to RigidBody2D.
+    /** @brief Applies linear force, acceleration or an immediate velocity change.
      * @param f Force vector in world-space coordinates.
-     * @param mode Selected operation, input or render mode.
+     * @param mode Force/Acceleration accumulate for the next physics step;
+     *             Impulse applies `f / mass` immediately; VelocityChange adds `f`.
+     * @note Ignored before Awake, when disabled/inactive, or for static bodies.
+     *       Kinematic bodies ignore accumulated forces and accelerations.
      */
     void AddForce(const Vec2& f, ForceMode mode = ForceMode::Force) noexcept
     {
@@ -154,9 +162,12 @@ public:
         }
     }
 
-    /** @brief Adds torque to RigidBody2D.
-     * @param t Interpolation factor.
-     * @param mode Selected operation, input or render mode.
+    /** @brief Applies angular torque, acceleration, impulse or velocity change.
+     * @param t Torque/acceleration value or instantaneous angular impulse/velocity delta.
+     * @param mode Force/Acceleration accumulate; Impulse changes angular
+     *             velocity by `t / inertia`; VelocityChange adds `t` directly.
+     * @note Angular velocity is measured in radians per second. Static and
+     *       inactive bodies ignore the operation.
      */
     void AddTorque(float t, ForceMode mode = ForceMode::Force) noexcept
     {
@@ -173,7 +184,9 @@ public:
         }
     }
 
-    /** @brief Removes or clears the clear forces target.
+    /** @brief Clears accumulated linear/angular forces and accelerations.
+     * @note Does not reset current velocity or angular velocity; ignored if
+     *       this component has not awakened or is disabled/inactive.
      */
     void ClearForces() noexcept {
         if (!mAwoken || !mEnabled) return;
@@ -217,7 +230,8 @@ public:
         &RigidBody2D::SetMass>;
     /** @endcond */
 
-    /** @brief Physical body mass used for forces and impulses.
+    /** @brief Dynamic-body mass used for inverse-mass force and impulse calculations.
+     * @note Assignments are clamped to at least 0.0001.
      */
     MassProp mass{ this };
 
@@ -229,7 +243,8 @@ public:
         &RigidBody2D::SetInertia>;
     /** @endcond */
 
-    /** @brief Rotational inertia used for angular motion.
+    /** @brief Inertia used to convert torque/impulse into angular motion.
+     * @note Assignments are clamped to at least 0.0001.
      */
     InertiaProp inertia{ this };
 
@@ -254,7 +269,7 @@ public:
         &RigidBody2D::SetLinearDamping>;
     /** @endcond */
 
-    /** @brief Damping applied to linear velocity over time.
+    /** @brief Nonnegative damping applied to linear velocity each fixed timestep.
      */
     LinearDampingProp linearDamping{ this };
 
@@ -266,7 +281,7 @@ public:
         &RigidBody2D::SetAngularDamping>;
     /** @endcond */
 
-    /** @brief Damping applied to angular velocity over time.
+    /** @brief Nonnegative damping applied to angular velocity each fixed timestep.
      */
     AngularDampingProp angularDamping{ this };
 
@@ -279,7 +294,7 @@ public:
         &RigidBody2D::SetRestitution>;
     /** @endcond */
 
-    /** @brief Coefficient of restitution used to control collision bounciness.
+    /** @brief Collision bounce coefficient, clamped to [0, 1].
      */
     RestitutionProp restitution{ this };
 
@@ -317,7 +332,7 @@ public:
         &RigidBody2D::SetAngularVelocity>;
     /** @endcond */
 
-    /** @brief Angular velocity used by the physics simulation.
+    /** @brief Angular velocity about the Z axis, in radians per second.
      */
     AngularVelocityProp angularVelocity{ this };
 
@@ -344,16 +359,16 @@ protected:
     void Register();
 };
 
-/** @brief Implements operator| for this value or property type.
- * @param a First input operand.
- * @param b Second input operand.
+/** @brief Combines two Constraints bit flags.
+ * @param a First set of flags.
+ * @param b Additional flags.
  */
 inline constexpr RigidBody2D::Constraints operator|(RigidBody2D::Constraints a, RigidBody2D::Constraints b) noexcept {
     return RigidBody2D::Constraints(uint8_t(a) | uint8_t(b));
 }
-/** @brief Implements operator& for this value or property type.
- * @param a First input operand.
- * @param b Second input operand.
+/** @brief Intersects two Constraints bit flags.
+ * @param a First set of flags.
+ * @param b Second set of flags.
  */
 inline constexpr RigidBody2D::Constraints operator&(RigidBody2D::Constraints a, RigidBody2D::Constraints b) noexcept {
     return RigidBody2D::Constraints(uint8_t(a) & uint8_t(b));

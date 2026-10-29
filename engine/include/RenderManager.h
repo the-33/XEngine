@@ -29,7 +29,12 @@ class AssetManager;
 struct SDL_Renderer;
 struct SDL_FRect;
 
-/** @brief Draws world/screen primitives, textures and background layers on the SDL renderer.
+/** @brief Submits world-space and screen-space draw commands to the SDL renderer.
+ *
+ * World commands use the active Camera2D; screen commands use drawable pixels
+ * and bypass camera projection. During command recording, draws are enqueued
+ * and later prepared/submitted; referenced Texture/Font assets must remain alive
+ * through that frame.
  * @ingroup xengine_render
  */
 class RenderManager : public Singleton<RenderManager>
@@ -175,7 +180,7 @@ private:
 public:
     // One-shot read-only diagnostics for benchmarks. These are the SDL objects
     // actually created (including any fallback), not the requested JSON flags.
-    /** @brief Developer-visible value or service type BackendDiagnostics.
+    /** @brief Read-only snapshot of the actual SDL renderer, window and driver.
      */
     struct BackendDiagnostics {
         /** @brief True if SDL returned renderer details successfully.
@@ -226,7 +231,7 @@ public:
      */
     BackendDiagnostics QueryBackendDiagnostics() const;
 
-    /** @brief Available background mode modes for RenderManager.
+    /** @brief Placement and tiling policy for background imagery.
      */
     enum class BackgroundMode : uint8_t
     {
@@ -241,7 +246,7 @@ public:
         TileWorldPhysicalScaled ///< World-space tiling with an additional scale factor.
     };
 
-    /** @brief Developer-visible value or service type BackgroundLayer.
+    /** @brief One ordered, optionally parallax-scrolling background layer.
      */
     struct BackgroundLayer
     {
@@ -383,7 +388,7 @@ public:
         bool flipX = false,
         bool flipY = false) noexcept;
 
-    /** @brief Draws a world-space rectangle, optionally with rotation and pivot.
+    /** @brief Draws an unrotated rectangle in world coordinates.
      * @param worldRect Rectangle in world coordinates.
      * @param color RGBA drawing color.
      * @param filled Whether the rectangle is filled.
@@ -402,7 +407,7 @@ public:
         Color color,
         bool filled = true) noexcept;
 
-    /** @brief Draws a line using the active renderer.
+    /** @brief Draws a line between two world-space points through the camera.
      * @param x1 First X coordinate.
      * @param y1 First Y coordinate.
      * @param x2 Second X coordinate.
@@ -499,21 +504,21 @@ private:
         const Rect& wrect) noexcept;
 
 public:
-        /** @brief Changes the background of RenderManager.
-         * @param tex Texture to draw or cache.
-         * @param mode Selected operation, input or render mode.
+        /** @brief Sets a single background texture and its placement mode.
+         * @param tex Non-owning texture pointer; keep the asset alive while used.
+         * @param mode Screen- or world-space placement/tiling strategy.
          * @param tint RGBA tint multiplier used for drawing.
          */
         void SetBackground(Texture* tex, BackgroundMode mode = BackgroundMode::Stretch, Color tint = { 255,255,255,255 }) noexcept;
-        /** @brief Removes or clears the clear background target.
+        /** @brief Clears the single background texture and disables its mode.
          */
         void ClearBackground() noexcept;
 
-        /** @brief Removes or clears the clear parallax target.
+        /** @brief Removes all background parallax layers.
          */
         void ClearParallax() noexcept;
-        /** @brief Adds parallax layer to RenderManager.
-         * @param layer Background or render layer to process.
+        /** @brief Appends a background layer that is sorted by its `order` when rendered.
+         * @param layer Layer configuration copied into the manager.
          */
         void AddParallaxLayer(const BackgroundLayer& layer) noexcept;
 };

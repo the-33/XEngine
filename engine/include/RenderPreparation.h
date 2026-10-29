@@ -1,10 +1,14 @@
 #pragma once
+/** @file RenderPreparation.h
+ * @brief Camera-space projection and conservative rotated-rectangle culling.
+ */
 // Pure CPU camera projection and conservative rotated-rectangle culling.
 // No SDL calls or access to live Scene / Texture / Camera objects.
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
 
+/** @brief CPU-only rendering preparation with no SDL or live-scene access. */
 namespace RenderPreparation
 {
 struct Rect { float x, y, w, h; };
@@ -17,6 +21,14 @@ inline bool Intersects(Rect a, Rect b) noexcept
            a.y < b.y + b.h && a.y + a.h > b.y;
 }
 
+/** @brief Projects a world rectangle and checks visibility against drawable bounds.
+ * @param cam Immutable camera snapshot, with dimensions measured in drawable pixels.
+ * @param world World rectangle before screen projection.
+ * @param rotationDeg Rotation in degrees around the normalized pivot.
+ * @param pivotX Normalized horizontal pivot within the sprite rectangle.
+ * @param pivotY Normalized vertical pivot within the sprite rectangle.
+ * @return Screen-space geometry and visibility; invalid dimensions are invisible.
+ */
 inline Prepared Prepare(const Camera& cam, Rect world, float rotationDeg,
                         float pivotX, float pivotY) noexcept
 {

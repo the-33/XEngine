@@ -18,13 +18,13 @@
 #include "SceneManager.h"
 #include "Engine.h"
 
-/** @brief Developer-visible value or service type NarrowContact.
+/** @brief Contact candidate between two scene entities and their colliders.
  */
 struct NarrowContact {
-    /** @brief Exposed a value of NarrowContact; consult its type and setter constraints.
+    /** @brief First entity involved in the contact (non-owning).
      */
     GameObject* a = nullptr;
-    /** @brief Exposed b value of NarrowContact; consult its type and setter constraints.
+    /** @brief Second entity involved in the contact (non-owning).
      */
     GameObject* b = nullptr;
     /** @brief First collider participating in this detected contact.
@@ -44,7 +44,12 @@ struct NarrowContact {
 // Forward declarations
 class PhysicsManager;
 
-/** @brief Maintains collision contacts and sends collision/trigger callbacks.
+/** @brief Builds collision pairs and dispatches Enter/Stay/Exit or trigger callbacks.
+ *
+ * Uses a configurable brute-force, spatial-grid or adaptive broad phase.
+ * Candidate geometry can be parallelized, but game callbacks and physics
+ * integration remain on the engine thread. PhysicsManager resolves non-trigger
+ * contact impulses separately.
  * @ingroup xengine_physics
  */
 class CollisionManager : public Singleton<CollisionManager>

@@ -5,7 +5,6 @@
 
 #include <functional>
 #include <array>
-#include <array>
 #include <vector>
 #include <cstdint>
 #include <string>
@@ -129,7 +128,7 @@ struct DrawCmd
     bool filled = true;
 
     // WorldLine
-    /** @brief Start point X coordinate for a line drawing command. Start point Y coordinate for a line drawing command. End point X coordinate for a line drawing command. End point Y coordinate for a line drawing command.
+    /** @brief World-space X/Y coordinates of both endpoints for `WorldLine` commands.
      */
     float x1 = 0, y1 = 0, x2 = 0, y2 = 0;
 
@@ -164,7 +163,7 @@ struct DrawCmd
     /** @brief UTF-8 string used by text commands.
      */
     std::string text;
-    /** @brief Horizontal screen coordinate for a text drawing command. Vertical screen coordinate for a text drawing command.
+    /** @brief Screen-space text origin in drawable pixels (`textX`, `textY`).
      */
     float textX = 0.f, textY = 0.f; // px
 };
@@ -523,8 +522,13 @@ private:
 
 public:
     // --- High-level static API ---
-    /** @brief Lifecycle hook for start; the engine controls invocation order.
-     * @param configPath Path to the engine runtime configuration.
+    /** @brief Creates/initializes the engine singleton from a JSON config file.
+     * @param configPath Path to a JSON file, not the directory containing it.
+     * @return True when all managers initialize; false for invalid existing
+     *         configuration or an SDL/service initialization failure.
+     * @note A missing *file* falls back to defaults. The current default
+     *       argument `"./"` names an existing directory and is not a valid
+     *       JSON config file; pass an actual filename or use StartFromJson().
      */
     static bool Start(const std::string& configPath = "./") noexcept
     {
@@ -532,8 +536,9 @@ public:
         return GetInstance().StartImpl(configPath);
     }
 
-    /** @brief Starts the engine using an inline JSON configuration string.
+    /** @brief Creates/initializes the engine from an inline UTF-8 JSON object.
      * @param jsonText Serialized configuration in UTF-8 JSON form.
+     * @return False when JSON is invalid or any manager fails to initialize.
      */
     static bool StartFromJson(const std::string& jsonText) noexcept
     {
@@ -541,7 +546,11 @@ public:
         return GetInstance().StartImpl(jsonText, true);
     }
 
-    /** @brief Enters the main engine loop and returns its exit status.
+    /** @brief Calls the init callback, applies the pending starting scene, and runs the main loop.
+     * @return -1 if no engine instance exists; otherwise the loop's return status.
+     * @note Register a starting scene before Run(). The `multiThreading` option
+     *       currently runs the same main-thread game loop with parallel collision
+     *       candidate evaluation, not a separate SDL render thread.
      */
     static int Run() noexcept
     {
@@ -561,7 +570,11 @@ public:
         return -1;
     }
 
-    /** @brief Requests termination of the running engine loop.
+    /** @brief Marks the engine as stopped and invokes singleton destruction.
+     * @warning Unlike a deferred quit request, this method calls
+     *          `DestroySingleton()` immediately. Calling it from a gameplay
+     *          callback while a frame is executing can invalidate live engine
+     *          pointers; prefer letting the window-close event end the loop.
      */
     static void Stop() noexcept
     {
@@ -575,8 +588,10 @@ public:
     // Benchmark-only override: set before Run(). 0 restores normal real-time
     // physics; 1..16 executes exactly that many fixed updates per rendered frame.
     // Does not alter the threading mode or production game configurations.
-    /** @brief Configures fixed-step execution for deterministic tests or simulations.
-     * @param steps Number of fixed simulation steps to perform.
+    /** @brief Sets a benchmark-only count of fixed updates per rendered frame.
+     * @param steps 1..16 fixed steps each frame; 0 restores the real-time accumulator.
+     * @return False unless the engine is started but not yet running, or if steps > 16.
+     * @note This alters simulation cadence, not thread mode or production settings.
      */
     static bool ConfigureDeterministicFixedSteps(unsigned steps) noexcept
     {
@@ -592,9 +607,11 @@ public:
     // Run. Auto/Auto preserves every game/config default. A forced render path
     // allows equivalent workloads to compare the cost of weight/visibility
     // scoring without changing whether workers are used.
-    /** @brief Configures diagnostic sampling of the adaptive render selector.
-     * @param estimate Workload estimate supplied to the render selector.
-     * @param route Renderer route being configured or inspected.
+    /** @brief Overrides render-route and workload-estimate diagnostics before Run().
+     * @param estimate Work-estimate strategy used when evaluating frame work.
+     * @param route Forced renderer route or Auto for normal route selection.
+     * @return False if the engine is not initialized, already running, or an
+     *         adaptive selector would be requested without a work estimate.
      */
     static bool ConfigureRenderSelectorProbe(RenderDiagnostics::WorkEstimate estimate,
                                              RenderDiagnostics::RouteOverride route) noexcept
@@ -610,24 +627,24 @@ public:
         return true;
     }
 
-    /** @brief Changes the init callback of Engine.
-     * @param cb Callback invoked by the operation.
+    /** @brief Registers a callback invoked once at the beginning of Run().
+     * @param cb Function receiving the active Engine; replaces any prior callback.
      */
     static void SetInitCallback(std::function<void(Engine&)> cb) noexcept 
     { 
         if (auto* e = GetInstancePtr())
             e->mOnInit = std::move(cb); 
     }
-    /** @brief Changes the update callback of Engine.
-     * @param cb Callback invoked by the operation.
+    /** @brief Sets the per-frame update callback.
+     * @param cb Function receiving frame delta in scaled seconds.
      */
     static void SetUpdateCallback(std::function<void(float)> cb) noexcept 
     { 
         if (auto* e = GetInstancePtr())
             e->mOnUpdate = std::move(cb);
     }
-    /** @brief Changes the fixed update callback of Engine.
-     * @param cb Callback invoked by the operation.
+    /** @brief Sets the callback invoked for each fixed simulation step.
+     * @param cb Function receiving the configured fixed timestep in seconds.
      */
     static void SetFixedUpdateCallback(std::function<void(float)> cb) noexcept 
     { 

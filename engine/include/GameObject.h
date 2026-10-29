@@ -41,7 +41,7 @@ struct ContactPoint {
 /** @brief Collision/trigger event data provided to Behaviour callbacks.
  */
 struct CollisionInfo2D {
-  /** @brief Value named self used by CollisionInfo2D.
+  /** @brief Receiving GameObject for this collision/trigger callback.
    */
   GameObject* self = nullptr;
   /** @brief Other GameObject involved in this contact.
@@ -138,24 +138,31 @@ public:
     GameObject() noexcept;
 
     // Change parent. If keepWorld == true, convert local coordinates to preserve the world pose.
-    /** @brief Changes the parent of GameObject.
+    /** @brief Reparents this object; optionally preserves its world-space pose.
      * @param newParent Replacement parent object, or null to detach.
      * @param keepWorld Preserve the current world transform while changing parent.
+     * @warning The current implementation does not reject ancestor/self cycles.
+     *          Pass only an object from the same scene that is not a descendant.
      */
     void SetParent(GameObject* newParent, bool keepWorld = true) noexcept;
 
     // Enable/Disable generally propagates to children (optional)
-    /** @brief Changes this entity's active state and notifies enabled behaviours as appropriate.
-     * @param a First input operand.
+    /** @brief Enables/disables the entity and its effective hierarchy callbacks.
+     * @param a Desired local active state. An inactive ancestor still disables it.
      */
     void SetActive(bool a) noexcept;
-    /** @brief Requests deferred destruction; do not retain entity/component pointers across destruction.
+    /** @brief Queues scene-owned entity destruction for a later safe flush.
+     * @warning Do not use this on a standalone GameObject with no owning Scene.
+     *          All descendant objects are also removed at flush time.
      */
     void Destroy() noexcept;
 
     template <class T, class... Args>
-    /** @brief Adds and owns a component; returns an existing component if its type is unique.
-     * @param args Arguments supplied to the operation.
+    /** @brief Constructs and owns a component of type T.
+     * @tparam T Concrete Component subclass; unique types return an existing instance.
+     * @param args Constructor arguments forwarded to T.
+     * @return Non-owning pointer, invalid after object/scene destruction.
+     * @note A component added after Awake/Start may have its lifecycle hooks run immediately.
      */
     T* AddComponent(Args &&...args);
 
@@ -201,7 +208,7 @@ public:
 	 */
 	using IDProp = PropertyRO<GameObject, EntityID, &GameObject::GetID>;
 	/** @endcond */
-    /** @brief Value named ID used by GameObject.
+    /** @brief Read-only scene-assigned entity ID, unique within the owning scene.
      */
     IDProp ID{ this };
 
@@ -219,7 +226,9 @@ public:
 	 */
 	using NameProp = Property<GameObject, std::string, &GameObject::GetName, &GameObject::SetName>;
 	/** @endcond */
-	/** @brief Developer-assigned name for debugging and scene lookups.
+	/** @brief Display/debug name, initially also indexed by Scene::Find(name).
+	 * @warning Renaming does not update the scene's name lookup table: the
+	 *          original registered name remains the key to Scene::Find(name).
 	 */
 	NameProp name{ this };
 

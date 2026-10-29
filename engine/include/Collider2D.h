@@ -11,11 +11,15 @@ class CollisionManager;
 class RigidBody2D;
 class PhysicsManager;
 
-/** @brief Public type alias for the layer bits accessor.
+/** @brief Bit field for collision layers and interaction masks.
  */
 using LayerBits = uint32_t;
 
-/** @brief Describes a two-dimensional collision shape and trigger/layer settings.
+/** @brief Box/circle collision geometry attached to a GameObject and its Transform.
+ *
+ * Shape sizes and offsets are local; the current world scale applies. A circle
+ * uses the larger world XY scale component for its radius. A collider can share
+ * the first Rigidbody2D found on its owner or an ancestor.
  * @ingroup xengine_physics
  */
 class Collider2D : public Behaviour
@@ -182,7 +186,7 @@ public:
         &Collider2D::GetLayer,
 		&Collider2D::SetLayer>;
     /** @endcond */
-    /** @brief Collision layer assigned to this collider.
+    /** @brief Layer bit field assigned to this collider (default bit 0).
      */
     LayerProp layer{ this };
 
@@ -193,7 +197,9 @@ public:
 		&Collider2D::GetMask,
         &Collider2D::SetMask>;
     /** @endcond */
-	/** @brief Bit mask specifying which collision layers may interact.
+	/** @brief Bit mask of layers this collider accepts (default all bits).
+	 * @note A pair is tested only if both `a.layer & b.mask` and
+	 *       `b.layer & a.mask` are nonzero; colliders on the same body are ignored.
 	 */
 	MaskProp mask{ this };
 
@@ -204,7 +210,8 @@ public:
         &Collider2D::GetDrawCollider,
 		&Collider2D::SetDrawCollider>;
     /** @endcond */
-    /** @brief Enable debug visualization of the collider geometry.
+    /** @brief Enable debug geometry rendering for this collider.
+     * @note The engine statistics overlay can also force collider gizmos visible.
      */
     DrawColliderProp showGizmo{ this };
 
@@ -226,7 +233,7 @@ public:
 		&Collider2D::GetOffsetLocal,
 		&Collider2D::SetOffsetLocal>;
     /** @endcond */
-	/** @brief Collider center offset relative to its owner’s transform.
+	/** @brief Local XY collider offset, scaled and optionally rotated by the Transform.
 	 */
 	OffsetLocalProp localOffset{ this };
 
@@ -237,7 +244,7 @@ public:
         &Collider2D::GetInheritRotation,
 		&Collider2D::SetInheritRotation>;
     /** @endcond */
-	/** @brief Whether the collider inherits rotation from its transform.
+	/** @brief Whether the collider follows Transform Z rotation (including its offset).
 	 */
 	InheritRotationProp inheritRotation{ this };
 
@@ -248,7 +255,7 @@ public:
         &Collider2D::GetLocalAngleOffsetDeg,
 		&Collider2D::SetLocalAngleOffsetDeg>;
     /** @endcond */
-    /** @brief Additional collider rotation, in degrees.
+    /** @brief Additional Z rotation, in degrees, applied to box geometry.
      */
     LocalAngleOffsetDegProp rotationOffset{ this };
 
@@ -259,7 +266,7 @@ public:
 		&Collider2D::GetSizeLocal,
 		&Collider2D::SetSizeLocal>;
     /** @endcond */
-    /** @brief Size of rectangular collider geometry in local world units.
+    /** @brief Unscaled local width/height of box geometry in world units.
      */
     SizeLocalProp size{ this };
 
@@ -270,7 +277,7 @@ public:
         &Collider2D::GetRadiusLocal,
         &Collider2D::SetRadiusLocal>;
     /** @endcond */
-	/** @brief Radius of circular collider geometry in world units.
+	/** @brief Unscaled local circle radius; world radius multiplies by max(X/Y scale).
 	 */
 	RadiusLocalProp radius{ this };
 };

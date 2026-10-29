@@ -1,4 +1,7 @@
 #pragma once
+/** @file AdaptiveBroadphase.h
+ * @brief Timing-driven, allocation-free choice of collision broad-phase algorithms.
+ */
 // Online selection of spatial broadphase vs all-pairs based on *measured* CPU
 // cost (grid construction + candidate evaluation) for comparable workloads.
 // Allocation-free; no SDL dependency. Calibration and periodic probes allow
@@ -8,12 +11,22 @@
 #include <cmath>
 #include <cstddef>
 
+/** @brief Learns measured grid-versus-brute-force cost by collider-count bucket.
+ * @note Buckets also distinguish serial and parallel candidate evaluation.
+ * Calibration alternates both algorithms and probes a losing strategy
+ * periodically; an 8% hysteresis reduces switches caused by noise.
+ */
 class AdaptiveBroadphase final {
 public:
     // One bucket per power-of-two collider-count range, and one per worker mode.
     // Separate buckets ensure observations from different scales are not mixed.
     void Reset() noexcept { mBuckets = {}; }
 
+    /** @brief Chooses whether to use grid broad phase on the current pass.
+     * @return True for grid, false for brute force. During calibration this
+     *         intentionally probes both candidates rather than always using
+     *         the current winner.
+     */
     bool Choose(std::size_t colliders, bool parallelWorkers) noexcept {
         Bucket& b = Get(colliders, parallelWorkers);
         // Interleave both algorithms while calibrating; avoid temporal bias.
@@ -26,6 +39,9 @@ public:
         return b.preferGrid;
     }
 
+    /** @brief Records the observed preparation/candidate cost in milliseconds.
+     * @note Invalid negative or non-finite measurements are ignored.
+     */
     void Observe(std::size_t colliders, bool parallelWorkers, bool usedGrid,
                  float gridBuildAndCandidateMs) noexcept {
         if (!std::isfinite(gridBuildAndCandidateMs) || gridBuildAndCandidateMs < 0.f) return;
@@ -65,6 +81,10 @@ private:
 // segregated by collider scale, worker availability and coarse occupancy.
 // A conservative incumbent/challenger policy prevents switching on a single
 // lucky timing sample and progressively reduces probes in stable scenes.
+/** @brief Adapts between brute force and three grid sizes using measured costs.
+ * @note Uses collider scale, worker mode and spatial concentration to keep
+ * independent measurements; choices are not fixed collider-count thresholds.
+ */
 class AdaptiveCellBroadphase final {
 public:
     static constexpr unsigned kStrategies = 4;

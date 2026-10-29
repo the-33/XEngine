@@ -870,7 +870,7 @@ struct TRect
     /** @brief Returns the position of the rectangle origin.
      */
     constexpr TVec2<T> Pos()    const noexcept { return { x, y }; }
-    /** @brief Returns the number of bytes or the dimensions of this value, as appropriate.
+    /** @brief Returns rectangle width and height as a 2D vector.
      */
     constexpr TVec2<T> Size()   const noexcept { return { w, h }; }
     /** @brief Returns the center point of this rectangle.
@@ -885,7 +885,7 @@ struct TRect
         return p.x >= Left() && p.x <= Right() && p.y >= Top() && p.y <= Bottom();
     }
 
-    /** @brief Tests whether two rectangles have a nonempty overlap.
+    /** @brief Tests axis-aligned overlap; shared edges count as overlapping.
      * @param r Rectangle in the coordinate space specified by the method.
      */
     constexpr bool Overlaps(TRect r) const noexcept
@@ -1012,12 +1012,12 @@ struct Color
      */
     constexpr Color(uint8_t R, uint8_t G, uint8_t B, uint8_t A = 255) : r(R), g(G), b(B), a(A) {}
 
-    /** @brief Returns the predefined black color.
-     * @param a First input operand.
+    /** @brief Returns black with the specified alpha channel.
+     * @param a Alpha channel (0 transparent, 255 opaque).
      */
     static constexpr Color Black(uint8_t a = 255)   noexcept { return { 0,   0,   0, a }; }
-    /** @brief Returns the predefined white color.
-     * @param a First input operand.
+    /** @brief Returns white with the specified alpha channel.
+     * @param a Alpha channel (0 transparent, 255 opaque).
      */
     static constexpr Color White(uint8_t a = 255)   noexcept { return { 255, 255, 255, a }; }
 

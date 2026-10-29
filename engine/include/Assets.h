@@ -39,7 +39,7 @@ public:
 	Texture& operator=(const Texture&) = delete;
 
 	// Internal access (RenderManager only)
-	/** @brief Returns the sdl of Texture.
+	/** @brief Returns the underlying SDL_Texture handle without transferring ownership.
 	 */
 	SDL_Texture* GetSDL() const noexcept;
 
@@ -51,10 +51,10 @@ public:
 	 */
 	int  Height() const noexcept;
 
-	/** @brief Returns or updates the texture’s pixels-per-world-unit scale.
+	/** @brief Returns the texture's pixels-per-world-unit scale.
 	 */
 	float PixelsPerUnit() const noexcept { return pixelsPerUnit; }
-	/** @brief Changes the pixels per unit of Texture.
+	/** @brief Sets texture scale metadata, falling back to 100 for nonpositive input.
 	 * @param ppu Pixels per world unit.
 	 */
 	void  SetPixelsPerUnit(float ppu) noexcept { pixelsPerUnit = (ppu > 0.f ? ppu : 100.f); }
@@ -96,7 +96,7 @@ public:
 	 */
 	Font& operator=(const Font&) = delete;
 
-	/** @brief Returns the sdl of Font.
+	/** @brief Returns the underlying TTF_Font handle without transferring ownership.
 	 */
 	TTF_Font* GetSDL() const noexcept;
 
@@ -135,7 +135,7 @@ public:
 	 */
 	SoundEffect& operator=(const SoundEffect&) = delete;
 
-	/** @brief Returns the sdl of SoundEffect.
+	/** @brief Returns the underlying Mix_Chunk handle without transferring ownership.
 	 */
 	Mix_Chunk* GetSDL() const noexcept;
 
@@ -174,7 +174,7 @@ public:
 	 */
 	Music& operator=(const Music&) = delete;
 
-	/** @brief Returns the sdl of Music.
+	/** @brief Returns the underlying Mix_Music handle without transferring ownership.
 	 */
 	Mix_Music* GetSDL() const noexcept;
 

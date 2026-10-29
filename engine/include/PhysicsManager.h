@@ -19,7 +19,11 @@ struct NarrowContact;
 class CollisionManager;
 class SceneManager;
 
-/** @brief Owns the fixed-timestep physics solver and its configurable parameters.
+/** @brief Integrates active rigid bodies and resolves detected contacts in fixed steps.
+ *
+ * Physics substeps can increase for dynamic bodies using Continuous detection.
+ * Trigger overlaps are reported by CollisionManager but receive no physical
+ * contact response.
  * @ingroup xengine_physics
  */
 class PhysicsManager : public Singleton<PhysicsManager>
@@ -152,21 +156,23 @@ public:
         &PhysicsManager::SetCCDMinSizeFactor>;
     /** @endcond */
 
-    /** @brief Property wrapper type used for gravity prop.
+    /** @brief World-space gravity acceleration (default +9.81 on Y, downward).
      */
     GravityProp gravityProp{ this };
 
-    /** @brief Property wrapper type used for penetration slop prop.
+    /** @brief Allowed penetration depth before positional correction begins.
      */
     PenetrationSlopProp penetrationSlopProp{ this };
-    /** @brief Property wrapper type used for penetration percent prop.
+    /** @brief Fraction of excess penetration to correct during a solver step.
      */
     PenetrationPercentProp penetrationPercentProp{ this };
 
-    /** @brief Property wrapper type used for max substeps prop.
+    /** @brief Upper bound on physics substeps for continuous detection; minimum 1.
      */
     MaxSubstepsProp maxSubstepsProp{ this };
-    /** @brief Property wrapper type used for ccd min size factor prop.
+    /** @brief Fraction of collider size used to choose CCD substep distance.
+     * @note Lower positive values produce more substeps, limited by `maxSubstepsProp`.
+     *       Negative assignments clamp to zero.
      */
     CCDMinSizeFactorProp ccdMinSizeFactorProp{ this };
 };

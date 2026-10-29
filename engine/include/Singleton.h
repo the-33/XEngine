@@ -11,13 +11,15 @@ template <class T>
 class Singleton
 {
 public:
-    /** @brief Returns the instance of Singleton.
+    /** @brief Returns the active singleton instance by reference.
+     * @warning If no instance exists this implementation logs an error and
+     *          dereferences a null dummy pointer. Check GetInstancePtr first.
      */
     inline static T& GetInstance();
-    /** @brief Returns the instance ptr of Singleton.
+    /** @brief Returns the active singleton pointer, or logs and returns nullptr.
      */
     inline static T* GetInstancePtr();
-    /** @brief Returns the instance ptr no error msg of Singleton.
+    /** @brief Returns the active singleton pointer without logging on failure.
      */
     inline static T* GetInstancePtr_NO_ERROR_MSG();
 
@@ -25,7 +27,7 @@ protected:
     /** @brief Creates create singleton for the current scene or service.
      */
     inline static bool CreateSingleton();
-    /** @brief Removes or clears the destroy singleton target.
+    /** @brief Deletes the active singleton and clears its pointer; false if missing.
      */
     inline static bool DestroySingleton();
 

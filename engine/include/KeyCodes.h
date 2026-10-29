@@ -5,7 +5,9 @@
  */
 #include <cstdint>
 
-    /** @brief Available key modes for KeyCodes.h.
+    /** @brief Physical keyboard scancodes used by InputManager.
+     * @details These describe key *positions*, not locale-dependent characters.
+     * For typed Unicode text, use InputManager's text input facilities.
      */
     enum class Key : uint16_t
     {
@@ -246,7 +248,7 @@
         ENDCALL = 290, ///< SDL keyboard scancode: ENDCALL.
     };
 
-    /** @brief Available mouse button modes for KeyCodes.h.
+    /** @brief SDL mouse button identifiers used by InputManager.
      */
     enum class MouseButton : uint8_t
     {

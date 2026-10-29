@@ -1,34 +1,60 @@
 #pragma once
+/** @file StatsOverlayLayout.h
+ * @brief Viewport-constrained F3 statistics overlay column/page arrangement.
+ */
 
 #include <algorithm>
 #include <cstddef>
 #include <vector>
 
-// SDL-independent layout for the optional F3 diagnostic overlay.
-// Blocks are kept together when possible and overflow into additional columns/pages.
+/** @brief SDL-independent layout of the optional F3 diagnostic overlay.
+ * @details Diagnostic lines are grouped into blocks. Blocks that fit a fresh
+ * column remain intact; oversized blocks split across columns or pages.
+ */
 namespace XEngineStatsOverlay
 {
+    /** @brief One logical line's output position in the overlay.
+     */
     struct Placement
     {
-        std::size_t line = 0;
-        float x = 0.f;
-        float y = 0.f;
+        std::size_t line = 0; ///< Original line index supplied by the caller.
+        float x = 0.f;       ///< Horizontal pixel position within the window.
+        float y = 0.f;       ///< Vertical pixel position within the window.
     };
 
+    /** @brief Lines assigned to a single overlay page.
+     */
     struct Page
     {
-        std::vector<Placement> lines;
-        float usedHeight = 0.f;
-        unsigned usedColumns = 0;
+        std::vector<Placement> lines; ///< Positions in presentation order.
+        float usedHeight = 0.f;       ///< Maximum occupied vertical coordinate.
+        unsigned usedColumns = 0;    ///< Number of columns containing at least one line.
     };
 
+    /** @brief Complete page/column packing result.
+     */
     struct Layout
     {
-        std::vector<Page> pages;
-        unsigned columnsPerPage = 1;
-        float columnWidth = 0.f;
+        std::vector<Page> pages; ///< Includes one empty page when no lines are supplied.
+        unsigned columnsPerPage = 1; ///< At most three columns per page.
+        float columnWidth = 0.f;     ///< Effective width clamped to the available space.
     };
 
+    /** @brief Packs lines into viewport columns and overflow pages.
+     * @param blocks Ordered sets of line indices; each set is kept together
+     *               where room permits, but can split if taller than a column.
+     * @param windowWidth Viewport width, in pixels.
+     * @param windowHeight Viewport height, in pixels.
+     * @param desiredColumnWidth Preferred width per text column.
+     * @param lineHeight Requested per-line advance; clamped to at least 1.
+     * @param margin Left/right and bottom padding.
+     * @param headerHeight Reserved height above the overlay lines.
+     * @param footerHeight Reserved height below the overlay lines.
+     * @param columnGap Horizontal distance between columns.
+     * @param blockGap Vertical distance between distinct blocks.
+     * @return Deterministic positions; rendering and page navigation are
+     *         handled by the overlay renderer, not this utility.
+     */
     inline Layout Pack(const std::vector<std::vector<std::size_t>>& blocks,
                        float windowWidth, float windowHeight,
                        float desiredColumnWidth, float lineHeight,

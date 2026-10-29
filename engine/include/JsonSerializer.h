@@ -10,7 +10,7 @@
 #include <string>
 #include <string_view>
 
-/** @brief Available json write mode modes for JsonSerializer.h.
+/** @brief Choose a direct truncating write or an atomic publish with optional backup.
  */
 enum class JsonWriteMode {
     Direct, ///< Truncate/write using FileSystem; NOT crash-atomic.
@@ -24,14 +24,14 @@ enum class JsonWriteMode {
 class JsonSerializer final {
 public:
     /** @brief Converts a supported value or registered class into JSON text without touching the filesystem.
-     * @param value Value to store, convert, draw or compare.
+     * @param value Object to convert; custom types need serialization support.
      * @param indent Pretty-printing indentation width.
      */
     template<class T> static std::string Serialize(const T& value, int indent = 2) {
         return XSerializationDetail::ToJson(value).dump(indent);
     }
     /** @brief Parses bounded JSON text and recursively fills registered fields; throws on malformed input.
-     * @param input Input sequence to parse or consume.
+     * @param input UTF-8 JSON text (not a filesystem path).
      * @param maxBytes Maximum number of bytes the caller permits reading.
      */
     template<class T> static T Deserialize(std::string_view input,
@@ -43,8 +43,8 @@ public:
         return result;
     }
     /** @brief Attempts to parse JSON into a value, reporting failure without propagating parse errors.
-     * @param input Input sequence to parse or consume.
-     * @param result Output receiving the result of this operation.
+     * @param input UTF-8 JSON text (not a filesystem path).
+     * @param result Replaced only if parsing and conversion succeed.
      * @param maxBytes Maximum number of bytes the caller permits reading.
      */
     template<class T> static bool TryDeserialize(std::string_view input, T& result,
@@ -57,8 +57,9 @@ public:
     }
     /** @brief Serializes to JSON then chooses direct or atomic file publication according to JsonWriteMode.
      * @param path Target filesystem path; file extension is application-defined.
-     * @param value Value to store, convert, draw or compare.
-     * @param mode Selected operation, input or render mode.
+     * @param value Object to serialize and write to disk.
+     * @param mode Direct overwrites normally; Atomic publishes via a temporary
+     *             file and preserves a backup according to AtomicFile defaults.
      * @param indent Pretty-printing indentation width.
      */
     template<class T> static FileError SaveToFile(const std::filesystem::path& path,

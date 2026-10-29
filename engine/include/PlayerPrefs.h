@@ -12,7 +12,10 @@
  *  Initialize once using the developer's own organization and application names.
  *  Windows: HKCU registry; Linux: an atomic JSON file under the per-user config folder.
  */
-/** @brief Stores small per-user settings in HKCU on Windows or an atomic JSON file on Linux.
+/** @brief Stores small per-user settings in HKCU (Windows) or JSON (Linux).
+ * @note Call Initialize with a stable organization/application identity first.
+ * Windows writes keys immediately; Linux buffers modifications in memory until
+ * Save() publishes the JSON file. Do not use this for large save-game data.
  * @ingroup xengine_storage
  */
 class PlayerPrefs final {
@@ -63,7 +66,7 @@ public:
     /** @brief Deletes this application's preferences without removing unrelated Unity data.
      */
     static bool DeleteAll() noexcept;
-    /** @brief Persists pending settings to the Windows Registry or Linux atomic JSON file.
+    /** @brief Flushes HKCU Registry changes or atomically publishes Linux JSON settings.
      * @note Use `Save()` at controlled points, such as when applying menu settings.
      */
     static bool Save() noexcept;

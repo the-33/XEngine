@@ -11,7 +11,15 @@
 #include "Assets.h"
 #include "Engine.h"
 
-/** @brief Loads and caches textures, fonts, sound effects and music assets.
+/** @brief Loads and owns cached textures, fonts, sound effects and music.
+ *
+ * Paths are relative to the configured assets root. Returned pointers are
+ * non-owning and become invalid on cache shutdown. Loading may return nullptr
+ * when an asset is missing, invalid, or its SDL subsystem is unavailable.
+ * @warning Keyed and path-based cache entries use different keys; prefer a
+ *          single lookup style for each resource. In the current implementation
+ *          keyed loads look up their original path but store under the custom
+ *          key, so repeated keyed loads can fail to hit the intended cache.
  * @ingroup xengine_services
  */
 class AssetManager final : public Singleton<AssetManager>
@@ -43,22 +51,25 @@ private:
 
 public:
 	// TEXTURAS
-	/** @brief Loads/caches a texture; optional key and pixels-per-unit control how it is accessed and projected.
+	/** @brief Loads or returns a cached texture under its relative path.
 	 * @param path Resource path relative to the game assets directory.
-	 * @param pixelsPerUnit Texture pixels represented by one world-space unit.
+	 * @param pixelsPerUnit Texture pixels per world unit; values <= 0 reset to 100.
+	 * @return Cached non-owning pointer, or nullptr if loading fails.
 	 */
 	Texture* LoadTexture(const std::string& path, float pixelsPerUnit = 100.f) noexcept;
-	/** @brief Loads/caches a texture; optional key and pixels-per-unit control how it is accessed and projected.
+	/** @brief Loads a texture and stores it under a custom lookup key.
 	 * @param path Resource path relative to the game assets directory.
 	 * @param key Application-defined lookup key.
 	 * @param pixelsPerUnit Texture pixels represented by one world-space unit.
+	 * @warning The current cache lookup checks the path, but storage uses `key`.
+	 *          Repeating this call may reload the texture instead of reusing it.
 	 */
 	Texture* LoadTexture(const std::string& path, const std::string& key, float pixelsPerUnit = 100.f) noexcept;
-	/** @brief Returns the texture of AssetManager.
+	/** @brief Finds a texture previously cached using its resource path.
 	 * @param path Resource path relative to the game assets directory.
 	 */
 	Texture* GetTexture(const std::string& path) const noexcept;
-	/** @brief Returns the texture by key of AssetManager.
+	/** @brief Finds a texture stored under a custom key; returns nullptr if missing.
 	 * @param key Application-defined lookup key.
 	 */
 	Texture* GetTextureByKey(const std::string& key) const noexcept;
@@ -75,12 +86,12 @@ public:
 	 * @param ptSize Font point size.
 	 */
 	Font* LoadFont(const std::string& path, const std::string& key, int ptSize) noexcept;
-	/** @brief Returns the font of AssetManager.
+	/** @brief Finds a font loaded by path and point size, or nullptr.
 	 * @param path Resource path relative to the game assets directory.
 	 * @param ptSize Font point size.
 	 */
 	Font* GetFont(const std::string& path, int ptSize) const noexcept;
-	/** @brief Returns the font by key of AssetManager.
+	/** @brief Finds a font stored under a custom key, or nullptr.
 	 * @param key Application-defined lookup key.
 	 */
 	Font* GetFontByKey(const std::string& key) const noexcept;
@@ -95,7 +106,7 @@ public:
 	 * @param key Application-defined lookup key.
 	 */
 	SoundEffect* LoadSFX(const std::string& path, const std::string& key) noexcept;
-	/** @brief Returns the sfx of AssetManager.
+	/** @brief Finds a sound effect previously loaded by its relative path.
 	 * @param path Resource path relative to the game assets directory.
 	 */
 	SoundEffect* GetSFX(const std::string& path) const noexcept;
@@ -114,11 +125,11 @@ public:
 	 * @param key Application-defined lookup key.
 	 */
 	Music* LoadMusic(const std::string& path, const std::string& key) noexcept;
-	/** @brief Returns the music of AssetManager.
+	/** @brief Finds music previously loaded by its relative path.
 	 * @param path Resource path relative to the game assets directory.
 	 */
 	Music* GetMusic(const std::string& path) const noexcept;
-	/** @brief Returns the music by key of AssetManager.
+	/** @brief Finds music stored under a custom key, or nullptr.
 	 * @param key Application-defined lookup key.
 	 */
 	Music* GetMusicByKey(const std::string& key) const noexcept;

@@ -18,7 +18,7 @@ namespace RenderDiagnostics {
 /** @brief Default minimum number of eligible commands before parallel preparation is selected.
  */
 inline constexpr std::size_t kParallelThreshold = 1536;
-/** @brief Available path modes for RenderDiagnostics.
+/** @brief Reason/route chosen for CPU-side render preparation this frame.
  */
 enum class Path : std::uint8_t {
     Disabled = 0,       ///< Parallel preparation is disabled by settings.
@@ -45,7 +45,9 @@ inline constexpr const char* Name(Path path) noexcept {
  * @param requested Whether the user requested parallel processing.
  * @param workers Number of available preparation worker threads.
  * @param previousEligible Number of eligible commands measured in the previous frame.
- * @param threshold Cutoff that activates or deactivates the selection policy.
+ * @param threshold Eligible-command count required for parallel work.
+ * @return `Disabled`/`NoWorkers` if parallelism is unavailable; otherwise
+ *         `Parallel` at or above the fixed threshold, `BelowThreshold` below it.
  */
 inline constexpr Path Select(bool threading, bool requested, unsigned workers,
                              std::size_t previousEligible,
@@ -82,23 +84,27 @@ inline constexpr std::uint64_t kOffscreenPercent = 25;
 /** @brief World-space viewport center and dimensions used for visibility estimates.
  */
 struct View {
-    /** @brief X coordinate of the viewport center. Y coordinate of the viewport center. Viewport width in world units. Viewport height in world units.
-     */
-    float centerX = 0.f, centerY = 0.f, width = 0.f, height = 0.f;
+    float centerX = 0.f; ///< Horizontal center in world units.
+    float centerY = 0.f; ///< Vertical center in world units.
+    float width = 0.f;   ///< Visible world-space width, before the bounding check.
+    float height = 0.f;  ///< Visible world-space height, before the bounding check.
 };
 // Compute viewport edges once per frame, not for every submitted sprite.
 /** @brief Cached viewport edges, prevalidated for conservative culling estimates.
  */
 struct ViewBounds {
-    /** @brief Cached left viewport edge. Cached right viewport edge. Cached top viewport edge. Cached bottom viewport edge.
-     */
-    float left = 0.f, right = 0.f, top = 0.f, bottom = 0.f;
+    float left = 0.f;   ///< Minimum visible world X.
+    float right = 0.f;  ///< Maximum visible world X.
+    float top = 0.f;    ///< Minimum visible world Y.
+    float bottom = 0.f; ///< Maximum visible world Y.
     /** @brief True if the viewport is finite with positive dimensions.
      */
     bool valid = false;
 };
-/** @brief Builds finite viewport edges from a camera center and extents.
- * @param v Value, vector or input to this operation.
+/** @brief Validates a world-space view and precomputes its four edges.
+ * @param v Camera center and positive world-space dimensions.
+ * @return Valid bounding edges, or an invalid zero-initialized result when
+ *         any input is nonfinite or a dimension is nonpositive.
  */
 inline ViewBounds MakeViewBounds(const View& v) noexcept {
     if (!(std::isfinite(v.centerX) && std::isfinite(v.centerY) &&
@@ -111,18 +117,22 @@ inline ViewBounds MakeViewBounds(const View& v) noexcept {
 // Z rotation, scaled local offset and custom pivot. This never controls actual
 // rendering/culling; it only changes the NEXT frame's selector estimate.
 // Invalid/nonfinite geometry is conservatively considered potentially visible.
-/** @brief Conservatively checks whether sprite geometry cannot intersect the viewport.
- * @param v Value, vector or input to this operation.
- * @param x Horizontal coordinate or component.
- * @param y Vertical coordinate or component.
- * @param w Width or horizontal extent.
- * @param h Height or vertical extent.
+/** @brief Conservatively rejects sprites known to be entirely outside a valid view.
+ * @details Tests a deliberately generous rotational bound. A false result does
+ * **not** mean the sprite is visible; it merely cannot be proven offscreen.
+ * Used for next-frame work estimation, not actual draw-call culling.
+ * @param v Validated viewport bounds; invalid bounds never reject a sprite.
+ * @param x Sprite anchor X in world units.
+ * @param y Sprite anchor Y in world units.
+ * @param w Sprite width before scale.
+ * @param h Sprite height before scale.
  * @param scaleX Horizontal sprite scale.
  * @param scaleY Vertical sprite scale.
- * @param offsetX Horizontal sprite local offset.
- * @param offsetY Vertical sprite local offset.
- * @param pivotX Horizontal normalized rotation pivot.
- * @param pivotY Vertical normalized rotation pivot.
+ * @param offsetX Horizontal local offset before scale.
+ * @param offsetY Vertical local offset before scale.
+ * @param pivotX Normalized horizontal pivot (values outside [0,1] are allowed).
+ * @param pivotY Normalized vertical pivot (values outside [0,1] are allowed).
+ * @return True only when the conservative bound lies completely outside.
  */
 inline bool DefinitelyOffscreenSprite(const ViewBounds& v,
     float x, float y, float w, float h, float scaleX, float scaleY,
@@ -156,18 +166,19 @@ inline bool DefinitelyOffscreenSprite(const ViewBounds& v,
     return x + extent < v.left || x - extent > v.right ||
            y + extent < v.top || y - extent > v.bottom;
 }
-/** @brief Conservatively checks whether sprite geometry cannot intersect the viewport.
- * @param v Value, vector or input to this operation.
- * @param x Horizontal coordinate or component.
- * @param y Vertical coordinate or component.
- * @param w Width or horizontal extent.
- * @param h Height or vertical extent.
+/** @brief DefinitelyOffscreenSprite overload accepting camera dimensions.
+ * @param v World-space viewport, validated by MakeViewBounds().
+ * @param x Sprite anchor X in world units.
+ * @param y Sprite anchor Y in world units.
+ * @param w Sprite width before scale.
+ * @param h Sprite height before scale.
  * @param scaleX Horizontal sprite scale.
  * @param scaleY Vertical sprite scale.
- * @param offsetX Horizontal sprite local offset.
- * @param offsetY Vertical sprite local offset.
- * @param pivotX Horizontal normalized rotation pivot.
- * @param pivotY Vertical normalized rotation pivot.
+ * @param offsetX Horizontal local offset before scale.
+ * @param offsetY Vertical local offset before scale.
+ * @param pivotX Normalized horizontal rotation pivot.
+ * @param pivotY Normalized vertical rotation pivot.
+ * @return True only when the sprite is definitely outside the view.
  */
 inline bool DefinitelyOffscreenSprite(const View& v,
     float x, float y, float w, float h, float scaleX, float scaleY,
@@ -186,18 +197,19 @@ inline constexpr std::uint64_t EffectiveUnits(std::uint64_t units,
 // Only the comparison against the entry/exit boundaries matters. After
 // reaching the higher entry boundary, more exact visibility scores cannot
 // change either decision (including after a hysteresis transition).
-/** @brief Returns the threshold at which the selected rendering route may change.
- * @param threshold Cutoff that activates or deactivates the selection policy.
+/** @brief Converts a command-count threshold into fixed-point work units.
+ * @param threshold Number of baseline world commands (each worth kUnit).
+ * @return Saturates at uint64_t maximum on multiplication overflow.
  */
 inline constexpr std::uint64_t EntryBoundary(std::size_t threshold) noexcept {
     constexpr auto maximum = std::numeric_limits<std::uint64_t>::max();
     return threshold > maximum / kUnit ? maximum :
            static_cast<std::uint64_t>(threshold) * kUnit;
 }
-/** @brief Accumulates estimated rendering units subject to the configured cap.
- * @param current Current value before the requested transition.
- * @param next Candidate state or value for this operation.
- * @param boundary Threshold boundary for the strategy decision.
+/** @brief Adds estimated work units, saturating at a decision boundary.
+ * @param current Running accumulated work units.
+ * @param next Units contributed by the next candidate command.
+ * @param boundary Maximum units that affect the selection decision.
  */
 inline constexpr std::uint64_t CappedEffectiveSum(std::uint64_t current,
     std::uint64_t next, std::uint64_t boundary) noexcept {
@@ -205,14 +217,14 @@ inline constexpr std::uint64_t CappedEffectiveSum(std::uint64_t current,
            current + std::min(next, boundary - current);
 }
 
-/** @brief Available selection modes for RenderDiagnostics.
+/** @brief Fixed command-count or adaptive weighted-work selection policy.
  */
 enum class Selection : std::uint8_t {
     Fixed,    ///< Use the fixed eligible-command threshold.
     Adaptive  ///< Use weighted work estimates and hysteresis.
 };
 /** @brief Converts a diagnostic enum value into a stable, human-readable identifier.
- * @param mode Selected operation, input or render mode.
+ * @param mode Selection policy whose stable text label is requested.
  */
 inline constexpr const char* Name(Selection mode) noexcept {
     return mode == Selection::Adaptive ? "adaptive" : "fixed";
@@ -220,7 +232,7 @@ inline constexpr const char* Name(Selection mode) noexcept {
 // Benchmark-only ablation controls. Auto preserves production behavior:
 // fixed scores weighted units; adaptive also estimates offscreen sprites.
 // No graphics, physics or runtime configuration files depend on these enums.
-/** @brief Available work estimate modes for RenderDiagnostics.
+/** @brief Benchmark control over CPU work estimation precision.
  */
 enum class WorkEstimate : std::uint8_t {
     Off = 0,        ///< Disable additional work weighting for benchmark comparison.
@@ -228,7 +240,7 @@ enum class WorkEstimate : std::uint8_t {
     Visibility = 2, ///< Also estimate conservative offscreen visibility.
     Auto = 3        ///< Let the active policy choose an estimation mode.
 };
-/** @brief Available route override modes for RenderDiagnostics.
+/** @brief Benchmark override of the renderer command submission route.
  */
 enum class RouteOverride : std::uint8_t {
     Auto = 0,     ///< Use the engine's normal render-route selection.
@@ -236,16 +248,16 @@ enum class RouteOverride : std::uint8_t {
     Recorded = 2 ///< Force the recorded-command rendering path.
 };
 /** @brief Estimates rendering work attributable to a sprite.
- * @param tilted Whether the geometry has a non-axis-aligned orientation.
- * @param rotated Whether to include rotation in the conversion.
- * @param offset Offset applied to the current position or geometry.
+ * @param tilted Whether an X/Y sprite tilt requires extra preparation.
+ * @param rotated Whether the sprite has a nonzero Z rotation.
+ * @param offset Whether the sprite has a non-default local offset.
  */
 inline constexpr std::uint64_t SpriteUnits(bool tilted, bool rotated, bool offset) noexcept {
     return kUnit + (tilted ? kXYZTiltExtra : 0) +
            (rotated ? kRotationExtra : 0) + (offset ? kOffsetExtra : 0);
 }
 /** @brief Estimates rendering work attributable to a rectangle.
- * @param rotated Whether to include rotation in the conversion.
+ * @param rotated Whether the rectangle requires rotation preparation.
  */
 inline constexpr std::uint64_t RectangleUnits(bool rotated) noexcept {
     return kUnit + (rotated ? kRotationExtra : 0);
@@ -255,8 +267,11 @@ inline constexpr std::uint64_t RectangleUnits(bool rotated) noexcept {
  * @param requested Whether the user requested parallel processing.
  * @param workers Number of available preparation worker threads.
  * @param previousUnits Work-unit estimate from the preceding frame.
- * @param threshold Cutoff that activates or deactivates the selection policy.
+ * @param threshold Equivalent number of baseline world commands required to
+ *                  enter parallel mode; converted to work units internally.
  * @param previouslyParallel Whether the previous renderer route used parallel work.
+ * @return Uses the full entry boundary when starting parallel work and an
+ *         85%-of-entry exit boundary when already parallel (hysteresis).
  */
 inline constexpr Path SelectAdaptive(bool threading, bool requested, unsigned workers,
                                     std::uint64_t previousUnits, std::size_t threshold,

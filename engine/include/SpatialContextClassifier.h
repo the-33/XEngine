@@ -1,4 +1,7 @@
 #pragma once
+/** @file SpatialContextClassifier.h
+ * @brief Stable context bucketing used for adaptive collision broadphase measurements.
+ */
 // Stable, allocation-free spatial context classification for adaptive broadphase.
 // The 3x3 context chooses an independent measurement bucket; it never directly
 // selects an algorithm. Margin-based hysteresis and two observations prevent
@@ -6,10 +9,28 @@
 #include <cmath>
 #include <cstddef>
 
+/** @brief Classifies collision workloads into one of nine measurement contexts.
+ * @details Contexts combine three bins of average occupancy and three bins of
+ * effective occupied-cell concentration. Collider-count scale and worker
+ * availability reset stability evidence, but are not part of the nine-valued
+ * identifier. A 15% margin and two agreeing observations suppress rapid
+ * transitions near thresholds. The result selects a *calibration bucket*;
+ * it does not itself choose a collision algorithm.
+ */
 class SpatialContextClassifier final {
 public:
+    /** @brief Forget the previous bucket and hysteresis state.
+     */
     void Reset() noexcept { *this = {}; }
 
+    /** @brief Observe workload metrics and return the stabilized bucket (0..8).
+     * @param occupancy Average occupancy, classified at 0.1 and 1.0.
+     * @param effectiveBins Effective number of occupied spatial bins, classified
+     *                      at 3 and 8; nonfinite or negative values become zero.
+     * @param colliderCount Used to detect a change of order-of-magnitude scale.
+     * @param workers Whether parallel collision-processing workers are available.
+     * @return `occupancyBin * 3 + concentrationBin`, after hysteresis.
+     */
     unsigned Observe(double occupancy, double effectiveBins,
                      std::size_t colliderCount, bool workers) noexcept {
         if (!std::isfinite(occupancy) || occupancy < 0.) occupancy = 0.;
@@ -49,6 +70,12 @@ public:
         return mOccupancy * 3u + mConcentration;
     }
 
+    /** @brief Computes Simpson's effective number of bins: (sum counts)^2 / sum(count^2).
+     * @param bins Non-null count array when count is nonzero.
+     * @param count Number of entries in bins.
+     * @return Zero for an empty/zero-filled histogram; otherwise an effective
+     *         number of occupied bins, at least one when particles exist.
+     */
     static double EffectiveBins(const unsigned* bins, std::size_t count) noexcept {
         double sum = 0., squares = 0.;
         for (std::size_t i = 0; i < count; ++i) {
