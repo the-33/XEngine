@@ -1,19 +1,12 @@
 #pragma once
-#include <Behaviour.h>
+#include <XEngine.h>
 
 class ExampleBehaviour final : public Behaviour
 {
 public:
-    void Update(float dt) override;
+    void Update(float dt) override
+    {
+        (void)dt;
+        // Add your gameplay logic here.
+    }
 };
-
-#include <Transform.h>
-#include <GameObject.h>
-#include <cmath>
-
-inline void ExampleBehaviour::Update(float dt)
-{
-    (void)dt;
-    // Your gameplay code belongs in assets/scripts/.
-    // Example: auto* tr = gameObject->GetComponent<Transform>();
-}

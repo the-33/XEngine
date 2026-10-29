@@ -1,15 +1,10 @@
 #pragma once
-class Scene;
-class GameObject;
-GameObject* CreateExampleObject(Scene& scene);
-
-#include "ExampleBehaviour.hpp"
-#include <Scene.h>
-#include <GameObject.h>
+#include <XEngine.h>
+#include "scripts/ExampleBehaviour.hpp"
 
 inline GameObject* CreateExampleObject(Scene& scene)
 {
-    GameObject* object = scene.CreateObject("ExampleObject");
-    object->AddComponent<ExampleBehaviour>();
+    auto* object = scene.CreateObject("ExampleObject");
+    if (object) object->AddComponent<ExampleBehaviour>();
     return object;
 }

@@ -142,7 +142,9 @@ XEngine/
 │   └── XEngine Benchmark/    # Public, reproducible benchmark game
 ├── tools/
 │   ├── templates/BlankGame/ # Starting point for new games
+│   ├── templates/AssetScaffolds/ # Canonical C++ Scene/Object/Behaviour templates
 │   ├── new_project.py       # Create a game
+│   ├── new_game_asset.py    # Create gameplay C++ files inside an existing game
 │   ├── build.py             # Native and cross-platform build driver
 │   ├── sync_game_configs.py # Keep game config.json schema synchronized
 │   ├── sync_engine_configs.py
@@ -155,6 +157,24 @@ XEngine/
 ```
 
 A generated game uses `src/main.cpp` for startup, `src/InitCallback.hpp` for asset loading and scene registration, and `assets/scenes/`, `assets/gameobjects/` and `assets/scripts/` for game code. Build settings live in `config.json`; runtime settings live in `assets/config/engine.json`.
+
+Each new game also has `new_asset.sh` / `new_asset.bat`. Run it from the game
+directory to scaffold a `behaviour`, `object` or `scene` in the root of `assets/`
+by default (or choose a subfolder with `--dir`). For example:
+
+```bash
+./new_asset.sh behaviour Mover
+./new_asset.sh object Player --sprite circle --collider circle --behaviour Mover
+./new_asset.sh scene Level1 --dir scenes
+```
+
+The object generator can attach a `SpriteRenderer` for any default BlankGame
+PNG and an optional box/circle `Collider2D`. Missing selected sprites are
+recovered from the canonical BlankGame template; existing game textures are
+never overwritten. C++ scaffolds also live outside the game's assets, so
+deleting an example asset does not remove the generator's templates. See
+[getting started](docs/GETTING_STARTED.md) for the Windows commands and scene
+registration steps.
 
 ### Game build configuration
 

@@ -4,6 +4,23 @@ Use @ref SceneManager to register level builders, @ref Scene to own the
 objects in a level, @ref GameObject to attach components and @ref Behaviour
 to write gameplay. The engine controls when lifecycle callbacks run.
 
+The BlankGame starter files use one public gameplay include,
+`#include <XEngine.h>`, without forward declarations or separate engine
+headers. To scaffold your own header from a game directory:
+
+```bash
+./new_asset.sh behaviour Mover
+./new_asset.sh object Player --sprite square --collider box --behaviour Mover
+./new_asset.sh scene Level1 --dir scenes
+```
+
+Use `new_asset.bat` on Windows. The default destination is the root of
+`assets/`, but `--dir scripts`, `--dir gameobjects` and `--dir scenes` keep
+the traditional layout. The `--sprite` option restores a missing selected
+default PNG from the central BlankGame template. The `--collider` option
+supports the engine's current box or circle collider; it does not generate
+polygon colliders for arbitrary sprite silhouettes.
+
 ## Register a scene
 
 Your generated `src/InitCallback.hpp` is called after the engine starts:
@@ -27,9 +44,7 @@ only when you intentionally want to retain an existing scene instance.
 ## Attach a Behaviour to a GameObject
 
 ```cpp
-#include <Behaviour.h>
-#include <GameObject.h>
-#include <Transform.h>
+#include <XEngine.h>
 
 class Mover : public Behaviour {
 public:

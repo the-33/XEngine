@@ -8,6 +8,7 @@ rest of the game, and the runtime loads assets and configuration separately.
 
 ```text
 games/My Game/
+  new_asset.sh / new_asset.bat Generate C++ gameplay files (also interactive)
   src/main.cpp                Engine startup and InitGame callback
   src/InitCallback.hpp        Scene registration and shared initialization
   assets/scenes/              Scene-builder functions
@@ -17,6 +18,24 @@ games/My Game/
   assets/config/engine.json   Runtime settings
   config.json                 Build and package settings
 ```
+
+The game-local asset generator creates files in `assets/` by default, with an
+optional folder selected by `--dir`:
+
+```bash
+./new_asset.sh behaviour Mover --dir scripts
+./new_asset.sh object Ball --sprite circle --collider circle --behaviour Mover --dir gameobjects
+./new_asset.sh scene Arena --dir scenes
+```
+
+On Windows use `new_asset.bat` instead. Alternatively, from the repository
+root run `python tools/new_game_asset.py --game "My Game" object Ball`.
+`--list-sprites` reports the PNGs provided by the canonical BlankGame
+template. If the selected PNG has been removed from the game's assets, it is
+copied back from the template without replacing a custom texture. The source
+templates for newly generated code are located in
+`tools/templates/AssetScaffolds/`, not the game's `assets/`; scene registration
+and attaching generated objects remain explicit steps in your game code.
 
 The build driver adds `engine/include/` and the game's asset header folders
 to the compiler include path. Start with `<XEngine.h>` for gameplay: it

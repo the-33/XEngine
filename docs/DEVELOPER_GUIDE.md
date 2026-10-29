@@ -651,6 +651,19 @@ are now typed accessors rather than macros: `Input->...` remains valid, while
 
 The current template uses `src/main.cpp` to start the engine, `src/InitCallback.hpp` to load assets and register scenes, and `assets/scenes/`, `assets/gameobjects/`, and `assets/scripts/` to hold reusable gameplay code. Start from the current BlankGame template rather than older one-off conversion scripts.
 
+**Game-local asset scaffolding:** BlankGame now includes `new_asset.sh` and
+`new_asset.bat`, forwarding to `tools/new_game_asset.py`. For example,
+`./new_asset.sh object Player --sprite square --collider box` creates
+`assets/Player.hpp` with the public `<XEngine.h>` include. The same tool
+creates scenes and Behaviours, optionally in `--dir scenes`,
+`--dir scripts` or `--dir gameobjects`. Use `--list-sprites` to inspect
+BlankGame's stock images. The C++ scaffolds are independently maintained
+in `tools/templates/AssetScaffolds/` while stock PNGs are sourced from
+`tools/templates/BlankGame/assets/textures/`. Neither depends on example
+files still being present in a generated game's assets; selected missing
+PNGs are copied without overwriting existing texture files. Newly generated
+scenes must be registered explicitly in `src/InitCallback.hpp`.
+
 Use `#pragma once` in headers. Class-inline methods are implicitly `inline`, and header-defined free functions or out-of-class methods should also be `inline` to avoid duplicate symbols in multiple translation units.
 
 To evaluate migrating an actual **XEngine-Legacy** (Visual Studio/MSVC) game, see Legacy migration feasibility (repository reference: `docs/LEGACY_MIGRATION_PLAN.md`). No automated Legacy game migrator is currently provided.

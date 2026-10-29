@@ -114,6 +114,7 @@ Your generated `games/My Game/` project contains:
 | `assets/textures/`, `assets/fonts/`, `assets/audio/` | Runtime resources loaded by the game. |
 | `assets/config/engine.json` | Runtime options such as window size, physics, audio and renderer. |
 | `config.json` | Build, platform, project name, version and packaging choices. |
+| `new_asset.sh` / `new_asset.bat` | Create new Scenes, GameObject factories and Behaviours. |
 
 `engine/include/` contains the public engine API; `engine/src/` contains its
 implementation. For ordinary game code, use `#include <XEngine.h>`: common
@@ -121,6 +122,43 @@ types, components, services and `PlayerPrefs` are immediately available with
 no namespace qualifier. File I/O, serialization and diagnostics have optional
 `<XEngine/...>` includes; `XEngine/detail/` is reserved for engine internals.
 See [includes and dependencies](INCLUDES_AND_DEPENDENCIES.md).
+
+### Create gameplay files without copying boilerplate
+
+Run the asset generator inside your new game's directory. Its default output
+is directly under `assets/`, and `--dir` chooses an optional subdirectory.
+If you run `new_asset.sh` or `new_asset.bat` without arguments, it also offers
+an interactive prompt.
+
+```bash
+# Linux, from games/My Game/
+./new_asset.sh behaviour DriftRight
+./new_asset.sh object Player --sprite square --collider box --behaviour DriftRight
+./new_asset.sh scene Level1 --dir scenes
+./new_asset.sh --list-sprites
+```
+
+```bat
+REM Windows CMD, from games\My Game\
+new_asset.bat behaviour DriftRight
+new_asset.bat object Player --sprite square --collider box --behaviour DriftRight
+new_asset.bat scene Level1 --dir scenes
+```
+
+The object command creates a C++ factory with an optional `SpriteRenderer`,
+`Collider2D` (box or circle) and an existing Behaviour. Create the Behaviour
+first when using `--behaviour`. The selected PNG is loaded at runtime and, if
+missing in your game's `assets/textures/`, copied from the maintained
+`tools/templates/BlankGame/assets/textures/`. Existing textures are never
+overwritten. All C++ source templates are maintained separately under
+`tools/templates/AssetScaffolds/`: deleting sample files inside a game will
+not remove the original templates.
+
+Generated scenes are deliberately unregistered until you add them to
+`src/InitCallback.hpp`; generated factories are likewise called from the
+scene builder you choose. The generator never rewrites your existing scene or
+initializer. Filenames must be valid C++ identifiers, and existing files are
+not overwritten.
 
 ## 4. Understand the startup sequence
 
@@ -153,9 +191,7 @@ Create `assets/scripts/DriftRight.hpp`:
 
 ```cpp
 #pragma once
-#include <Behaviour.h>
-#include <GameObject.h>
-#include <Transform.h>
+#include <XEngine.h>
 
 class DriftRight final : public Behaviour
 {
@@ -176,8 +212,7 @@ Then edit `assets/scenes/StartScene.hpp` to create an object with that script:
 
 ```cpp
 #pragma once
-#include <Scene.h>
-#include <GameObject.h>
+#include <XEngine.h>
 #include "DriftRight.hpp"
 
 inline void BuildStartScene(Scene* scene)

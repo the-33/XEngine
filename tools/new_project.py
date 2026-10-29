@@ -3,6 +3,7 @@
 import sys
 import shutil
 import subprocess
+import stat
 from pathlib import Path
 
 ROOT=Path(__file__).resolve().parent.parent
@@ -44,6 +45,14 @@ def main():
     # Includes the maintainer-supplied xengine_icon.ico / .png by name; their
     # template copies are the source of truth for subsequent per-game sync.
     shutil.copytree(TEMPLATE, dest, ignore=shutil.ignore_patterns('.gitkeep'))
+    # ZIP archives and Windows checkouts may not retain executable mode bits.
+    # On POSIX both game launchers should work directly via ./build.sh and
+    # ./new_asset.sh, regardless of how the template was unpacked.
+    if sys.platform != 'win32':
+        for launcher in ('build.sh', 'new_asset.sh'):
+            script = dest / launcher
+            if script.is_file():
+                script.chmod(script.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
     for f in dest.rglob('*'):
         if f.is_file() and f.suffix in {'.json','.cpp','.h','.hpp','.md','.bat','.sh'}:
             data=f.read_text(encoding='utf-8')
