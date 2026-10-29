@@ -14,13 +14,15 @@ online-only builds (`--no-doc`), follow the
 
 ## Which engine headers should I include?
 
-You have two valid styles:
+For ordinary gameplay there is just **one recommended starting point**:
 
 ```cpp
-#include <XEngine.h> // Broad public engine entry point
+#include <XEngine.h> // Scene, GameObject, Behaviour, Transform, rendering, etc.
 ```
 
-or only the functionality you need:
+All common gameplay classes remain in the global namespace: there is no
+`using namespace xengine;` requirement. To minimize includes in large games,
+you may also include individual public headers:
 
 ```cpp
 #include <Behaviour.h>
@@ -29,24 +31,77 @@ or only the functionality you need:
 #include <Scene.h>
 ```
 
-`XEngine.h` includes the public core types, components, managers and window
-APIs. It is convenient in a game's `InitCallback.hpp` or a small prototype.
-Individual includes can reduce dependencies and compile time in larger
-projects. Both forms use the *same* engine library and objects.
+`XEngine.h` provides core values, components, scenes, managers, camera,
+window, physics, sound, resources, UI and the small `PlayerPrefs` settings
+API. The more specialized file/serialization/diagnostic APIs are opt-in.
+Individual headers can still reduce compile time in larger projects.
+All forms use the *same* engine library and objects.
 
-The following headers are intentionally **opt-in**:
+## Optional modules
 
 ```cpp
-#include <JsonSerializer.h>  // JSON text and optional file-saving facade
-#include <Serialization.h>   // Registered-class JSON/binary archives
+#include <XEngine/Storage.h>       // FileSystem, AtomicFile
+#include <XEngine/BinaryIO.h>      // BinaryWriter, BinaryReader, bounded bit I/O
+#include <XEngine/Serialization.h> // JSON and binary object serialization
+#include <XEngine/Diagnostics.h>   // RenderDiagnostics CPU/selector helpers
+#include <XEngine/Platform.h>      // BuildConfig and platform defines
 ```
 
-They bring in nlohmann/json and template-heavy serialization code. Include
-them in translation units that serialize game state; do not assume they are
-transitively available through `XEngine.h`.
+These modules are independent headers, not separate libraries. The serialization
+module intentionally brings in nlohmann/json and template-heavy code; include
+it only in translation units that save or load registered game classes.
 
-`<FileSystem.h>`, `<AtomicFile.h>`, `<BinaryIO.h>` and `<PlayerPrefs.h>` are
-included by the umbrella header but can also be included individually.
+The old direct includes (`<FileSystem.h>`, `<AtomicFile.h>`,
+`<BinaryIO.h>`, `<JsonSerializer.h>`, `<Serialization.h>`, etc.) remain valid,
+so existing game projects do not need an include migration. Module aliases also
+offer explicit names for specialized systems:
+
+```cpp
+#include <XEngine/Storage.h>
+#include <XEngine/BinaryIO.h>
+
+auto path = xengine::io::FileSystem::GetPersistentDataPath("studio", "game");
+xengine::binary::BinaryWriter writer;
+```
+
+For these modules, `xengine::io::FileSystem` and the historical global
+`FileSystem` denote the **same type**. There is no duplicated implementation.
+
+There is no separate public formatter subsystem yet; we will only add a
+`XEngine/Formatting.h` module when actual formatting utilities need one.
+
+## Manager shortcuts are typed, not macros
+
+```cpp
+#include <XEngine.h>
+
+void UpdateGameplay() {
+    if (Input->KeyDown(Key::SPACE)) {
+        // Existing Input->... / Time->... syntax is unchanged.
+    }
+    InputManager* input = Input.get(); // Explicit pointer when storing it
+    float fixedSeconds = FixedDT;       // Read-only live value
+}
+```
+
+`Input`, `Time`, `Assets`, `Sound`, `Scenes`, `Renderer`, `UI`, `Window`,
+`Physics` and `Random` are lightweight, non-owning objects that resolve
+their manager at access time. Unlike the old `#define` shortcuts they do not
+rewrite tokens in unrelated user declarations. `CurrentCamera` and
+`FixedDT` are similarly read-only live accessors. Use shortcuts only while
+the engine is initialized, and never retain manager/camera pointers across a
+shutdown or scene change.
+
+To preserve correct C++ type deduction, use `auto* input = Input.get();` (not
+`auto* input = Input;`). The accessor supports implicit conversion to the
+actual manager pointer when a concrete pointer type is specified.
+
+### Engine implementation headers
+
+`XEngine/detail/*` is reserved for internal renderer, broadphase and worker
+infrastructure. The old direct internal header filenames forward to their
+new locations during the compatibility period. They are **not** a supported
+game-extension interface and may change without a public API guarantee.
 
 ## Header choices by task
 
@@ -54,18 +109,19 @@ included by the umbrella header but can also be included individually.
 |---|---|
 | Register and build scenes | `<SceneManager.h>`, `<Scene.h>`, `<GameObject.h>` |
 | Write a gameplay script | `<Behaviour.h>`, `<GameObject.h>`, `<Transform.h>` |
-| Use platform-specific code or Debug/Release flags | `<Platform.h>`, `<BuildConfig.h>` |
+| Use platform-specific code or Debug/Release flags | `<XEngine/Platform.h>` |
 | Add sprite visuals | `<SpriteRenderer.h>`, `<AssetManager.h>`, `<Assets.h>` |
 | Work with colliders and forces | `<Collider2D.h>`, `<RigidBody2D.h>`, `<PhysicsManager.h>` |
 | Handle input and time | `<InputManager.h>`, `<KeyCodes.h>`, `<TimeManager.h>` |
 | Draw custom graphics and UI | `<RenderManager.h>`, `<UIManager.h>`, `<Camera2D.h>` |
 | Resize the window | `<WindowManager.h>` |
 | Load texture, font or sound | `<AssetManager.h>`, `<SoundManager.h>` |
-| Read or write any file | `<FileSystem.h>` |
-| Publish a single file robustly | `<AtomicFile.h>` |
-| Encode raw binary primitives and bits | `<BinaryIO.h>` |
-| Serialize registered fields to JSON/binary | `<Serialization.h>`, `<JsonSerializer.h>` |
-| Store small settings | `<PlayerPrefs.h>` |
+| Read or write any file | `<XEngine/Storage.h>` |
+| Publish a single file robustly | `<XEngine/Storage.h>` |
+| Encode raw binary primitives and bits | `<XEngine/BinaryIO.h>` |
+| Serialize registered fields to JSON/binary | `<XEngine/Serialization.h>` |
+| Diagnose render/selector behavior | `<XEngine/Diagnostics.h>` |
+| Store small settings | `<XEngine.h>` (`PlayerPrefs`) |
 
 These names are the actual public header filenames. Internal renderer headers,
 private manager fields and `engine/src/*.cpp` are not gameplay extension APIs.

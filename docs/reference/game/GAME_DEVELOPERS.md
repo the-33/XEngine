@@ -13,9 +13,10 @@ when you are modifying XEngine itself.
 2. Open `games/My Game/assets/scenes/StartScene.hpp` to create your scene and
    `games/My Game/assets/scripts/` to add gameplay behaviours.
 3. Build from the game directory with `build.bat --run` or `./build.sh --run`.
-4. Include `<XEngine.h>` for the broad API, or include only the headers used by
-   each file. For JSON and registered classes, also include
-   `<JsonSerializer.h>` or `<Serialization.h>` explicitly.
+4. Include `<XEngine.h>` for normal gameplay without any namespace setup.
+   Include `<XEngine/Storage.h>`, `<XEngine/BinaryIO.h>` or
+   `<XEngine/Serialization.h>` only when handling files or data formats.
+   Individual public headers remain available for focused dependencies.
 
 **Optional first-time contributor setup:** the
 [Developer Guide](../../DEVELOPER_GUIDE.md#first-checkout-optional-contributor-tools)
@@ -66,8 +67,9 @@ whether an engine update requires game code changes.
 macros and other declarations at file scope. Fields and properties belonging
 to `GameObject`, `Transform`, `RigidBody2D` or another class appear under the
 **Classes** reference, not under the File Members → Variables list. The game
-API can legitimately have no exported file-scope variables. This is not a
-documentation coverage check; for APIs use Classes, Files and Search.
+API now exposes typed shortcuts (`Input`, `Time`, `Renderer`, etc.) as
+global `inline constexpr` objects, so they may appear in this list. This is
+not a documentation coverage check; for APIs use Classes, Files and Search.
 
 ## Public properties are the interface
 

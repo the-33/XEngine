@@ -37,7 +37,7 @@ class JsonReadArchive;
 class BinaryWriteArchive;
 class BinaryReadArchive;
 
-namespace XSerializationDetail {
+namespace xengine::detail::serialization {
 /** @brief Stores the k false setting or data field of XSerializationDetail.
  */
 template<class T> inline constexpr bool kFalse = false;
@@ -118,14 +118,14 @@ public:
      * @param value Value to store, convert, draw or compare.
      */
     template<class T> void Field(std::string_view name, const T& value) {
-        object_[std::string(name)] = XSerializationDetail::ToJson(value, depth_ + 1);
+        object_[std::string(name)] = xengine::detail::serialization::ToJson(value, depth_ + 1);
     }
     /** @brief Visits or converts developer-selected data fields in the active archive.
      * @param csv Comma-separated field names.
      * @param values User-selected fields or values visited by the archive.
      */
     template<class... Values> void Fields(std::string_view csv, const Values&... values) {
-        XSerializationDetail::Fields(*this, csv, values...);
+        xengine::detail::serialization::Fields(*this, csv, values...);
     }
     /** @brief Transfers the serialized value out of the archive.
      */
@@ -152,14 +152,14 @@ public:
      * @param value Value to store, convert, draw or compare.
      */
     template<class T> void Field(std::string_view name, T& value) {
-        XSerializationDetail::FromJson(object_.at(std::string(name)), value, depth_ + 1);
+        xengine::detail::serialization::FromJson(object_.at(std::string(name)), value, depth_ + 1);
     }
     /** @brief Visits or converts developer-selected data fields in the active archive.
      * @param csv Comma-separated field names.
      * @param values User-selected fields or values visited by the archive.
      */
     template<class... Values> void Fields(std::string_view csv, Values&... values) {
-        XSerializationDetail::Fields(*this, csv, values...);
+        xengine::detail::serialization::Fields(*this, csv, values...);
     }
 };
 
@@ -180,14 +180,14 @@ public:
      * @param value Value to store, convert, draw or compare.
      */
     template<class T> void Field(std::string_view, const T& value) {
-        XSerializationDetail::WriteBinary(writer_, value, depth_ + 1);
+        xengine::detail::serialization::WriteBinary(writer_, value, depth_ + 1);
     }
     /** @brief Visits or converts developer-selected data fields in the active archive.
      * @param csv Comma-separated field names.
      * @param values User-selected fields or values visited by the archive.
      */
     template<class... Values> void Fields(std::string_view csv, const Values&... values) {
-        XSerializationDetail::Fields(*this, csv, values...);
+        xengine::detail::serialization::Fields(*this, csv, values...);
     }
 };
 
@@ -208,18 +208,18 @@ public:
      * @param value Value to store, convert, draw or compare.
      */
     template<class T> void Field(std::string_view, T& value) {
-        XSerializationDetail::ReadBinary(reader_, value, depth_ + 1);
+        xengine::detail::serialization::ReadBinary(reader_, value, depth_ + 1);
     }
     /** @brief Visits or converts developer-selected data fields in the active archive.
      * @param csv Comma-separated field names.
      * @param values User-selected fields or values visited by the archive.
      */
     template<class... Values> void Fields(std::string_view csv, Values&... values) {
-        XSerializationDetail::Fields(*this, csv, values...);
+        xengine::detail::serialization::Fields(*this, csv, values...);
     }
 };
 
-namespace XSerializationDetail {
+namespace xengine::detail::serialization {
 template<class T>
 /** @brief Converts the selected data into a JSON value.
  * @param value Value to store, convert, draw or compare.
@@ -438,7 +438,7 @@ public:
     template<class T> static std::vector<std::byte> Serialize(const T& value,
                                                               BitOrder order = BitOrder::LSBFirst) {
         BinaryWriter writer(order);
-        XSerializationDetail::WriteBinary(writer, value);
+        xengine::detail::serialization::WriteBinary(writer, value);
         return writer.TakeData();
     }
     /** @brief Reads a binary field stream into a registered or supported value type with configured safety limits.
@@ -450,7 +450,7 @@ public:
                                             BinaryLimits limits = {}, BitOrder order = BitOrder::LSBFirst) {
         BinaryReader reader(input, limits, order);
         T value{};
-        XSerializationDetail::ReadBinary(reader, value);
+        xengine::detail::serialization::ReadBinary(reader, value);
         if (reader.RemainingBytes() != 0 || !reader.IsByteAligned())
             throw BinaryReadError("Unconsumed bytes after deserialization");
         return value;

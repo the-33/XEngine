@@ -19,16 +19,27 @@ games/My Game/
 ```
 
 The build driver adds `engine/include/` and the game's asset header folders
-to the compiler include path. Start with `<XEngine.h>` for convenience or
-include only the subsystem headers you use. Heavy JSON serialization is
-explicitly opt-in:
+to the compiler include path. Start with `<XEngine.h>` for gameplay: it
+provides scenes, objects, components, managers and small `PlayerPrefs`
+settings without requiring a namespace. Import specialized modules separately:
 
 ```cpp
-#include <Behaviour.h>
-#include <GameObject.h>
-#include <Transform.h>
-#include <JsonSerializer.h> // Only when using the JSON facade.
+#include <XEngine.h>               // Gameplay core
+#include <XEngine/Storage.h>       // Files and atomic saves, if needed
+#include <XEngine/BinaryIO.h>      // Low-level binary, if needed
+#include <XEngine/Serialization.h> // JSON/registered classes, if needed
 ```
+
+In large projects, individual headers such as `<Behaviour.h>` and
+`<Transform.h>` are still available. The historical direct headers for
+storage/serialization also remain compatible. The specialized module aliases
+live in `xengine::io`, `xengine::binary` and `xengine::serialization`.
+Internal engine implementation headers live under `XEngine/detail/` and are
+not supported gameplay extension APIs.
+
+Convenience accessors like `Input`, `Time` and `Renderer` are typed objects,
+not preprocessor macros. The familiar `Input->KeyDown(...)` syntax still
+works; use `auto* input = Input.get();` when deducing a manager pointer.
 
 Use `<...>` for exported engine headers, and quoted paths for your own
 project headers. If a free function is implemented in an `.hpp` included by

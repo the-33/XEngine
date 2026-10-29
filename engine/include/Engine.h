@@ -10,11 +10,11 @@
 #include <string>
 
 #include "BaseTypes.h"
-#include "SpriteProjection.h"
+#include "XEngine/detail/SpriteProjection.h"
 #include "Property.h"
 #include "Singleton.h"
 #include "Assets.h"
-#include "StatsOverlayLayout.h"
+#include "XEngine/detail/StatsOverlayLayout.h"
 #include "RenderDiagnostics.h"
 #include "BuildConfig.h"
 #include "Platform.h"

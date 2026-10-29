@@ -12,8 +12,8 @@
 #include "SDL_ttf.h"
 #include "WindowManager.h"
 #include "Camera2D.h"
-#include "RenderPreparation.h"
-#include "RendererBackendPolicy.h"
+#include "XEngine/detail/RenderPreparation.h"
+#include "XEngine/detail/RendererBackendPolicy.h"
 #include <chrono>
 #include <algorithm>
 #include <cstdio>

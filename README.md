@@ -52,6 +52,10 @@ The project includes a portable build tool, a ready-to-use game template and an 
 To learn the engine from the beginning, follow
 [Your first game](docs/GETTING_STARTED.md) and the
 [includes and project structure guide](docs/INCLUDES_AND_DEPENDENCIES.md).
+Game scripts normally need only `#include <XEngine.h>`; filesystem, binary
+archives, serialization and low-level diagnostics have optional
+`<XEngine/...>` includes. The familiar `Input->...` and `Renderer->...`
+shortcuts are now typed accessors rather than globally substituting macros.
 The [documentation index](docs/DOCUMENTATION_INDEX.md) organizes the rest of
 the manuals by task; the [Doxygen API reference](docs/API_REFERENCE.md)
 provides exact signatures, property semantics and enum values.
@@ -131,7 +135,8 @@ generating local HTML.
 ```text
 XEngine/
 ├── engine/
-│   ├── include/              # Public C++20 engine API
+│   ├── include/              # Gameplay entry point and optional XEngine/* modules
+│   │   └── XEngine/detail/   # Implementation headers (not stable game API)
 │   └── src/                  # Engine implementation
 ├── games/
 │   └── XEngine Benchmark/    # Public, reproducible benchmark game

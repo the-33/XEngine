@@ -116,8 +116,11 @@ Your generated `games/My Game/` project contains:
 | `config.json` | Build, platform, project name, version and packaging choices. |
 
 `engine/include/` contains the public engine API; `engine/src/` contains its
-implementation. Your code can include public engine headers without copying
-them into your game. See [includes and dependencies](INCLUDES_AND_DEPENDENCIES.md).
+implementation. For ordinary game code, use `#include <XEngine.h>`: common
+types, components, services and `PlayerPrefs` are immediately available with
+no namespace qualifier. File I/O, serialization and diagnostics have optional
+`<XEngine/...>` includes; `XEngine/detail/` is reserved for engine internals.
+See [includes and dependencies](INCLUDES_AND_DEPENDENCIES.md).
 
 ## 4. Understand the startup sequence
 
@@ -229,7 +232,8 @@ holding pointers to a scene's entities after scene transitions.
 - **Window and UI:** Use `Window->SetSize(...)`, fullscreen properties and
   `Window->resizeRevision` as described in [window, camera and UI](WINDOW_AND_CAMERA.md).
 - **Save games:** Use [persistence and serialization](PERSISTENCE_AND_SERIALIZATION.md).
-  Store saves in the per-user data directory, **not** under `assets/`.
+  Include `<XEngine/Storage.h>` for FileSystem or AtomicFile and store saves
+  in the per-user data directory, **not** under `assets/`.
 - **Preferences:** `PlayerPrefs` is for small user settings, not full save slots.
 
 ## 8. Build a Release

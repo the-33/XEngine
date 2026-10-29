@@ -16,11 +16,12 @@ documentation index (repository reference: `docs/DOCUMENTATION_INDEX.md`).
 
 ## Start here
 
-1. Include `<XEngine.h>` for the core components and managers. Individual
-   headers can also be included directly.
-2. Include `<JsonSerializer.h>` or `<Serialization.h>` explicitly if a translation
-   unit needs template-based serialization; these are intentionally kept out of
-   the umbrella header to avoid bringing JSON into every compile unit.
+1. Include `<XEngine.h>` for core components, managers and typed gameplay
+   shortcuts, with no namespace qualifier required.
+2. Include `<XEngine/Storage.h>` for filesystem and atomic writes,
+   `<XEngine/BinaryIO.h>` for bounded low-level binary I/O, or
+   `<XEngine/Serialization.h>` for JSON/binary object archives. They remain
+   opt-in to avoid dragging their dependencies into every game file.
 3. Register scenes and create `GameObject` instances in your game's initialization
    callback. Attach `Behaviour` subclasses for gameplay. The
    [getting-started guide](GETTING_STARTED.md) shows the actual BlankGame layout,
@@ -71,7 +72,7 @@ are value objects, not mutable manager state.
 ## Serialization: explicit fields, arbitrary formats
 
 ```cpp
-#include <JsonSerializer.h>
+#include <XEngine/Serialization.h>
 
 struct Wallet {
     int coins = 0;

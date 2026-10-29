@@ -100,9 +100,11 @@ free functions, global variables, typedefs, macros and similar declarations.
 It is **not** the list of all public or private class fields. C++ class
 properties and engine-managed state appear in **Classes** → class member
 documentation. Therefore a sparse File Members → Variables list is normal:
-Game Developer may expose no file-scope variables, while Engine Developer
-includes the few internal file-scope globals in `UIManager.cpp`. To check
-coverage, inspect the class/member XML and source files, not just that list.
+Game Developer now also exposes typed, file-scope `inline constexpr`
+convenience accessors (`Input`, `Time`, `Renderer`, etc.) from `<XEngine.h>`,
+while Engine Developer includes internal globals such as those in
+`UIManager.cpp`. To check coverage, inspect the class/member XML and source
+files, not just that list.
 
 ## Canonical engine version and release policy
 

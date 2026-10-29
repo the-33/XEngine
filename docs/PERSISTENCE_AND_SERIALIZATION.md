@@ -20,10 +20,21 @@ rules. The engine never executes a type or constructor named by a file: there is
 | `JsonSerializer` | Thin `nlohmann/json` facade; optional direct/atomic file saving | Yes: developer-selected types |
 | `PlayerPrefs` | Small Int/Float/String user preferences | Yes: its own key/value settings only |
 
-The lightweight headers (`FileSystem`, `AtomicFile`, `BinaryIO`, `PlayerPrefs`)
-are exported by `XEngine.h`. Include `<JsonSerializer.h>` or
-`<Serialization.h>` **explicitly** in source files that use them, keeping
-JSON's template-heavy implementation out of unrelated compilation units.
+Only `PlayerPrefs` is included in the gameplay umbrella `<XEngine.h>`.
+Import the other APIs **explicitly** according to what your game needs:
+
+```cpp
+#include <XEngine/Storage.h>       // FileSystem, AtomicFile
+#include <XEngine/BinaryIO.h>      // BinaryWriter, BinaryReader
+#include <XEngine/Serialization.h> // JsonSerializer, BinarySerializer
+```
+
+The serialization module imports nlohmann/json and its template-heavy code,
+so it should only be used by files that serialize data. Previous direct
+includes (`<FileSystem.h>`, `<AtomicFile.h>`, `<BinaryIO.h>`,
+`<JsonSerializer.h>`, `<Serialization.h>`) remain supported for
+compatibility. The optional `xengine::io`, `xengine::binary` and
+`xengine::serialization` aliases refer to the same original types.
 No project JSON configuration changes are needed to use these APIs.
 
 ## Per-user folders and files

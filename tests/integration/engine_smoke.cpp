@@ -1,4 +1,11 @@
 // Real SDL2 integration checks, linked to XEngine's normal static library.
+// Exercise the main gameplay umbrella and opt-in modules in the same TU.
+#include <XEngine.h>
+#include <XEngine/Storage.h>
+#include <XEngine/BinaryIO.h>
+#include <XEngine/Serialization.h>
+#include <XEngine/Diagnostics.h>
+#include <XEngine/Platform.h>
 #include "Engine.h"
 #include "SceneManager.h"
 #include "Scene.h"
@@ -18,6 +25,28 @@
 #include <cstdio>
 #include <cstdlib>
 #include <string>
+#include <type_traits>
+
+#if defined(Input) || defined(Time) || defined(Assets) || defined(Renderer)
+#error "Gameplay manager shortcuts must not be preprocessor macros"
+#endif
+
+static_assert(std::is_convertible_v<decltype(Input), InputManager*>);
+static_assert(std::is_convertible_v<decltype(CurrentCamera), Camera2D*>);
+static_assert(std::is_convertible_v<decltype(FixedDT), float>);
+static_assert(std::is_same_v<xengine::io::FileSystem, FileSystem>);
+static_assert(std::is_same_v<xengine::binary::BinaryWriter, BinaryWriter>);
+static_assert(std::is_same_v<xengine::serialization::BinarySerializer, BinarySerializer>);
+static_assert(std::is_same_v<xengine::diagnostics::Path, RenderDiagnostics::Path>);
+
+// These identifiers were unintentionally rewritten by the historical
+// #define shortcuts. They must now be legal members in user code.
+struct UserConfigNames {
+    int Input = 0;
+    int Time = 0;
+    int Renderer = 0;
+    int Assets = 0;
+};
 
 namespace {
 int failures = 0;
@@ -79,6 +108,12 @@ void checkScene(Scene* scene) {
 
     auto* assets = AssetManager::GetInstancePtr();
     expect(assets != nullptr, "asset manager exists");
+    expect(Assets.get() == assets, "typed Assets shortcut resolves current manager");
+    expect(Scenes.get() == SceneManager::GetInstancePtr(),
+           "typed Scenes shortcut resolves current manager");
+    expect(CurrentCamera.get() == scene->camera.get(),
+           "typed CurrentCamera follows the active scene");
+    expect(FixedDT.get() >= 0.f, "typed FixedDT reads live engine state");
     if (assets) {
         auto* texture = assets->LoadTexture("textures/pixel.png");
         expect(texture != nullptr, "SDL_image loads a real PNG");
@@ -142,6 +177,8 @@ class FrameProbe final : public Behaviour {
         auto* ui = UIManager::GetInstancePtr();
         auto* window = WindowManager::GetInstancePtr();
         expect(input && ui && window, "input, UI and window services remain available");
+        expect(Input.get() == input && UI.get() == ui && Window.get() == window,
+               "typed manager shortcuts resolve current singleton instances");
         if (!input || !ui || !window || !owner) return;
 
         const Vec2I logicalSize = window->GetSize();

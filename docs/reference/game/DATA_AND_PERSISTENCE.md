@@ -5,6 +5,12 @@ XEngine provides several independent tools: @ref FileSystem for direct files,
 and @ref BinaryReader for explicit binary fields, @ref JsonSerializer for
 JSON, and @ref PlayerPrefs for small key/value settings.
 
+`PlayerPrefs` is part of `<XEngine.h>`; low-level storage and serialization
+are opt-in modules. Include `<XEngine/Storage.h>` for FileSystem/AtomicFile,
+`<XEngine/BinaryIO.h>` for binary primitives, and
+`<XEngine/Serialization.h>` for JSON and registered objects. Their original
+direct headers continue to work for existing games.
+
 ## Choose the lowest layer you need
 
 | Need | API | What the game still owns |
@@ -23,7 +29,7 @@ before offering to recover it. An old `.bak` may be the only good save.
 ## An explicit small data model
 
 ```cpp
-#include <JsonSerializer.h>
+#include <XEngine/Serialization.h>
 
 struct Stats {
     int score = 0;

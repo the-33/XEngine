@@ -25,6 +25,7 @@ INPUT                  = engine/include docs/reference/game \
 RECURSIVE              = YES
 FILE_PATTERNS          = *.h *.md
 EXCLUDE                = engine/include/AdaptiveBroadphase.h \
+                         engine/include/XEngine/detail \
                          engine/include/ParallelExecutor.h \
                          engine/include/RenderPreparation.h \
                          engine/include/RendererBackendPolicy.h \
@@ -43,6 +44,8 @@ EXCLUDE_SYMBOLS        = Engine::Config Engine::Config::* Engine::FrameProfile \
                          PhysicsManager::Config CollisionManager::PairInfo \
                          InputManager::Config SceneManager::Entry CollisionManager::MinAxisResult \
                          XSerializationDetail XSerializationDetail::* detail detail::* \
+                         xengine::detail xengine::detail::* xengine::detail::property::* \
+                         xengine::detail::serialization::* \
                          *::*Prop *::*Property \
                          Component::m* Component::Start_ Component::Awake_ \
                          Component::OnAddedToGameObject Component::GetGameObject \

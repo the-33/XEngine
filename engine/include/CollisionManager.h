@@ -6,10 +6,9 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <memory>
-#include "ParallelExecutor.h"
-#include "AdaptiveBroadphase.h"
-#include "SpatialContextClassifier.h"
-#include "SpatialContextClassifier.h"
+#include "XEngine/detail/ParallelExecutor.h"
+#include "XEngine/detail/AdaptiveBroadphase.h"
+#include "XEngine/detail/SpatialContextClassifier.h"
 #include <string>
 
 #include "Singleton.h"

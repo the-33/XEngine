@@ -73,6 +73,13 @@ inspects **staged** paths. Changes in `engine/`, `docs/`, the Doxyfiles,
 public API check. Other changes skip Doxygen. If generation/validation fails,
 the hook stops the commit so the developer can fix the problem.
 
+For example, a Doxygen error stating `Reached end of file while still inside
+a (nested) comment` can be caused by writing a literal slash followed by an
+asterisk in a documentation comment (even inside Markdown-style backticks).
+Check the indicated header and line, correct the comment, then run
+`python tools/build_doxygen.py` to confirm the fix before committing again.
+This is a documentation parsing error, not a Debug/Release compilation failure.
+
 Doxygen is optional: if it is not installed, the hook warns and skips the
 local refresh. **GitHub Pages independently rebuilds the docs from each
 commit pushed to `main`**, so the published reference cannot depend on an

@@ -9,7 +9,7 @@
 // ======================================================
 // Helpers comunes (internos)
 // ======================================================
-namespace detail
+namespace xengine::detail::property
 {
     template<class P>
     concept PropLike = requires(const P & p) { p.get(); };
@@ -76,23 +76,23 @@ struct PropertyRO
     // Unary operators (valid here)
     /** @brief Applies unary plus to the current read-only value. */
     friend constexpr auto operator+(const PropertyRO& x) noexcept
-        requires requires { +detail::unwrap(x); }
-    { return +detail::unwrap(x); }
+        requires requires { +xengine::detail::property::unwrap(x); }
+    { return +xengine::detail::property::unwrap(x); }
 
     /** @brief Applies unary minus to the current read-only value, if supported. */
     friend constexpr auto operator-(const PropertyRO& x) noexcept
-        requires requires { -detail::unwrap(x); }
-    { return -detail::unwrap(x); }
+        requires requires { -xengine::detail::property::unwrap(x); }
+    { return -xengine::detail::property::unwrap(x); }
 
     /** @brief Applies bitwise complement to the current read-only value, if supported. */
     friend constexpr auto operator~(const PropertyRO& x) noexcept
-        requires requires { ~detail::unwrap(x); }
-    { return ~detail::unwrap(x); }
+        requires requires { ~xengine::detail::property::unwrap(x); }
+    { return ~xengine::detail::property::unwrap(x); }
 
     /** @brief Computes logical negation of the current read-only value, if supported. */
     friend constexpr bool operator!(const PropertyRO& x) noexcept
-        requires requires { !detail::unwrap(x); }
-    { return !detail::unwrap(x); }
+        requires requires { !xengine::detail::property::unwrap(x); }
+    { return !xengine::detail::property::unwrap(x); }
 
 private:
     mutable T cache{};
@@ -262,23 +262,23 @@ struct Property
     // Unary operators (valid here)
     /** @brief Applies unary plus to the current writable property value. */
     friend constexpr auto operator+(const Property& x) noexcept
-        requires requires { +detail::unwrap(x); }
-    { return +detail::unwrap(x); }
+        requires requires { +xengine::detail::property::unwrap(x); }
+    { return +xengine::detail::property::unwrap(x); }
 
     /** @brief Applies unary minus to the current writable property value, if supported. */
     friend constexpr auto operator-(const Property& x) noexcept
-        requires requires { -detail::unwrap(x); }
-    { return -detail::unwrap(x); }
+        requires requires { -xengine::detail::property::unwrap(x); }
+    { return -xengine::detail::property::unwrap(x); }
 
     /** @brief Applies bitwise complement to the current writable property value, if supported. */
     friend constexpr auto operator~(const Property& x) noexcept
-        requires requires { ~detail::unwrap(x); }
-    { return ~detail::unwrap(x); }
+        requires requires { ~xengine::detail::property::unwrap(x); }
+    { return ~xengine::detail::property::unwrap(x); }
 
     /** @brief Computes logical negation of the current writable property value, if supported. */
     friend constexpr bool operator!(const Property& x) noexcept
-        requires requires { !detail::unwrap(x); }
-    { return !detail::unwrap(x); }
+        requires requires { !xengine::detail::property::unwrap(x); }
+    { return !xengine::detail::property::unwrap(x); }
 
 private:
     mutable T cache{};
@@ -293,20 +293,20 @@ private:
 /** @brief Convenience alias for accessing prop global bin from gameplay code.
  */
 #define PROP_GLOBAL_BIN(OP) \
-template<detail::PropLike L, detail::PropLike R> \
+template<xengine::detail::property::PropLike L, xengine::detail::property::PropLike R> \
 constexpr auto operator OP (const L& lhs, const R& rhs) noexcept \
-    requires requires { detail::unwrap(lhs) OP detail::unwrap(rhs); } \
-{ return detail::unwrap(lhs) OP detail::unwrap(rhs); } \
+    requires requires { xengine::detail::property::unwrap(lhs) OP xengine::detail::property::unwrap(rhs); } \
+{ return xengine::detail::property::unwrap(lhs) OP xengine::detail::property::unwrap(rhs); } \
 \
-template<detail::PropLike L, class R> \
+template<xengine::detail::property::PropLike L, class R> \
 constexpr auto operator OP (const L& lhs, const R& rhs) noexcept \
-    requires (!detail::PropLike<R>) && requires { detail::unwrap(lhs) OP rhs; } \
-{ return detail::unwrap(lhs) OP rhs; } \
+    requires (!xengine::detail::property::PropLike<R>) && requires { xengine::detail::property::unwrap(lhs) OP rhs; } \
+{ return xengine::detail::property::unwrap(lhs) OP rhs; } \
 \
-template<class L, detail::PropLike R> \
+template<class L, xengine::detail::property::PropLike R> \
 constexpr auto operator OP (const L& lhs, const R& rhs) noexcept \
-    requires (!detail::PropLike<L>) && requires { lhs OP detail::unwrap(rhs); } \
-{ return lhs OP detail::unwrap(rhs); }
+    requires (!xengine::detail::property::PropLike<L>) && requires { lhs OP xengine::detail::property::unwrap(rhs); } \
+{ return lhs OP xengine::detail::property::unwrap(rhs); }
 
 PROP_GLOBAL_BIN(+)
 PROP_GLOBAL_BIN(-)
@@ -325,20 +325,20 @@ PROP_GLOBAL_BIN(>> )
 /** @brief Convenience alias for accessing prop global cmp from gameplay code.
  */
 #define PROP_GLOBAL_CMP(OP) \
-template<detail::PropLike L, detail::PropLike R> \
+template<xengine::detail::property::PropLike L, xengine::detail::property::PropLike R> \
 constexpr bool operator OP (const L& lhs, const R& rhs) noexcept \
-    requires requires { detail::unwrap(lhs) OP detail::unwrap(rhs); } \
-{ return detail::unwrap(lhs) OP detail::unwrap(rhs); } \
+    requires requires { xengine::detail::property::unwrap(lhs) OP xengine::detail::property::unwrap(rhs); } \
+{ return xengine::detail::property::unwrap(lhs) OP xengine::detail::property::unwrap(rhs); } \
 \
-template<detail::PropLike L, class R> \
+template<xengine::detail::property::PropLike L, class R> \
 constexpr bool operator OP (const L& lhs, const R& rhs) noexcept \
-    requires (!detail::PropLike<R>) && requires { detail::unwrap(lhs) OP rhs; } \
-{ return detail::unwrap(lhs) OP rhs; } \
+    requires (!xengine::detail::property::PropLike<R>) && requires { xengine::detail::property::unwrap(lhs) OP rhs; } \
+{ return xengine::detail::property::unwrap(lhs) OP rhs; } \
 \
-template<class L, detail::PropLike R> \
+template<class L, xengine::detail::property::PropLike R> \
 constexpr bool operator OP (const L& lhs, const R& rhs) noexcept \
-    requires (!detail::PropLike<L>) && requires { lhs OP detail::unwrap(rhs); } \
-{ return lhs OP detail::unwrap(rhs); }
+    requires (!xengine::detail::property::PropLike<L>) && requires { lhs OP xengine::detail::property::unwrap(rhs); } \
+{ return lhs OP xengine::detail::property::unwrap(rhs); }
 
 PROP_GLOBAL_CMP(== )
 PROP_GLOBAL_CMP(!= )

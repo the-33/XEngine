@@ -641,6 +641,14 @@ For comprehensive include-path rules, focused-vs-umbrella includes and
 `Property`/`PropertyRO` usage, follow
 [Headers, includes and game organization](INCLUDES_AND_DEPENDENCIES.md).
 
+Use `#include <XEngine.h>` for the common gameplay API (without namespaces).
+Storage, binary I/O, serialization and diagnostics are opt-in through
+`<XEngine/Storage.h>`, `<XEngine/BinaryIO.h>`,
+`<XEngine/Serialization.h>` and `<XEngine/Diagnostics.h>`. The old direct
+include filenames still work. `Input`, `Time` and other manager shortcuts
+are now typed accessors rather than macros: `Input->...` remains valid, while
+`auto* input = Input.get();` makes pointer deduction explicit.
+
 The current template uses `src/main.cpp` to start the engine, `src/InitCallback.hpp` to load assets and register scenes, and `assets/scenes/`, `assets/gameobjects/`, and `assets/scripts/` to hold reusable gameplay code. Start from the current BlankGame template rather than older one-off conversion scripts.
 
 Use `#pragma once` in headers. Class-inline methods are implicitly `inline`, and header-defined free functions or out-of-class methods should also be `inline` to avoid duplicate symbols in multiple translation units.

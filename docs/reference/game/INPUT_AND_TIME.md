@@ -14,11 +14,15 @@ void Update(float dt) override {
     if (Input->KeyDown(Key::W)) {
         // Continuous movement while W is held.
     }
-    if (Input->KeyPressed(Key::Space)) {
+    if (Input->KeyPressed(Key::SPACE)) {
         // A one-frame jump/action event.
     }
 }
 ```
+
+These shortcuts are C++20 typed accessors, not macros. You can keep writing
+`Input->...` or `Time->...`; to store a non-owning pointer temporarily, use
+`auto* input = Input.get();`. The manager must be initialized before use.
 
 Use `KeyReleased` for a key-up edge. The corresponding pointer APIs are
 `MouseDown`, `MousePressed` and `MouseReleased`; `GetMousePos()` returns

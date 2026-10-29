@@ -9,7 +9,7 @@
 #include <new>
 #include <chrono>
 #include <bit>
-#include "SpatialHashBroadphase.h"
+#include "XEngine/detail/SpatialHashBroadphase.h"
 #include <limits>
 
 #include "Collider2D.h"

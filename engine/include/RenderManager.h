@@ -7,10 +7,10 @@
 #include <string>
 #include <unordered_map>
 #include <cstdint>
-#include "ParallelExecutor.h"
+#include "XEngine/detail/ParallelExecutor.h"
 #include "RenderDiagnostics.h"
-#include "SpriteProjection.h"
-#include "RenderPreparation.h"
+#include "XEngine/detail/SpriteProjection.h"
+#include "XEngine/detail/RenderPreparation.h"
 
 #include "SDL.h"
 

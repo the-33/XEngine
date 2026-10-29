@@ -1,8 +1,11 @@
 #pragma once
 /** @file XEngine.h
- * @brief Umbrella include and optional manager access macros for XEngine games.
- * @note Macros such as `Input` expand to non-owning manager pointers, not
- *       references. Call them only after the engine is initialized.
+ * @brief Gameplay-first umbrella header for XEngine games.
+ * @details The common scene, component, render, physics and runtime services
+ * are available in the global namespace. Low-level storage and serialization
+ * belong to optional headers under the XEngine/ directory.
+ * @note Convenience services such as `Input` are typed, non-owning accessors.
+ *       Use them only while the engine is initialized.
  */
 /** @defgroup xengine_core Engine and scene lifecycle
  *  Public entities, behaviours, scenes and game-loop services.
@@ -36,9 +39,6 @@
 #include "ErrorHandler.h"
 #include "Singleton.h"
 #include "Property.h"
-#include "FileSystem.h"
-#include "AtomicFile.h"
-#include "BinaryIO.h"
 #include "PlayerPrefs.h"
 #include "Assets.h"
 #include "KeyCodes.h"
@@ -70,44 +70,6 @@
 #include "Scene.h"
 #include "Engine.h"
 
-/** @brief Convenience alias for accessing time from gameplay code.
- */
-#define Time      TimeManager::GetInstancePtr()
-/** @brief Convenience alias for accessing input from gameplay code.
- */
-#define Input     InputManager::GetInstancePtr()
-/** @brief Convenience alias for accessing assets from gameplay code.
- */
-#define Assets    AssetManager::GetInstancePtr()
-/** @brief Convenience alias for accessing sound from gameplay code.
- */
-#define Sound     SoundManager::GetInstancePtr()
-/** @brief Convenience alias for accessing scenes from gameplay code.
- */
-#define Scenes    SceneManager::GetInstancePtr()
-/** @brief Convenience alias for accessing renderer from gameplay code.
- */
-#define Renderer  RenderManager::GetInstancePtr()
-/** @brief Convenience alias for accessing ui from gameplay code.
- */
-#define UI        UIManager::GetInstancePtr()
-/** @brief Convenience alias for accessing window from gameplay code.
- */
-#define Window    WindowManager::GetInstancePtr()
-/** @brief Convenience alias for accessing physics from gameplay code.
- */
-#define Physics   PhysicsManager::GetInstancePtr()
-/** @brief Convenience alias for accessing random from gameplay code.
- */
-#define Random	  RandomManager::GetInstancePtr()
-
-/** @brief Gets the current scene camera property through the engine singleton.
- * @warning Dereferences Engine::GetInstancePtr(); only use after successful
- *          initialization and when an active scene exists.
- */
-#define CurrentCamera Engine::GetInstancePtr()->camera
-
-/** @brief Gets the engine's fixed simulation timestep property.
- * @warning Dereferences the engine singleton; it must already be initialized.
- */
-#define FixedDT Engine::GetInstancePtr()->fixedDelta
+// Typed convenience accessors preserve Time->..., Input->..., etc. without
+// global preprocessor substitutions. Prefer .get() when storing a pointer.
+#include "XEngine/Services.h"
