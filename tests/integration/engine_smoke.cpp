@@ -26,6 +26,7 @@
 #include <cstdlib>
 #include <string>
 #include <type_traits>
+#include <vector>
 
 #if defined(Input) || defined(Time) || defined(Assets) || defined(Renderer)
 #error "Gameplay manager shortcuts must not be preprocessor macros"
@@ -64,7 +65,19 @@ void expect(bool result, const char* message) {
 // Avoid `near`: Windows compatibility headers may define it as a macro.
 bool almostEqual(float x, float y) { return std::fabs(x - y) < 0.001f; }
 
+void checkOptionalSerialization() {
+    const std::vector<int> original{4, 8, 15};
+    const std::string json = JsonSerializer::Serialize(original);
+    const auto fromJson = JsonSerializer::Deserialize<std::vector<int>>(json);
+    expect(fromJson == original, "opt-in JSON serializer round-trips values");
+
+    const auto bytes = BinarySerializer::Serialize(original);
+    const auto fromBinary = BinarySerializer::Deserialize<std::vector<int>>(bytes);
+    expect(fromBinary == original, "opt-in binary serializer round-trips values");
+}
+
 void checkScene(Scene* scene) {
+    checkOptionalSerialization();
     auto* parent = scene->CreateObject("parent");
     auto* child = scene->CreateObject("child", parent);
     expect(parent && child, "scene creates entities");

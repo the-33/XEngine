@@ -27,6 +27,12 @@ class PublicHeaderModulesTests(unittest.TestCase):
         self.assertIn('#include "PlayerPrefs.h"', umbrella)
         self.assertIn('#include "XEngine/Services.h"', umbrella)
 
+    def test_json_facade_refers_to_current_serialization_helpers(self):
+        facade = (INCLUDE / "JsonSerializer.h").read_text(encoding="utf-8")
+        self.assertIn("xengine::detail::serialization::ToJson(value)", facade)
+        self.assertIn("xengine::detail::serialization::FromJson(json, result)", facade)
+        self.assertNotIn("XSerializationDetail::", facade)
+
     def test_manager_shortcuts_are_not_preprocessor_macros(self):
         umbrella = (INCLUDE / "XEngine.h").read_text(encoding="utf-8")
         services = (MODULES / "Services.h").read_text(encoding="utf-8")

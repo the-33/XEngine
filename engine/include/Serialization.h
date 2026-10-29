@@ -38,8 +38,7 @@ class BinaryWriteArchive;
 class BinaryReadArchive;
 
 namespace xengine::detail::serialization {
-/** @brief Stores the k false setting or data field of XSerializationDetail.
- */
+/** @brief Compile-time failure marker for unsupported serialization types. */
 template<class T> inline constexpr bool kFalse = false;
 template<class T> struct Vector : std::false_type {};
 template<class T, class A> struct Vector<std::vector<T,A>> : std::true_type { using Value = T; };

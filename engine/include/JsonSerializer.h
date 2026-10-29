@@ -28,7 +28,7 @@ public:
      * @param indent Pretty-printing indentation width.
      */
     template<class T> static std::string Serialize(const T& value, int indent = 2) {
-        return XSerializationDetail::ToJson(value).dump(indent);
+        return xengine::detail::serialization::ToJson(value).dump(indent);
     }
     /** @brief Parses bounded JSON text and recursively fills registered fields; throws on malformed input.
      * @param input UTF-8 JSON text (not a filesystem path).
@@ -39,7 +39,7 @@ public:
         if (input.size() > maxBytes) throw std::length_error("JSON input exceeds limit");
         const auto json = nlohmann::json::parse(input.begin(), input.end());
         T result{};
-        XSerializationDetail::FromJson(json, result);
+        xengine::detail::serialization::FromJson(json, result);
         return result;
     }
     /** @brief Attempts to parse JSON into a value, reporting failure without propagating parse errors.
