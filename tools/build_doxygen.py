@@ -24,6 +24,8 @@ TOOLS_DIR = Path(__file__).resolve().parent
 if str(TOOLS_DIR) not in sys.path:
     sys.path.insert(0, str(TOOLS_DIR))
 from engine_version import read_engine_version
+from doxygen_cache import (docs_current, documentation_fingerprint,
+                           invalidate_docs_cache, stamp_docs_current)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -422,6 +424,8 @@ def version_navigation_assets(html_directory: Path, version: str) -> int:
 
 
 def build(doxygen: str) -> int:
+    inputs = documentation_fingerprint(ROOT)
+    invalidate_docs_cache(ROOT)
     version = read_engine_version()
     environment = os.environ.copy()
     environment['XENGINE_VERSION'] = version
@@ -464,6 +468,11 @@ def build(doxygen: str) -> int:
 
     root = ROOT / "build" / "docs"
     shutil.copyfile(ROOT / "docs" / "reference" / "theme" / "portal.html", root / "index.html")
+    if not stamp_docs_current(ROOT, inputs):
+        # A source edit during Doxygen generation must not be cached as current.
+        print("[ERROR] Documentation inputs changed during generation or output is "
+              "incomplete; next invocation will regenerate.", file=sys.stderr)
+        return 1
     print("[DOCS] Open build/docs/index.html (Game Developer / Engine Developer)")
     return 0
 
@@ -471,7 +480,13 @@ def build(doxygen: str) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--doxygen", help="path to an existing Doxygen executable")
+    parser.add_argument("--force", action="store_true",
+                        help="regenerate even when the documented input content is unchanged")
     args = parser.parse_args()
+    if not args.force and docs_current(ROOT):
+        print("[DOCS] Cached references are current for these source contents; "
+              "skipping Doxygen generation.")
+        return 0
     executable = args.doxygen or shutil.which("doxygen")
     if not executable:
         print("[WARN] Doxygen is not installed; documentation generation skipped. "

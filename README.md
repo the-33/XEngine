@@ -374,8 +374,13 @@ regenerates and checks Doxygen when the staged files change documentation or
 engine sources; unlike the publishing workflow it requires explicit activation
 with `git config --local core.hooksPath .githooks` in each Git clone.
 Doxygen is not required to build or run games. Whenever XEngine's library is
-actually recompiled, the build attempts to regenerate this reference if
-Doxygen is installed; cache hits and game-only changes do not trigger it.
+actually recompiled, the build updates the reference if the **documented
+source contents** have changed and Doxygen is installed. A shared SHA-256
+fingerprint avoids regenerating the same documentation twice (for example,
+pre-commit followed by a game build, or the reverse). Debug/Release and
+Windows/Linux builds in one checkout reuse that output; pre-commit still checks
+the public API. The numeric `VERSION` alone is not used as the cache key.
+Use `python tools/build_doxygen.py --force` for an intentional clean refresh.
 If Doxygen is unavailable, the build prints a recommendation and continues.
 The gameplay profile deliberately excludes private implementation and internal
 property-adapter aliases. Only current-use manuals are included in generated

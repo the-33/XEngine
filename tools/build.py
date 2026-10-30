@@ -27,6 +27,11 @@ ENGINE_SRC = ROOT / 'engine' / 'src'
 ENGINE_HEADERS = ROOT / 'engine' / 'include'
 DOXYFILES = (ROOT / 'Doxyfile_Games', ROOT / 'Doxyfile_Engine')
 
+# Tests import this script as a standalone module; keep sibling helpers visible.
+if str(Path(__file__).resolve().parent) not in sys.path:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+from doxygen_cache import docs_current
+
 class BuildError(Exception):
     pass
 
@@ -497,6 +502,10 @@ def regenerate_engine_api_docs() -> None:
     if not all(path.is_file() for path in DOXYFILES):
         log('[WARN] Doxyfile_Games or Doxyfile_Engine is missing; '
             'skipping XEngine API documentation.')
+        return
+    if docs_current(ROOT):
+        log('[DOCS] API references already match the source contents; '
+            'skipping Doxygen regeneration')
         return
     doxygen = shutil.which('doxygen')
     if not doxygen:

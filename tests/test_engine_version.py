@@ -64,6 +64,8 @@ class EngineVersionTests(unittest.TestCase):
              mock.patch.object(doc, 'prune_duplicate_markdown_search', return_value=0), \
              mock.patch.object(doc.subprocess, 'run') as runner, \
              mock.patch.object(doc, 'version_navigation_assets', return_value=0), \
+             mock.patch.object(doc, 'invalidate_docs_cache'), \
+             mock.patch.object(doc, 'stamp_docs_current', return_value=True), \
              mock.patch.object(doc.shutil, 'rmtree'), \
              mock.patch.object(doc.shutil, 'copyfile'):
             runner.return_value.returncode = 0

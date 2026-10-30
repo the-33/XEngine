@@ -14,6 +14,12 @@ import shutil
 import subprocess
 import sys
 
+# Also loaded with importlib by tests; make the sibling helper importable.
+TOOLS_DIR = Path(__file__).resolve().parent
+if str(TOOLS_DIR) not in sys.path:
+    sys.path.insert(0, str(TOOLS_DIR))
+from doxygen_cache import docs_current
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -28,6 +34,8 @@ def affects_documentation(path: str) -> bool:
             "Doxyfile_Engine",
             "tools/build_doxygen.py",
             "tools/check_doxygen_docs.py",
+            "tools/doxygen_cache.py",
+            "tools/engine_version.py",
         }
     )
 
@@ -54,19 +62,25 @@ def main() -> int:
     if not relevant:
         return 0
 
-    doxygen = shutil.which("doxygen")
-    if not doxygen:
-        print("[WARN] Doxygen not installed; skipping optional local refresh. "
-              "GitHub Pages will rebuild the committed documentation on main.",
-              file=sys.stderr)
-        return 0
+    if docs_current(ROOT):
+        print("[DOCS] Local documentation already matches the current sources; "
+              "skipping regeneration, checking API...")
+        commands = [[sys.executable, str(ROOT / "tools" / "check_doxygen_docs.py")]]
+    else:
+        doxygen = shutil.which("doxygen")
+        if not doxygen:
+            print("[WARN] Doxygen not installed; skipping optional local refresh. "
+                  "GitHub Pages will rebuild the committed documentation on main.",
+                  file=sys.stderr)
+            return 0
+        print(f"[DOCS] {len(relevant)} staged documentation/engine inputs changed; "
+              "regenerating both local Doxygen references...")
+        commands = [
+            [sys.executable, str(ROOT / "tools" / "build_doxygen.py"), "--doxygen", doxygen],
+            [sys.executable, str(ROOT / "tools" / "check_doxygen_docs.py")],
+        ]
 
-    print(f"[DOCS] {len(relevant)} staged documentation/engine inputs changed; "
-          "regenerating both local Doxygen references...")
-    for tool in (
-        [sys.executable, str(ROOT / "tools" / "build_doxygen.py"), "--doxygen", doxygen],
-        [sys.executable, str(ROOT / "tools" / "check_doxygen_docs.py")],
-    ):
+    for tool in commands:
         try:
             result = subprocess.run(tool, cwd=ROOT, check=False)
         except OSError as exc:

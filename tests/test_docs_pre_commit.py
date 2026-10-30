@@ -24,6 +24,7 @@ class DocsPreCommitTests(unittest.TestCase):
             "docs/reference/theme/xengine.css", "docs/GITHUB_PAGES.md",
             "VERSION", "Doxyfile_Games", "Doxyfile_Engine",
             "tools/build_doxygen.py", "tools/check_doxygen_docs.py",
+            "tools/doxygen_cache.py", "tools/engine_version.py",
         ):
             with self.subTest(name=name):
                 self.assertTrue(MODULE.affects_documentation(name))
@@ -52,14 +53,35 @@ class DocsPreCommitTests(unittest.TestCase):
 
     def test_missing_optional_doxygen_warns_but_allows_commit(self) -> None:
         with patch.object(MODULE, "staged_paths", return_value=["engine/src/A.cpp"]), \
+             patch.object(MODULE, "docs_current", return_value=False), \
              patch.object(MODULE.shutil, "which", return_value=None):
             self.assertEqual(MODULE.main(), 0)
 
     def test_docs_failure_blocks_commit(self) -> None:
         with patch.object(MODULE, "staged_paths", return_value=["engine/src/A.cpp"]), \
+             patch.object(MODULE, "docs_current", return_value=False), \
              patch.object(MODULE.shutil, "which", return_value="doxygen"), \
              patch.object(MODULE.subprocess, "run", return_value=subprocess.CompletedProcess([], 2)) as run:
             self.assertEqual(MODULE.main(), 2)
+            self.assertEqual(run.call_count, 1)
+
+    def test_up_to_date_docs_skip_doxygen_and_still_check_api(self) -> None:
+        with patch.object(MODULE, "staged_paths", return_value=["engine/include/A.h"]), \
+             patch.object(MODULE, "docs_current", return_value=True), \
+             patch.object(MODULE.shutil, "which") as which, \
+             patch.object(MODULE.subprocess, "run", return_value=subprocess.CompletedProcess([], 0)) as run:
+            self.assertEqual(MODULE.main(), 0)
+            which.assert_not_called()
+            self.assertEqual(run.call_count, 1)
+            self.assertEqual(Path(run.call_args.args[0][-1]).name, "check_doxygen_docs.py")
+
+    def test_bad_api_still_blocks_commit_on_cache_hit(self) -> None:
+        with patch.object(MODULE, "staged_paths", return_value=["docs/GITHUB_PAGES.md"]), \
+             patch.object(MODULE, "docs_current", return_value=True), \
+             patch.object(MODULE.shutil, "which") as which, \
+             patch.object(MODULE.subprocess, "run", return_value=subprocess.CompletedProcess([], 3)) as run:
+            self.assertEqual(MODULE.main(), 3)
+            which.assert_not_called()
             self.assertEqual(run.call_count, 1)
 
 

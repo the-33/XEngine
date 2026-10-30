@@ -11,7 +11,8 @@ namespace BlobQuest
 {
     inline bool LoadGameAssets()
     {
-        auto* assets = Assets;
+        // Service shortcuts are lightweight accessors, not raw pointers.
+        auto* assets = Assets.get();
         bool valid = true;
         valid &= (assets->LoadTexture("textures/player.png", "player", 100.f) != nullptr);
         valid &= (assets->LoadTexture("textures/enemy.png", "enemy", 100.f) != nullptr);

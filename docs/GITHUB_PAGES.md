@@ -89,7 +89,20 @@ The normal engine build independently attempts to regenerate both references
 **after the engine library is actually recompiled**; a failed Doxygen pass
 only produces a warning in that build. The opt-in pre-commit hook instead
 checks staged engine/documentation changes and **stops the commit** if local
-Doxygen generation or validation fails. These are separate mechanisms.
+Doxygen generation or validation fails. These are separate entry points but
+share a **content-based cache**: if the documentation was already generated
+for exactly the same relevant engine and documentation file bytes, the next
+invocation skips Doxygen. This includes commit-then-build and build-then-commit,
+across Windows/Linux and Debug/Release compilations in the same checkout.
+The hook **still runs the public API check** on a cache hit.
+
+The fingerprint includes source paths and contents (so new/deleted files
+invalidate it), the current Doxygen inputs and generation tooling. Neither
+file modification times nor the engine's numeric version alone define a hit.
+Missing output, failed or interrupted generation also invalidates the cache.
+The stamp is local under `build/docs/` and is not committed. To deliberately
+refresh documentation after changing the installed Doxygen version, run
+`python tools/build_doxygen.py --force`.
 
 Like any pre-commit hook, generation reads the local working tree; partially
 staged files may therefore appear newer in the local preview than in the

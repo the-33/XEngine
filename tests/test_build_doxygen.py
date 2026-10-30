@@ -25,6 +25,7 @@ class DoxygenBuildTests(unittest.TestCase):
             for file in doxyfiles:
                 file.write_text('PROJECT_NAME = XEngine', encoding='utf-8')
             with mock.patch.object(build, 'DOXYFILES', doxyfiles), \
+                 mock.patch.object(build, 'docs_current', return_value=False), \
                  mock.patch.object(build.shutil, 'which', return_value=None), \
                  mock.patch.object(build.subprocess, 'run') as run, \
                  mock.patch.object(build, 'log') as log:
@@ -42,6 +43,7 @@ class DoxygenBuildTests(unittest.TestCase):
                 file.write_text('PROJECT_NAME = XEngine', encoding='utf-8')
             completed = subprocess.CompletedProcess(['doxygen'], 0, stdout='')
             with mock.patch.object(build, 'DOXYFILES', doxyfiles), \
+                 mock.patch.object(build, 'docs_current', return_value=False), \
                  mock.patch.object(build.shutil, 'which', return_value='/bin/doxygen'), \
                  mock.patch.object(build.subprocess, 'run', return_value=completed) as run, \
                  mock.patch.object(build, 'log') as log:
@@ -60,12 +62,29 @@ class DoxygenBuildTests(unittest.TestCase):
                 file.touch()
             completed = subprocess.CompletedProcess(['doxygen'], 1, stdout='bad documentation')
             with mock.patch.object(build, 'DOXYFILES', doxyfiles), \
+                 mock.patch.object(build, 'docs_current', return_value=False), \
                  mock.patch.object(build.shutil, 'which', return_value='/bin/doxygen'), \
                  mock.patch.object(build.subprocess, 'run', return_value=completed), \
                  mock.patch.object(build, 'log') as log:
                 build.regenerate_engine_api_docs()
                 self.assertTrue(any('engine was compiled successfully' in c.args[0]
                                     for c in log.call_args_list))
+
+    def test_rebuilt_engine_reuses_docs_generated_during_commit(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            doxyfiles = tuple(Path(temporary) / name for name in
+                              ('Doxyfile_Games', 'Doxyfile_Engine'))
+            for file in doxyfiles:
+                file.touch()
+            with mock.patch.object(build, 'DOXYFILES', doxyfiles), \
+                 mock.patch.object(build, 'docs_current', return_value=True), \
+                 mock.patch.object(build.shutil, 'which') as which, \
+                 mock.patch.object(build.subprocess, 'run') as run, \
+                 mock.patch.object(build, 'log') as log:
+                build.regenerate_engine_api_docs()
+                which.assert_not_called()
+                run.assert_not_called()
+                self.assertTrue(any('skipping Doxygen' in c.args[0] for c in log.call_args_list))
 
     def test_rebuilt_engine_triggers_doxygen_but_cache_hit_does_not(self):
         with tempfile.TemporaryDirectory() as temporary:

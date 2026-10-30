@@ -99,6 +99,9 @@ The generator copies the maintained BlankGame template into your game. The
 first build compiles XEngine, compiles your game and starts its Debug executable.
 Later builds reuse unchanged engine and game object files. If a build fails,
 read the compiler error rather than editing generated files.
+If the engine needs recompiling after the pre-commit hook generated local API
+documentation (or vice versa), XEngine reuses the already generated references
+when the documented source contents have not changed.
 
 ## 3. Know what each folder is for
 
