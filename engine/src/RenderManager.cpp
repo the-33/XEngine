@@ -765,7 +765,8 @@ void RenderManager::RenderSnapshot(const Snapshot& snap) noexcept
             break;
 
         case DrawCmd::Type::ScreenText:
-            DrawTextScreenImmediate_(*c.font, c.text, c.textX, c.textY, c.color);
+            DrawTextScreenImmediate_(*c.font, c.text, c.textX, c.textY,
+                                     c.color, c.textScale);
             
             break;
         }
@@ -1023,9 +1024,11 @@ void RenderManager::DrawImageScreen(const Texture& tex, const Rect& dstScreen, c
     mDrawPhase = previousPhase;
 }
 
-void RenderManager::DrawTextScreen(const Font& font, const std::string& text, float x_px, float y_px, Color color) noexcept
+void RenderManager::DrawTextScreen(const Font& font, const std::string& text,
+                                   float x_px, float y_px, Color color, float scale) noexcept
 {
     if (text.empty()) return;
+    scale = std::isfinite(scale) ? std::clamp(scale, 0.01f, 32.f) : 1.f;
 
     // --- RECORDING MODE ---
     if (snapRecord)
@@ -1038,6 +1041,7 @@ void RenderManager::DrawTextScreen(const Font& font, const std::string& text, fl
         c.textX = x_px;
         c.textY = y_px;
         c.color = color;
+        c.textScale = scale;
 
         return;
     }
@@ -1045,7 +1049,7 @@ void RenderManager::DrawTextScreen(const Font& font, const std::string& text, fl
     // --- IMMEDIATE MODE ---
     const DrawPhase previousPhase = mDrawPhase;
     mDrawPhase = DrawPhase::UI;
-    DrawTextScreenImmediate_(font, text, x_px, y_px, color);
+    DrawTextScreenImmediate_(font, text, x_px, y_px, color, scale);
     mDrawPhase = previousPhase;
 }
 
@@ -1056,11 +1060,15 @@ void RenderManager::ClearTextCache_() noexcept
     mTextCache.clear();
 }
 
-void RenderManager::DrawTextScreenImmediate_(const Font& font, const std::string& text, float x, float y, Color color) noexcept
+void RenderManager::DrawTextScreenImmediate_(const Font& font, const std::string& text,
+                                              float x, float y, Color color, float scale) noexcept
 {
     if (!mRenderer || !mWindow || !font.GetSDL() || text.empty()) return;
     const Vec2I size = mWindow->GetDrawableSize();
     if (size.x <= 0 || size.y <= 0) return;
+    const auto scaledExtent = [scale](int pixels) -> int {
+        return std::max(1, static_cast<int>(std::lround(static_cast<double>(pixels) * scale)));
+    };
     // Cache only bounded-size text to avoid retaining arbitrarily large content.
     const bool cacheable = text.size() <= 160;
     std::string key;
@@ -1074,9 +1082,11 @@ void RenderManager::DrawTextScreenImmediate_(const Font& font, const std::string
         {
             found->second.lastUsed = mTextCacheFrame;
             const auto& e = found->second;
+            const int scaledWidth = scaledExtent(e.width);
+            const int scaledHeight = scaledExtent(e.height);
             if ((int)x >= size.x || (int)y >= size.y ||
-                (int)x + e.width <= 0 || (int)y + e.height <= 0) return;
-            SDL_Rect dst{(int)x, (int)y, e.width, e.height};
+                (int)x + scaledWidth <= 0 || (int)y + scaledHeight <= 0) return;
+            SDL_Rect dst{(int)x, (int)y, scaledWidth, scaledHeight};
             SDL_RenderCopy(mRenderer, e.texture, nullptr, &dst);
             ++nUIDrawCallsThisFrame;
             CountSubmission_();
@@ -1087,7 +1097,8 @@ void RenderManager::DrawTextScreenImmediate_(const Font& font, const std::string
     if (TTF_SizeUTF8(font.GetSDL(), text.c_str(), &width, &height) == 0)
     {
         if ((int)x >= size.x || (int)y >= size.y ||
-            (int)x + width <= 0 || (int)y + height <= 0) return;
+            (int)x + scaledExtent(width) <= 0 ||
+            (int)y + scaledExtent(height) <= 0) return;
     }
     SDL_Surface* surface = TTF_RenderUTF8_Blended(font.GetSDL(), text.c_str(),
         SDL_Color{color.r,color.g,color.b,color.a});
@@ -1097,7 +1108,7 @@ void RenderManager::DrawTextScreenImmediate_(const Font& font, const std::string
     height = surface->h;
     SDL_FreeSurface(surface);
     if (!texture) return;
-    SDL_Rect dst{(int)x, (int)y, width, height};
+    SDL_Rect dst{(int)x, (int)y, scaledExtent(width), scaledExtent(height)};
     SDL_RenderCopy(mRenderer, texture, nullptr, &dst);
     ++nUIDrawCallsThisFrame;
     CountSubmission_();

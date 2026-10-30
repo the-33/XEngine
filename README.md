@@ -45,7 +45,7 @@ The project includes a portable build tool, a ready-to-use game template and an 
 | **Physics & collision** | RigidBody2D, box/circle colliders, triggers, collision events and fixed-timestep simulation |
 | **Input, audio & assets** | Keyboard/mouse, cached textures and fonts, sound effects, music and immediate-mode UI |
 | **Persistence & data formats** | Direct FileSystem API, atomic single-file writes with inspectable backups, binary/bit I/O, JSON and custom-object serializers, PlayerPrefs |
-| **Runtime resolution** | Window size/fullscreen properties, aspect-aware 2D camera and resize revision for UI layout |
+| **Runtime resolution** | Window size/fullscreen properties, aspect-aware camera and responsive UI anchors with optional canvas scaling |
 | **Performance tools** | Optional collision workers, render-command preparation workers, adaptive collision broadphase, CSV profiling and F3/F4 overlays |
 | **Build & distribution** | Windows/Linux native builds, optional cross-build SDK tooling and packaged Release archives |
 

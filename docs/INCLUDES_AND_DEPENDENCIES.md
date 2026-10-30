@@ -34,6 +34,9 @@ you may also include individual public headers:
 `XEngine.h` provides core values, components, scenes, managers, camera,
 window, physics, sound, resources, UI and the small `PlayerPrefs` settings
 API. The more specialized file/serialization/diagnostic APIs are opt-in.
+Responsive UI anchors (`UIRectTransform`, `UICanvas`, `UICanvasScaleMode`) are
+also available directly from `<XEngine.h>`; a minimal include is
+`<UIRectTransform.h>`. They do not require an additional namespace or library.
 Individual headers can still reduce compile time in larger projects.
 All forms use the *same* engine library and objects.
 
@@ -114,6 +117,7 @@ game-extension interface and may change without a public API guarantee.
 | Work with colliders and forces | `<Collider2D.h>`, `<RigidBody2D.h>`, `<PhysicsManager.h>` |
 | Handle input and time | `<InputManager.h>`, `<KeyCodes.h>`, `<TimeManager.h>` |
 | Draw custom graphics and UI | `<RenderManager.h>`, `<UIManager.h>`, `<Camera2D.h>` |
+| Anchor and scale responsive UI widgets | `<UIRectTransform.h>` or `<XEngine.h>` |
 | Resize the window | `<WindowManager.h>` |
 | Load texture, font or sound | `<AssetManager.h>`, `<SoundManager.h>` |
 | Read or write any file | `<XEngine/Storage.h>` |

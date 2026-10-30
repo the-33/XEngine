@@ -166,6 +166,8 @@ struct DrawCmd
     /** @brief Screen-space text origin in drawable pixels (`textX`, `textY`).
      */
     float textX = 0.f, textY = 0.f; // px
+    /** @brief Optional texture-space scaling for screen text (1 = original font size). */
+    float textScale = 1.f;
 };
 
 /** @var float DrawCmd::y1

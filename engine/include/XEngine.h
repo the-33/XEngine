@@ -60,6 +60,7 @@
 #include "SoundManager.h"
 #include "AssetManager.h"
 #include "CollisionManager.h"
+#include "UIRectTransform.h"
 #include "UIManager.h"
 #include "SceneManager.h"
 #include "PhysicsManager.h"

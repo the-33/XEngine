@@ -9,6 +9,7 @@
 #include "Singleton.h"
 #include "BaseTypes.h"
 #include "Assets.h"
+#include "UIRectTransform.h"
 #include "Engine.h"
 
 /** @brief Available align h modes for UIManager.h.
@@ -85,6 +86,7 @@ private:
         // Text
         std::string text;
         Font* font = nullptr;
+        float textScale = 1.f;
 
         // Rect
         bool filled = true;
@@ -118,6 +120,8 @@ private:
     float mBtnDefaultPadding = 6.f;
 
     Font* mDefaultFont = nullptr;
+    UICanvas mCanvas{};
+    float mTextScale = 1.f;
 
     // Helpers internos
     static bool PointInRect_(const Vec2I& p, const Rect& r) noexcept;
@@ -137,6 +141,79 @@ private:
     void End() noexcept;
 
 public:
+    // --------------------------
+    // Responsive canvas and anchored UI
+    // --------------------------
+    /** @brief Sets the scale policy used by anchored UI rectangles.
+     * Existing Rect-based widgets continue to use raw drawable pixels.
+     */
+    void SetCanvas(const UICanvas& canvas) noexcept { mCanvas = canvas; }
+    /** @brief Returns the current scale policy for anchored UI. */
+    const UICanvas& GetCanvas() const noexcept { return mCanvas; }
+    /** @brief Returns the current full-screen canvas in drawable pixels. */
+    Rect CanvasRect() const noexcept;
+    /** @brief Returns the current canvas scale (1 for constant pixel size). */
+    float CanvasScale() const noexcept;
+    /** @brief Resolves an anchored rectangle relative to the canvas or a parent.
+     * Recomputed from the current drawable size on each call; changes to
+     * resolution, fullscreen mode and aspect ratio require no manual updates.
+     * @param layout Normalized anchors, pivot, offset and size delta.
+     * @param parent Optional already-resolved parent rectangle; null means canvas.
+     */
+    Rect Resolve(const UIRectTransform& layout, const Rect* parent = nullptr) const noexcept;
+
+    /** @brief Anchored button using the same hit testing and drawing as Button(Rect). */
+    bool Button(const char* id, const UIRectTransform& layout,
+                const std::string& text = "", const Rect* parent = nullptr) noexcept;
+    /** @brief Anchored button with an explicit font. */
+    bool Button(const char* id, const UIRectTransform& layout, const Font& font,
+                const std::string& text = "", const Rect* parent = nullptr) noexcept;
+    /** @brief Anchored button with explicit colors. */
+    bool Button(const char* id, const UIRectTransform& layout, const UIButtonColors& colors,
+                const std::string& text = "", const Rect* parent = nullptr) noexcept;
+    /** @brief Anchored button with explicit font and colors. */
+    bool Button(const char* id, const UIRectTransform& layout, const Font& font,
+                const UIButtonColors& colors, const std::string& text = "",
+                const Rect* parent = nullptr) noexcept;
+    /** @brief Invisible anchored button. */
+    bool InvisibleButton(const char* id, const UIRectTransform& layout,
+                         const Rect* parent = nullptr) noexcept;
+    /** @brief Textured anchored button. */
+    bool ImageButton(const char* id, const UIRectTransform& layout, const Texture& tex,
+                     const Rect* srcPixels = nullptr,
+                     const UIButtonColors& tints = UIButtonColors{
+                         {255,255,255,255}, {230,230,230,255},
+                         {200,200,200,255}, {200,200,200,0}},
+                     bool drawFrame = true, const Rect* parent = nullptr) noexcept;
+    /** @brief Draws text inside an anchored rectangle. */
+    void Label(const std::string& text, const UIRectTransform& layout,
+               AlignH hAlign = AlignH::Center, AlignV vAlign = AlignV::Middle,
+               float padding = -1.f, const Rect* parent = nullptr) noexcept;
+    /** @brief Draws styled text inside an anchored rectangle. */
+    void Label(const std::string& text, const UIRectTransform& layout,
+               const Font& font, const Color& color,
+               AlignH hAlign = AlignH::Center, AlignV vAlign = AlignV::Middle,
+               float padding = -1.f, const Rect* parent = nullptr) noexcept;
+    /** @brief Draws a colored panel from an anchored rectangle. */
+    void Panel(const UIRectTransform& layout, Color fill, Color outline,
+               bool filled = true, const Rect* parent = nullptr) noexcept;
+    /** @brief Draws an outline-free anchored panel. */
+    void Panel(const UIRectTransform& layout, Color fill,
+               const Rect* parent = nullptr) noexcept;
+    /** @brief Draws a texture inside an anchored rectangle. */
+    void Image(const Texture& tex, const UIRectTransform& layout,
+               const Rect* srcPixels = nullptr, Color tint = {255,255,255,255},
+               bool flipX = false, bool flipY = false,
+               const Rect* parent = nullptr) noexcept;
+    /** @brief Draws an anchored checkbox and updates a caller-owned value. */
+    bool Checkbox(const char* id, const UIRectTransform& layout, bool* value,
+                  const std::string& label = "", const Rect* parent = nullptr) noexcept;
+    /** @brief Draws an anchored progress bar. */
+    void ProgressBar(float value01, const UIRectTransform& layout,
+                     Color back = {40,40,40,255}, Color fill = {120,200,120,255},
+                     Color outline = {200,200,200,255},
+                     const Rect* parent = nullptr) noexcept;
+
     // --------------------------
     // Buttons
     // --------------------------

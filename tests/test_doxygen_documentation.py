@@ -13,6 +13,16 @@ import check_doxygen_docs  # noqa: E402
 
 
 class DoxygenDocumentationTests(unittest.TestCase):
+    def test_responsive_ui_public_fields_have_doxygen_comments(self):
+        header = (PROJECT / "engine/include/UIRectTransform.h").read_text(encoding="utf-8")
+        for field in (
+            "scaleMode", "referenceResolution", "anchorMin", "anchorMax",
+            "pivot", "anchoredPosition", "sizeDelta",
+        ):
+            with self.subTest(field=field):
+                pattern = rf"/\*\*\s*@brief\s+[^*]+\*/\s+(?:UICanvasScaleMode|Vec2)\s+{field}\b"
+                self.assertRegex(header, pattern)
+
     def test_all_exported_headers_explain_their_purpose(self):
         conf = (PROJECT / "Doxyfile_Games").read_text(encoding="utf-8")
         self.assertIn("EXTRACT_PRIVATE        = NO", conf)

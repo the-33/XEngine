@@ -147,9 +147,11 @@ rendering backends.
 ## Screen-space UI
 
 `UIManager` is immediate-mode: each frame your code submits controls at their
-current positions. There is no retained automatic layout tree. A button placed
-at a fixed screen position can be clipped by a smaller window unless you
-update its rectangle.
+current positions. There is no retained automatic layout tree. Legacy `Rect`
+widgets use explicit drawable pixels; a button placed at a fixed screen
+position can be clipped by a smaller window unless you update its rectangle.
+For new interfaces, use `UIRectTransform` to anchor elements to the drawable
+canvas or a parent rectangle without manually observing resize events.
 
 For example, inside a gameplay `Behaviour::Render()` callback:
 
@@ -166,6 +168,38 @@ if (UI->Button("main-menu-start", centeredButton, "Start")) {
 }
 ```
 
+With anchors the same button becomes:
+
+```cpp
+UIRectTransform centered = UIRectTransform::Center({200.f, 40.f});
+if (UI->Button("main-menu-start", centered, "Start")) {
+    // The center stays centered at any size or aspect ratio.
+}
+```
+
+To scale button and image sizes, offsets and anchored text alongside the
+display resolution, configure the optional canvas scaler once:
+
+```cpp
+UICanvas canvas;
+canvas.scaleMode = UICanvasScaleMode::ScaleWithScreenSize;
+canvas.referenceResolution = {1920.f, 1080.f};
+canvas.matchWidthOrHeight = 0.5f;
+UI->SetCanvas(canvas);
+
+// Anchor 16 scaled pixels from a panel's bottom-right corner.
+Rect panel = UI->Resolve(UIRectTransform::Stretch(30.f, 30.f, 30.f, 30.f));
+UI->Button("close", UIRectTransform::BottomRight({120.f, 40.f}, {16.f, 16.f}),
+           "Close", &panel);
+```
+
+Normalized anchors use (0,0) at the **top-left** and (1,1) at the
+**bottom-right** (unlike Unity's upward-positive Y). Fixed anchors follow
+the chosen edge/center; separated anchorMin/anchorMax stretch with the parent.
+The reference-resolution scaler defaults to off, preserving old games.
+See [Sprites, window, camera and screen-space UI](reference/game/RENDERING_AND_UI.md#unity-style-anchors-and-canvas-scaling)
+for the full reference and an example with a parent panel.
+
 Use stable, distinct widget IDs. `UI->Button`, `UI->Label`, `UI->Panel` and
 other UI calls use screen-space rectangles rather than world-space camera
 coordinates. Camera movement should not affect the position of a HUD control.
@@ -180,7 +214,7 @@ same coordinate system.
 | Symptom | Check |
 |---|---|
 | UI appears tiny or offset on HiDPI | Use drawable `Window->drawableSize` for UI rectangles; `UIManager` converts mouse coordinates automatically. |
-| UI falls off the edge after resize | Recalculate screen-space rectangles using current drawable dimensions. |
+| UI falls off the edge after resize | Use `UIRectTransform` anchored elements, or recalculate legacy pixel rectangles from the drawable size. |
 | Fullscreen changes the apparent window size | Desktop fullscreen uses the display dimensions; check `windowedSize` for the stored windowed resolution. |
 | World geometry appears squashed at a new aspect | Check `camera->matchWindowAspect` and your world-space vs screen-space drawing path. |
 | A camera pointer stops working after a scene change | Obtain the current scene's camera again; do not hold a stale non-owning pointer. |

@@ -445,11 +445,12 @@ public:
      * @param x_px Horizontal screen coordinate in pixels.
      * @param y_px Vertical screen coordinate in pixels.
      * @param color RGBA drawing color.
+     * @param scale Positive size multiplier applied after font rasterization.
      */
     void DrawTextScreen(const Font& font,
         const std::string& text,
         float x_px, float y_px,
-        Color color) noexcept;
+        Color color, float scale = 1.f) noexcept;
 
 
 private:
@@ -495,7 +496,7 @@ private:
     void DrawTextScreenImmediate_(const Font& font,
         const std::string& text,
         float x_px, float y_px,
-        Color color) noexcept;
+        Color color, float scale) noexcept;
 
 	// Helpers internos
     static inline SDL_FRect WorldRectToScreen(const Camera2D& cam, 

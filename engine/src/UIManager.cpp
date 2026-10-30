@@ -21,6 +21,16 @@ static bool        gMousePressed = false;
 static bool        gMouseReleased = false;
 static Vec2I        gMousePos{ 0,0 };
 
+namespace {
+struct ScopedCanvasTextScale {
+    float& current;
+    float previous;
+    ScopedCanvasTextScale(float& slot, float scale) noexcept
+        : current(slot), previous(slot) { current = scale; }
+    ~ScopedCanvasTextScale() { current = previous; }
+};
+}
+
 bool UIManager::Init(const UIStyle& defaultStyle) noexcept
 {
     mTextDefaultColor = defaultStyle.text;
@@ -60,6 +70,7 @@ void UIManager::Shutdown() noexcept
 void UIManager::Begin() noexcept
 {
     gHotID.clear();
+    mTextScale = 1.f;
 
     if (auto* input = InputManager::GetInstancePtr()) {
         gMousePos = input->GetMousePos();
@@ -84,6 +95,125 @@ void UIManager::Begin() noexcept
     }
 
     mCmds.clear();
+}
+
+// --------------------------
+// Responsive canvas and anchors
+// --------------------------
+Rect UIManager::CanvasRect() const noexcept
+{
+    const auto* window = WindowManager::GetInstancePtr();
+    if (!window) return {};
+    const Vec2I size = window->GetDrawableSize();
+    if (size.x <= 0 || size.y <= 0) return {};
+    return {0.f, 0.f, static_cast<float>(size.x), static_cast<float>(size.y)};
+}
+
+float UIManager::CanvasScale() const noexcept
+{
+    return mCanvas.ScaleFor(CanvasRect().Size());
+}
+
+Rect UIManager::Resolve(const UIRectTransform& layout, const Rect* parent) const noexcept
+{
+    const Rect canvas = CanvasRect();
+    return layout.Resolve(parent ? *parent : canvas, mCanvas.ScaleFor(canvas.Size()));
+}
+
+bool UIManager::Button(const char* id, const UIRectTransform& layout,
+                       const std::string& text, const Rect* parent) noexcept
+{
+    const ScopedCanvasTextScale scale(mTextScale, CanvasScale());
+    return Button(id, Resolve(layout, parent), text);
+}
+
+bool UIManager::Button(const char* id, const UIRectTransform& layout,
+                       const Font& font, const std::string& text,
+                       const Rect* parent) noexcept
+{
+    const ScopedCanvasTextScale scale(mTextScale, CanvasScale());
+    return Button(id, Resolve(layout, parent), font, text);
+}
+
+bool UIManager::Button(const char* id, const UIRectTransform& layout,
+                       const UIButtonColors& colors, const std::string& text,
+                       const Rect* parent) noexcept
+{
+    const ScopedCanvasTextScale scale(mTextScale, CanvasScale());
+    return Button(id, Resolve(layout, parent), colors, text);
+}
+
+bool UIManager::Button(const char* id, const UIRectTransform& layout,
+                       const Font& font, const UIButtonColors& colors,
+                       const std::string& text, const Rect* parent) noexcept
+{
+    const ScopedCanvasTextScale scale(mTextScale, CanvasScale());
+    return Button(id, Resolve(layout, parent), font, colors, text);
+}
+
+bool UIManager::InvisibleButton(const char* id, const UIRectTransform& layout,
+                                const Rect* parent) noexcept
+{
+    return InvisibleButton(id, Resolve(layout, parent));
+}
+
+bool UIManager::ImageButton(const char* id, const UIRectTransform& layout,
+                            const Texture& tex, const Rect* srcPixels,
+                            const UIButtonColors& tints, bool drawFrame,
+                            const Rect* parent) noexcept
+{
+    return ImageButton(id, Resolve(layout, parent), tex, srcPixels, tints, drawFrame);
+}
+
+void UIManager::Label(const std::string& text, const UIRectTransform& layout,
+                      AlignH hAlign, AlignV vAlign, float padding,
+                      const Rect* parent) noexcept
+{
+    const ScopedCanvasTextScale scale(mTextScale, CanvasScale());
+    Label(text, Resolve(layout, parent), hAlign, vAlign, padding);
+}
+
+void UIManager::Label(const std::string& text, const UIRectTransform& layout,
+                      const Font& font, const Color& color,
+                      AlignH hAlign, AlignV vAlign, float padding,
+                      const Rect* parent) noexcept
+{
+    const ScopedCanvasTextScale scale(mTextScale, CanvasScale());
+    Label(text, Resolve(layout, parent), font, color, hAlign, vAlign, padding);
+}
+
+void UIManager::Panel(const UIRectTransform& layout, Color fill, Color outline,
+                      bool filled, const Rect* parent) noexcept
+{
+    Panel(Resolve(layout, parent), fill, outline, filled);
+}
+
+void UIManager::Panel(const UIRectTransform& layout, Color fill,
+                      const Rect* parent) noexcept
+{
+    Panel(Resolve(layout, parent), fill);
+}
+
+void UIManager::Image(const Texture& tex, const UIRectTransform& layout,
+                      const Rect* srcPixels, Color tint, bool flipX, bool flipY,
+                      const Rect* parent) noexcept
+{
+    Image(tex, Resolve(layout, parent), srcPixels, tint, flipX, flipY);
+}
+
+bool UIManager::Checkbox(const char* id, const UIRectTransform& layout,
+                         bool* value, const std::string& label,
+                         const Rect* parent) noexcept
+{
+    const ScopedCanvasTextScale scale(mTextScale, CanvasScale());
+    return Checkbox(id, Resolve(layout, parent), value, label);
+}
+
+void UIManager::ProgressBar(float value01, const UIRectTransform& layout,
+                            Color back, Color fill, Color outline,
+                            const Rect* parent) noexcept
+{
+    ProgressBar(value01, Resolve(layout, parent), back, fill, outline);
 }
 
 // --------------------------
@@ -154,6 +284,7 @@ void UIManager::PushText_(const std::string& text, const Rect& r, Font* font, Co
     c.color = color;
     c.text = text;
     c.font = font;
+    c.textScale = mTextScale;
     c.filled = false;
     mCmds.push_back(std::move(c));
 }
@@ -186,10 +317,11 @@ void UIManager::PushTextInRect_(const Rect& r, Font* font, const std::string& te
     cmd.color = color;
     cmd.text = text;
     cmd.font = font;
+    cmd.textScale = mTextScale;
     cmd.filled = false;
     cmd.hAlign = h;
     cmd.vAlign = v;
-    cmd.padding = padding;
+    cmd.padding = padding * mTextScale;
 
     mCmds.push_back(std::move(cmd));
 }
@@ -485,7 +617,8 @@ void UIManager::End() noexcept
             break;
 
         case CmdType::Text:
-            if (c.font) render->DrawTextScreen(*c.font, c.text, c.r.x, c.r.y, c.color);
+            if (c.font) render->DrawTextScreen(*c.font, c.text, c.r.x, c.r.y,
+                                               c.color, c.textScale);
             break;
         case CmdType::Image:
             if (c.tex) {
@@ -499,6 +632,8 @@ void UIManager::End() noexcept
                 int tw = 0, th = 0;
                 auto* ttf = c.font->GetSDL();
                 if (ttf && TTF_SizeUTF8(ttf, c.text.c_str(), &tw, &th) == 0) {
+                    const float textWidth = static_cast<float>(tw) * c.textScale;
+                    const float textHeight = static_cast<float>(th) * c.textScale;
 
                     float x = c.r.x;
                     float y = c.r.y;
@@ -506,18 +641,19 @@ void UIManager::End() noexcept
                     // Horizontal
                     switch (c.hAlign) {
                     case AlignH::Left:   x = c.r.x + c.padding; break;
-                    case AlignH::Center: x = c.r.x + (c.r.w - tw) * 0.5f; break;
-                    case AlignH::Right:  x = c.r.x + c.r.w - tw - c.padding; break;
+                    case AlignH::Center: x = c.r.x + (c.r.w - textWidth) * 0.5f; break;
+                    case AlignH::Right:  x = c.r.x + c.r.w - textWidth - c.padding; break;
                     }
 
                     // Vertical
                     switch (c.vAlign) {
                     case AlignV::Top:    y = c.r.y + c.padding; break;
-                    case AlignV::Middle: y = c.r.y + (c.r.h - th) * 0.5f; break;
-                    case AlignV::Bottom: y = c.r.y + c.r.h - th - c.padding; break;
+                    case AlignV::Middle: y = c.r.y + (c.r.h - textHeight) * 0.5f; break;
+                    case AlignV::Bottom: y = c.r.y + c.r.h - textHeight - c.padding; break;
                     }
 
-                    render->DrawTextScreen(*c.font, c.text, x, y, c.color);
+                    render->DrawTextScreen(*c.font, c.text, x, y,
+                                           c.color, c.textScale);
                 }
             }
             break;
