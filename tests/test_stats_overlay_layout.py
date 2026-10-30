@@ -68,5 +68,19 @@ int main() {
         self.assertNotIn('biggestLineSizeInLastRow', engine)
         self.assertNotIn('blockSizes.push_back', engine)
 
+    def test_overlay_shows_effective_runtime_configuration(self):
+        engine = (ROOT / 'engine' / 'src' / 'Engine.cpp').read_text(encoding='utf-8')
+        self.assertIn('=== Active Configuration ===', engine)
+        self.assertIn('"Multithreading: %s (%u workers; configured %s)"', engine)
+        self.assertIn('"Parallel work (last frame): render %s, collision %u passes"', engine)
+        self.assertIn('SDL_GetRendererInfo(sdlRenderer, &rendererInfo)', engine)
+        self.assertIn('"Render backend: %s (requested %s)"', engine)
+        self.assertIn('"Parallel preparation: %s (last path %s)"', engine)
+        self.assertIn('"Min commands: %zu"', engine)
+        self.assertIn('"Broadphase: %s (last frame %s)"', engine)
+        self.assertIn('"Cell size: auto (effective %.3f; base %.3f)"', engine)
+        self.assertIn('"Cell size: unused (configured %.3f)"', engine)
+        self.assertIn('collision->mFrameLastGridCellSize > 0.f', engine)
+
 if __name__ == '__main__':
     unittest.main()

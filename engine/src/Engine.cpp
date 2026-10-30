@@ -1572,7 +1572,7 @@ void Engine::DrawStatsOverlay_() noexcept
     {
         mStatsNextRefresh = now + 0.25; // four times per second
         mStatsLines.clear();
-        mStatsLines.reserve(64);
+        mStatsLines.reserve(96);
 
         Vec2I res = win->GetDrawableSize();
         Vec2I aspectAsFr = GetAspectRatioAsFraction();
@@ -1598,6 +1598,68 @@ void Engine::DrawStatsOverlay_() noexcept
         if (mDeterministicFixedStepsPerFrame)
             mStatsLines.push_back(SPrintf_("Deterministic fixed steps / frame:  %u", mDeterministicFixedStepsPerFrame));
         mStatsLines.push_back(SPrintf_("Average Fixed Updates per frame:    %d fixed updates", averageFixedUpdatesPerFrame));
+        mStatsLines.push_back("");
+
+        // Report the settings currently in use, not only the requested JSON
+        // values. SDL can select a fallback renderer, and both automatic
+        // broadphase and render preparation can change paths at runtime.
+        SDL_RendererInfo rendererInfo{};
+        const char* activeBackend = "unavailable";
+        if (SDL_Renderer* sdlRenderer = render->SDL())
+        {
+            if (SDL_GetRendererInfo(sdlRenderer, &rendererInfo) == 0 &&
+                rendererInfo.name && rendererInfo.name[0] != '\0')
+                activeBackend = rendererInfo.name;
+        }
+
+        const unsigned cpuWorkers = collision->ParallelWorkerCount();
+        const bool workersAvailable = mCfg.multiThreading && cpuWorkers > 0;
+        const bool renderParallel = mLastRenderPath == RenderDiagnostics::Path::Parallel;
+        const char* configuredBroadphase = collision->mAutoBroadphase ? "auto"
+            : (collision->mSpatialBroadphase ? "grid" : "bruteforce");
+        const char* activeBroadphase = "idle";
+        if (collision->mFrameGridPasses > 0 && collision->mFrameBruteforcePasses > 0)
+            activeBroadphase = "mixed";
+        else if (collision->mFrameGridPasses > 0)
+            activeBroadphase = "grid";
+        else if (collision->mFrameBruteforcePasses > 0)
+            activeBroadphase = "bruteforce";
+
+        mStatsLines.push_back("=== Active Configuration ===");
+        mStatsLines.push_back(SPrintf_("Multithreading: %s (%u workers; configured %s)",
+            workersAvailable ? "available" : "off", cpuWorkers,
+            mCfg.multiThreading ? "on" : "off"));
+        mStatsLines.push_back(SPrintf_("Parallel work (last frame): render %s, collision %u passes",
+            renderParallel ? "on" : "off", collision->mFrameParallelPasses));
+        mStatsLines.push_back(SPrintf_("Render backend: %s (requested %s)",
+            activeBackend, mCfg.renderer.backend.c_str()));
+        mStatsLines.push_back(SPrintf_("Parallel preparation: %s (last path %s)",
+            mCfg.renderer.parallelPreparation ? "on" : "off",
+            RenderDiagnostics::Name(mLastRenderPath)));
+        mStatsLines.push_back(SPrintf_("Render selection: %s",
+            RenderDiagnostics::Name(mCfg.renderer.parallelSelection)));
+        mStatsLines.push_back(SPrintf_("Min commands: %zu", mCfg.renderer.parallelMinCommands));
+        mStatsLines.push_back(SPrintf_("Broadphase: %s (last frame %s)",
+            configuredBroadphase, activeBroadphase));
+        if (collision->mFrameLastGridCellSize > 0.f)
+        {
+            if (collision->mAutoGridCellSize)
+                mStatsLines.push_back(SPrintf_("Cell size: auto (effective %.3f; base %.3f)",
+                    (double)collision->mFrameLastGridCellSize,
+                    (double)collision->mBroadphaseCellSize));
+            else
+                mStatsLines.push_back(SPrintf_("Cell size: %.3f (fixed)",
+                    (double)collision->mBroadphaseCellSize));
+        }
+        else if (collision->mAutoGridCellSize)
+            mStatsLines.push_back(SPrintf_("Cell size: auto (base %.3f; grid inactive)",
+                (double)collision->mBroadphaseCellSize));
+        else if (collision->mSpatialBroadphase || collision->mAutoBroadphase)
+            mStatsLines.push_back(SPrintf_("Cell size: %.3f (grid inactive)",
+                (double)collision->mBroadphaseCellSize));
+        else
+            mStatsLines.push_back(SPrintf_("Cell size: unused (configured %.3f)",
+                (double)collision->mBroadphaseCellSize));
         mStatsLines.push_back("");
 
 

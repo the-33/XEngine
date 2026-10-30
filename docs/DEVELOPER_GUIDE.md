@@ -758,6 +758,14 @@ testing limitations.
 
 Press **F3** to toggle runtime statistics and **F4** to advance to the next page. The panel adapts to the window size and measures font widths to prevent overlapping columns.
 
+The **Active Configuration** section shows whether CPU workers are available
+and were used in the last frame, the active SDL backend versus the requested
+backend, `Renderer.parallelPreparation`, `Renderer.parallelMinCommands`, the
+render selection path, and `Collision.broadphase` / `Collision.cellSize` with
+their effective last-frame choices (including automatic grid cell sizing).
+See [Multithreading and profiling](MULTITHREADING_AND_PROFILING.md#on-screen-debug-profiler-f3--f4)
+for details.
+
 ### Render adaptive diagnostics and deterministic CPU benchmark
 
 The Debug F3 overlay and `Engine.profileCsv=true` now report the adaptive

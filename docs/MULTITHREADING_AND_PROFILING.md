@@ -155,6 +155,28 @@ next profiler page while the overlay is visible. A page counter is displayed
 at the top; all sections are accessible even at lower resolutions. Both
 single-threaded and multithreaded measurements use the same layout.
 
+The **Active Configuration** section distinguishes requested settings from
+what is actually available or selected during the last frame:
+
+- **Multithreading:** whether CPU workers are available, how many were
+  created, and the configured on/off value. **Parallel work (last frame)**
+  separately reports whether rendering took the parallel path and the number
+  of parallel collision passes; enabled workers may remain idle in small scenes.
+- **Render backend:** the renderer SDL is actually using, followed by the
+  requested backend from `Renderer.backend` (useful when `auto` or backend
+  fallback selects a different backend).
+- **Parallel preparation:** `Renderer.parallelPreparation` and the last
+  selected render path; **Render selection** shows `fixed` or `adaptive`, and
+  **Min commands** shows `Renderer.parallelMinCommands`.
+- **Broadphase:** configured `Collision.broadphase` and the last frame's
+  effective route (`grid`, `bruteforce`, `mixed`, or `idle`). **Cell size**
+  reports the fixed value or, when `Collision.cellSize` is `auto`, the actual
+  last grid cell size plus the base value. When no grid was built it clearly
+  says `grid inactive` or `unused` instead of implying a cell size was used.
+
+Values refresh four times per second. The last-frame route and effective cell
+size can vary when the automatic selectors change decisions.
+
 The overlay measures its actual SDL_ttf font widths and heights before placing
 labels and values, instead of assuming monospaced character widths. It aligns
 values separately, automatically packs sections into columns, and paginates
