@@ -20,7 +20,7 @@ bool InputManager::Init(const Config& cfg) noexcept
 
     mCurrKeys = SDL_GetKeyboardState(nullptr);
     mPrevKeys = new uint8_t[SDL_NUM_SCANCODES];
-    std::memset((void*)mPrevKeys, 0, SDL_NUM_SCANCODES);
+    std::memset(mPrevKeys, 0, SDL_NUM_SCANCODES);
 
     mCurrMouseButtons = 0;
     mPrevMouseButtons = 0;
@@ -92,7 +92,7 @@ void InputManager::Update() noexcept
     const float dt = std::min(0.25f, (now - mPreviousTick) / 1000.f);
     mPreviousTick = now;
     // Copy previous state
-    std::memcpy((void*)mPrevKeys, mCurrKeys, SDL_NUM_SCANCODES);
+    std::memcpy(mPrevKeys, mCurrKeys, SDL_NUM_SCANCODES);
     mPrevMouseButtons = mCurrMouseButtons;
     mPrevMouseX = mMouseX;
     mPrevMouseY = mMouseY;

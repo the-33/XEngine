@@ -55,7 +55,7 @@ private:
 	InputManager& operator=(InputManager&&) = delete;
 
 	const uint8_t* mCurrKeys = nullptr;
-	const uint8_t* mPrevKeys = nullptr;
+	uint8_t* mPrevKeys = nullptr;
 
 	uint32_t mCurrMouseButtons = 0, mPrevMouseButtons = 0;
 	int mMouseX = 0, mMouseY = 0, mPrevMouseX = 0, mPrevMouseY = 0;
