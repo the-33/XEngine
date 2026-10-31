@@ -61,6 +61,45 @@ if (UI->Button("pause_button", action, "Pause")) {
 }
 ```
 
+### Navigation, focus and text fields
+
+Every interactive widget participates in automatic focus navigation by
+default: arrows or a controller D-pad/stick move to a nearby control,
+Tab/Shift+Tab cycle in draw order, and Enter / the controller South button
+activates the focused widget. The focused widget shows a blue outline.
+The keyboard/controller player is selected with `UI->SetNavigationPlayer(0)`;
+call `UI->SetNavigationEnabled(false)` when a particular screen must not
+consume UI navigation. Labels, panels and progress bars never take focus.
+You can change the focus outline with `UI->SetFocusColor(...)` and the
+held-direction repeat timing with `UI->SetNavigationRepeat(initialMs, repeatMs)`.
+
+The new `TextInput` edits a **game-owned** UTF-8 string, so its contents can
+be saved with your gameplay data (for example, the name in a save slot):
+
+```cpp
+// Persistent game/scene state, not a local rebuilt on every Render() call:
+std::string playerName = "Player";
+
+// In the scene UI render callback, once per frame:
+UI->Label("Player name", Rect{32.f, 30.f, 240.f, 36.f},
+          AlignH::Left, AlignV::Middle);
+if (UI->TextInput("player_name", Rect{32.f, 70.f, 260.f, 40.f},
+                  &playerName, "Enter a name", 32)) {
+    // playerName changed this frame; use it directly for the next save.
+}
+if (UI->Button("save", Rect{32.f, 126.f, 160.f, 40.f}, "Save")) {
+    // Persist the current playerName and your other save data.
+}
+```
+
+Clicking a field or pressing Submit while it has focus enters text editing.
+Enter confirms, Escape stops editing while preserving text, and Tab exits to
+the next control. Backspace, Delete, Left/Right, Home/End and Ctrl+V work;
+text entry uses SDL's UTF-8 text input events, not scancode-to-character
+conversion. `TextInput` returns true when its supplied string changes, and
+accepts either `Rect` or responsive `UIRectTransform`. Each widget ID must
+remain unique and be registered every frame in which it should be navigable.
+
 SDL window and render calls should stay on the main engine thread. Game code
 controls its own interface's layout. For responsive anchored controls, use
 `UIRectTransform`: the UI manager resolves anchors automatically against the

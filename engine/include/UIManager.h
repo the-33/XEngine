@@ -10,6 +10,7 @@
 #include "BaseTypes.h"
 #include "Assets.h"
 #include "UIRectTransform.h"
+#include "InputActions.h"
 #include "Engine.h"
 
 /** @brief Available align h modes for UIManager.h.
@@ -110,6 +111,33 @@ private:
         bool pressed = false;  // click (release on hovered while active)
     };
 
+    struct Focusable {
+        std::string id; ///< Stable identifier of the interactive widget.
+        Rect bounds{};  ///< Drawable-pixel rectangle used for directional navigation.
+    };
+
+    std::vector<Focusable> mFocusableCurrent;
+    std::vector<Focusable> mFocusablePrevious;
+    std::string mFocusedId;
+    std::string mEditingId;
+    PlayerId mNavigationPlayer = 0;
+    bool mNavigationEnabled = true;
+    Color mFocusColor{105, 205, 255, 255};
+    bool mSubmitPressed = false;
+    bool mCancelPressed = false;
+    bool mTextInputStarted = false;
+    bool mMouseHitSelectable = false;
+    int mLastNavigationDirection = 0;
+    uint32_t mNextNavigationTick = 0;
+    uint32_t mNavigationInitialDelayMs = 300;
+    uint32_t mNavigationRepeatDelayMs = 110;
+    size_t mTextCursorByte = 0;
+
+    void RegisterFocusable_(const char* id, const Rect& r) noexcept;
+    void MoveFocus_(int direction, bool spatial) noexcept;
+    void StartEditing_(const char* id) noexcept;
+    void StopEditing_() noexcept;
+
     std::vector<DrawCmd> mCmds;
 
     Color mTextDefaultColor = { 240,240,240,255 };
@@ -141,6 +169,53 @@ private:
     void End() noexcept;
 
 public:
+    // --------------------------
+    // Keyboard/controller navigation and editable fields
+    // --------------------------
+    /** @brief Enable or disable automatic UI focus navigation (enabled by default).
+     * Mouse interaction remains available when navigation is disabled.
+     */
+    void SetNavigationEnabled(bool enabled) noexcept { mNavigationEnabled = enabled; }
+    /** @brief Whether automatic keyboard/controller UI navigation is enabled. */
+    bool NavigationEnabled() const noexcept { return mNavigationEnabled; }
+    /** @brief Select which logical player owns UI navigation and submit actions. */
+    void SetNavigationPlayer(PlayerId player) noexcept { mNavigationPlayer = player; }
+    /** @brief Read the player currently controlling UI navigation. */
+    PlayerId NavigationPlayer() const noexcept { return mNavigationPlayer; }
+    /** @brief Set the outline color for focused UI controls. */
+    void SetFocusColor(Color color) noexcept { mFocusColor = color; }
+    /** @brief Read the current UI focus outline color. */
+    Color FocusColor() const noexcept { return mFocusColor; }
+    /** @brief Configure delays in milliseconds before and during held-direction repeats. */
+    void SetNavigationRepeat(uint32_t initialMs, uint32_t repeatMs) noexcept;
+    /** @brief Focus a widget by stable ID; it must be drawn on the current UI frame. */
+    bool Focus(const char* id) noexcept;
+    /** @brief Clear widget focus and end text editing if active. */
+    void ClearFocus() noexcept;
+    /** @brief Stable ID of the focused widget, or an empty string. */
+    const std::string& FocusedId() const noexcept { return mFocusedId; }
+    /** @brief Whether the widget identified by ID has UI focus. */
+    bool IsFocused(const char* id) const noexcept;
+    /** @brief Whether a UI text field currently consumes text input. */
+    bool IsEditingText() const noexcept { return !mEditingId.empty(); }
+
+    /** @brief Editable single-line UTF-8 field, using caller-owned text.
+     * Mouse click or UI/Submit begins editing; Enter confirms and Escape cancels
+     * editing without discarding existing text. Backspace, Delete, arrows,
+     * Home/End and Ctrl+V are supported. Returns true if the text changes.
+     * @param id Unique stable widget identifier.
+     * @param r Field rectangle in drawable screen pixels.
+     * @param value Non-null string owned by the game.
+     * @param placeholder Display text shown while the field is empty.
+     * @param maxCharacters Maximum UTF-8 code points accepted.
+     */
+    bool TextInput(const char* id, const Rect& r, std::string* value,
+                   const std::string& placeholder = "", size_t maxCharacters = 64) noexcept;
+    /** @brief Responsive anchored version of TextInput. */
+    bool TextInput(const char* id, const UIRectTransform& layout,
+                   std::string* value, const std::string& placeholder = "",
+                   size_t maxCharacters = 64, const Rect* parent = nullptr) noexcept;
+
     // --------------------------
     // Responsive canvas and anchored UI
     // --------------------------

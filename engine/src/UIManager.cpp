@@ -5,12 +5,14 @@
 #include <optional>
 #include <algorithm>   // std::clamp
 #include <cmath>
+#include <string_view>
 
 #include "RenderManager.h"
 #include "InputManager.h"
 #include "WindowManager.h"
 #include "AssetManager.h"
 #include "ErrorHandler.h"
+#include "SDL.h"
 #include "SDL_ttf.h"
 
 // State global IMGUI (tu estilo actual)
@@ -29,6 +31,54 @@ struct ScopedCanvasTextScale {
         : current(slot), previous(slot) { current = scale; }
     ~ScopedCanvasTextScale() { current = previous; }
 };
+
+size_t NextUtf8_(std::string_view text, size_t pos) noexcept {
+    if (pos >= text.size()) return text.size();
+    ++pos;
+    while (pos < text.size() &&
+           (static_cast<unsigned char>(text[pos]) & 0xc0u) == 0x80u) ++pos;
+    return pos;
+}
+
+size_t PrevUtf8_(std::string_view text, size_t pos) noexcept {
+    pos = std::min(pos, text.size());
+    if (pos == 0) return 0;
+    --pos;
+    while (pos > 0 && (static_cast<unsigned char>(text[pos]) & 0xc0u) == 0x80u) --pos;
+    return pos;
+}
+
+size_t Utf8Count_(std::string_view text) noexcept {
+    size_t count = 0;
+    for (size_t at = 0; at < text.size(); at = NextUtf8_(text, at)) ++count;
+    return count;
+}
+
+bool InsertUtf8_(std::string& text, size_t& cursor, std::string_view input,
+                 size_t maxCharacters) {
+    bool changed = false;
+    size_t total = Utf8Count_(text);
+    for (size_t at = 0; at < input.size() && total < maxCharacters;) {
+        const size_t next = NextUtf8_(input, at);
+        const unsigned char first = static_cast<unsigned char>(input[at]);
+        if (first >= 0x20u && first != 0x7fu) {
+            text.insert(cursor, input.substr(at, next - at));
+            cursor += next - at;
+            ++total;
+            changed = true;
+        }
+        at = next;
+    }
+    return changed;
+}
+
+int TextWidth_(TTF_Font* font, std::string_view value) noexcept {
+    if (!font || value.empty()) return 0;
+    int width = 0;
+    // TTF_SizeUTF8 needs a NUL-terminated string; the temporary owns it.
+    const std::string measured(value);
+    return TTF_SizeUTF8(font, measured.c_str(), &width, nullptr) == 0 ? width : 0;
+}
 }
 
 bool UIManager::Init(const UIStyle& defaultStyle) noexcept
@@ -52,12 +102,27 @@ bool UIManager::Init(const UIStyle& defaultStyle) noexcept
     gMouseDown = gMousePressed = gMouseReleased = false;
     gMousePos = { 0,0 };
     mCmds.clear();
+    mFocusableCurrent.clear();
+    mFocusablePrevious.clear();
+    mFocusedId.clear();
+    StopEditing_();
+    mNavigationEnabled = true;
+    mFocusColor = {105, 205, 255, 255};
+    mNavigationPlayer = 0;
+    mLastNavigationDirection = 0;
+    mNextNavigationTick = 0;
+    mNavigationInitialDelayMs = 300;
+    mNavigationRepeatDelayMs = 110;
 
     return true;
 }
 
 void UIManager::Shutdown() noexcept
 {
+    StopEditing_();
+    mFocusableCurrent.clear();
+    mFocusablePrevious.clear();
+    mFocusedId.clear();
     mCmds.clear();
     mDefaultFont = nullptr;
 
@@ -71,6 +136,11 @@ void UIManager::Begin() noexcept
 {
     gHotID.clear();
     mTextScale = 1.f;
+    mFocusablePrevious.swap(mFocusableCurrent);
+    mFocusableCurrent.clear();
+    mMouseHitSelectable = false;
+    mSubmitPressed = false;
+    mCancelPressed = false;
 
     if (auto* input = InputManager::GetInstancePtr()) {
         gMousePos = input->GetMousePos();
@@ -88,10 +158,71 @@ void UIManager::Begin() noexcept
         gMouseDown = input->MouseDown(MouseButton::Left);
         gMousePressed = input->MousePressed(MouseButton::Left);
         gMouseReleased = input->MouseReleased(MouseButton::Left);
+
+        if (!mFocusedId.empty()) {
+            const bool stillPresent = std::any_of(mFocusablePrevious.begin(),
+                mFocusablePrevious.end(), [this](const Focusable& f) {
+                    return f.id == mFocusedId;
+                });
+            if (!stillPresent) ClearFocus();
+        }
+        if (mFocusedId.empty() && !mFocusablePrevious.empty())
+            mFocusedId = mFocusablePrevious.front().id;
+
+        if (mNavigationEnabled) {
+            const bool uiActions = input->IsActionMapEnabled("UI", mNavigationPlayer);
+            const InputAction* submit = uiActions ? input->FindAction("UI/Submit") : nullptr;
+            const InputAction* cancel = uiActions ? input->FindAction("UI/Cancel") : nullptr;
+            mSubmitPressed = (submit && submit->WasPressedThisFrame(mNavigationPlayer)) ||
+                (mNavigationPlayer == 0 && input->KeyPressed(Key::KEY_RETURN));
+            mCancelPressed = (cancel && cancel->WasPressedThisFrame(mNavigationPlayer)) ||
+                (mNavigationPlayer == 0 && input->KeyPressed(Key::ESCAPE));
+
+            const bool tab = mNavigationPlayer == 0 && input->KeyPressed(Key::TAB);
+            if (tab) {
+                StopEditing_();
+                const int step = (SDL_GetModState() & KMOD_SHIFT) ? -1 : 1;
+                MoveFocus_(step, false);
+                mSubmitPressed = false;
+            } else if (!mEditingId.empty()) {
+                if (mSubmitPressed || mCancelPressed) {
+                    StopEditing_();
+                    mSubmitPressed = false;
+                }
+            } else {
+                Vec2 direction{};
+                if (uiActions) {
+                    if (const InputAction* navigate = input->FindAction("UI/Navigate"))
+                        direction = navigate->ReadVec2(mNavigationPlayer);
+                }
+                if (mNavigationPlayer == 0 &&
+                    std::abs(direction.x) < 0.5f && std::abs(direction.y) < 0.5f) {
+                    direction.x = float(input->KeyDown(Key::RIGHT)) -
+                                  float(input->KeyDown(Key::LEFT));
+                    direction.y = float(input->KeyDown(Key::DOWN)) -
+                                  float(input->KeyDown(Key::UP));
+                }
+                int step = 0;
+                if (std::abs(direction.x) >= 0.5f || std::abs(direction.y) >= 0.5f) {
+                    step = std::abs(direction.x) > std::abs(direction.y)
+                        ? (direction.x > 0.f ? 1 : -1)
+                        : (direction.y > 0.f ? 2 : -2);
+                }
+                const uint32_t now = SDL_GetTicks();
+                if (step != 0 && (step != mLastNavigationDirection ||
+                    SDL_TICKS_PASSED(now, mNextNavigationTick))) {
+                    MoveFocus_(step, true);
+                    mNextNavigationTick = now + (step == mLastNavigationDirection ?
+                        mNavigationRepeatDelayMs : mNavigationInitialDelayMs);
+                }
+                mLastNavigationDirection = step;
+            }
+        }
     }
     else {
         gMousePos = { 0,0 };
         gMouseDown = gMousePressed = gMouseReleased = false;
+        ClearFocus();
     }
 
     mCmds.clear();
@@ -209,6 +340,14 @@ bool UIManager::Checkbox(const char* id, const UIRectTransform& layout,
     return Checkbox(id, Resolve(layout, parent), value, label);
 }
 
+bool UIManager::TextInput(const char* id, const UIRectTransform& layout,
+                          std::string* value, const std::string& placeholder,
+                          size_t maxCharacters, const Rect* parent) noexcept
+{
+    const ScopedCanvasTextScale scale(mTextScale, CanvasScale());
+    return TextInput(id, Resolve(layout, parent), value, placeholder, maxCharacters);
+}
+
 void UIManager::ProgressBar(float value01, const UIRectTransform& layout,
                             Color back, Color fill, Color outline,
                             const Rect* parent) noexcept
@@ -225,16 +364,112 @@ bool UIManager::PointInRect_(const Vec2I& p, const Rect& r) noexcept
         p.y >= r.y && p.y <= r.y + r.h);
 }
 
+bool UIManager::Focus(const char* id) noexcept
+{
+    if (!id || !*id) return false;
+    if (mFocusedId != id) StopEditing_();
+    mFocusedId = id;
+    return true;
+}
+
+void UIManager::SetNavigationRepeat(uint32_t initialMs, uint32_t repeatMs) noexcept
+{
+    mNavigationInitialDelayMs = std::max(1u, initialMs);
+    mNavigationRepeatDelayMs = std::max(1u, repeatMs);
+}
+
+void UIManager::ClearFocus() noexcept
+{
+    StopEditing_();
+    mFocusedId.clear();
+}
+
+bool UIManager::IsFocused(const char* id) const noexcept
+{
+    return id && !mFocusedId.empty() && mFocusedId == id;
+}
+
+void UIManager::RegisterFocusable_(const char* id, const Rect& r) noexcept
+{
+    if (!id || !*id) return;
+    const auto existing = std::find_if(mFocusableCurrent.begin(), mFocusableCurrent.end(),
+        [id](const Focusable& item) { return item.id == id; });
+    if (existing == mFocusableCurrent.end()) mFocusableCurrent.push_back({id, r});
+    if (mFocusedId.empty()) mFocusedId = id;
+}
+
+void UIManager::MoveFocus_(int direction, bool spatial) noexcept
+{
+    if (mFocusablePrevious.empty() || direction == 0) return;
+    auto current = std::find_if(mFocusablePrevious.begin(), mFocusablePrevious.end(),
+        [this](const Focusable& item) { return item.id == mFocusedId; });
+    if (current == mFocusablePrevious.end()) {
+        Focus(mFocusablePrevious.front().id.c_str());
+        return;
+    }
+
+    if (!spatial) {
+        const auto count = static_cast<int>(mFocusablePrevious.size());
+        const auto index = static_cast<int>(std::distance(mFocusablePrevious.begin(), current));
+        Focus(mFocusablePrevious[(index + (direction > 0 ? 1 : -1) + count) % count].id.c_str());
+        return;
+    }
+
+    const float cx = current->bounds.x + current->bounds.w * 0.5f;
+    const float cy = current->bounds.y + current->bounds.h * 0.5f;
+    float bestScore = 1e30f;
+    const Focusable* best = nullptr;
+    for (const Focusable& candidate : mFocusablePrevious) {
+        if (candidate.id == current->id) continue;
+        const float dx = candidate.bounds.x + candidate.bounds.w * 0.5f - cx;
+        const float dy = candidate.bounds.y + candidate.bounds.h * 0.5f - cy;
+        const float forward = direction == 1 ? dx : direction == -1 ? -dx :
+                              direction == 2 ? dy : -dy;
+        if (forward <= 0.5f) continue;
+        const float side = std::abs(direction == 1 || direction == -1 ? dy : dx);
+        const float score = forward + side * 2.5f;
+        if (score < bestScore) {
+            bestScore = score;
+            best = &candidate;
+        }
+    }
+    if (best) Focus(best->id.c_str());
+}
+
+void UIManager::StartEditing_(const char* id) noexcept
+{
+    if (!id || !*id) return;
+    Focus(id);
+    if (!SDL_IsTextInputActive()) {
+        SDL_StartTextInput();
+        mTextInputStarted = true;
+    }
+    mEditingId = id;
+}
+
+void UIManager::StopEditing_() noexcept
+{
+    if (mTextInputStarted) SDL_StopTextInput();
+    mTextInputStarted = false;
+    mEditingId.clear();
+    mTextCursorByte = 0;
+}
+
 UIManager::ButtonState UIManager::ButtonBehavior_(const char* id, const Rect& r) noexcept
 {
     ButtonState st{};
     if (!id) return st;
 
+    RegisterFocusable_(id, r);
+
     st.hovered = PointInRect_(gMousePos, r);
     if (st.hovered) gHotID = id;
 
-    if (st.hovered && gMousePressed)
+    if (st.hovered && gMousePressed) {
+        mMouseHitSelectable = true;
+        Focus(id);
         gActiveID = id;
+    }
 
     const bool active = gActiveID && *gActiveID == id;
     st.held = (active && gMouseDown);
@@ -249,6 +484,9 @@ UIManager::ButtonState UIManager::ButtonBehavior_(const char* id, const Rect& r)
     if (gMouseReleased && active && !st.hovered) {
         gActiveID.reset();
     }
+
+    if (mNavigationEnabled && mSubmitPressed && mEditingId.empty() && IsFocused(id))
+        st.pressed = true;
 
     return st;
 }
@@ -339,7 +577,8 @@ bool UIManager::ButtonImpl_(const char* id, const Rect& r, Font* font, const UIB
     if (st.held)        fill = colors.active;
     else if (st.hovered) fill = colors.hover;
 
-    PushPanel_(r, fill, colors.outline, /*filled*/true);
+    PushPanel_(r, fill, IsFocused(id) ? mFocusColor : colors.outline,
+               /*filled*/true);
 
     // Texto centrado
     Font* use = font ? font : mDefaultFont;
@@ -477,9 +716,11 @@ bool UIManager::ImageButton(const char* id, const Rect& r, const Texture& tex, c
     if (st.held)        tint = tints.active;
     else if (st.hovered) tint = tints.hover;
 
-    if (drawFrame) {
+    if (drawFrame || IsFocused(id)) {
         // Frame (an optional subtle panel can be drawn behind it)
-        PushPanel_(r, Color{ 0,0,0,0 }, tints.outline, /*filled*/false);
+        PushPanel_(r, Color{ 0,0,0,0 },
+                   IsFocused(id) ? mFocusColor : tints.outline,
+                   /*filled*/false);
     }
 
     PushImage_(tex, r, srcPixels, tint, /*flipX*/false, /*flipY*/false);
@@ -531,7 +772,7 @@ bool UIManager::Button(const char* id, const Rect& r,
     if (state.held) fill = colors.active;
     else if (state.hovered) fill = colors.hover;
 
-    PushPanel_(r, fill, colors.outline);
+    PushPanel_(r, fill, IsFocused(id) ? mFocusColor : colors.outline);
 
     // Aligned text
     Font* use = const_cast<Font*>(&font);
@@ -570,7 +811,9 @@ bool UIManager::Checkbox(const char* id, const Rect& r, bool* value, const std::
     if (toggled) *value = !*value;
 
     // Dibujo caja
-    Panel(box, Color{ 20,20,20,255 }, mBtnOutlineDefaultColor, /*filled*/true);
+    Panel(box, Color{ 20,20,20,255 },
+          IsFocused(id) ? mFocusColor : mBtnOutlineDefaultColor,
+          /*filled*/true);
 
     if (*value) {
         const float pad = std::max(2.f, mBtnDefaultPadding * 0.35f);
@@ -587,6 +830,112 @@ bool UIManager::Checkbox(const char* id, const Rect& r, bool* value, const std::
     }
 
     return toggled;
+}
+
+bool UIManager::TextInput(const char* id, const Rect& r, std::string* value,
+                          const std::string& placeholder, size_t maxCharacters) noexcept
+{
+    if (!id || !*id || !value || !RenderManager::GetInstancePtr()) return false;
+    const ButtonState state = ButtonBehavior_(id, r);
+    const bool hitByMouse = state.hovered && gMousePressed;
+    if (hitByMouse || (mNavigationEnabled && mSubmitPressed && IsFocused(id) &&
+                       mEditingId.empty())) {
+        StartEditing_(id);
+        mTextCursorByte = value->size();
+    }
+
+    bool changed = false;
+    const bool editing = mEditingId == id;
+    if (editing) {
+        auto* input = InputManager::GetInstancePtr();
+        mTextCursorByte = std::min(mTextCursorByte, value->size());
+        // The caller may replace the value between frames; restore a UTF-8 boundary.
+        while (mTextCursorByte > 0 && mTextCursorByte < value->size() &&
+               (static_cast<unsigned char>((*value)[mTextCursorByte]) & 0xc0u) == 0x80u)
+            --mTextCursorByte;
+
+        if (input) {
+            const SDL_Keymod modifiers = SDL_GetModState();
+            const bool ctrl = (modifiers & KMOD_CTRL) != 0;
+
+            if (input->KeyPressed(Key::HOME)) mTextCursorByte = 0;
+            if (input->KeyPressed(Key::END)) mTextCursorByte = value->size();
+            if (input->KeyPressed(Key::LEFT))
+                mTextCursorByte = PrevUtf8_(*value, mTextCursorByte);
+            if (input->KeyPressed(Key::RIGHT))
+                mTextCursorByte = NextUtf8_(*value, mTextCursorByte);
+
+            if (input->KeyPressed(Key::BACKSPACE) && mTextCursorByte > 0) {
+                const size_t from = PrevUtf8_(*value, mTextCursorByte);
+                value->erase(from, mTextCursorByte - from);
+                mTextCursorByte = from;
+                changed = true;
+            }
+            if (input->KeyPressed(Key::DEL) && mTextCursorByte < value->size()) {
+                const size_t to = NextUtf8_(*value, mTextCursorByte);
+                value->erase(mTextCursorByte, to - mTextCursorByte);
+                changed = true;
+            }
+
+            if (ctrl && input->KeyPressed(Key::V)) {
+                char* clipboard = SDL_GetClipboardText();
+                if (clipboard) {
+                    changed |= InsertUtf8_(*value, mTextCursorByte, clipboard, maxCharacters);
+                    SDL_free(clipboard);
+                }
+            }
+            // Do not treat Ctrl+V as a literal 'v'; AltGr must still type normally.
+            if (!ctrl || (modifiers & KMOD_ALT))
+                changed |= InsertUtf8_(*value, mTextCursorByte,
+                                       input->GetTextInput(), maxCharacters);
+        }
+    }
+
+    const float drawScale = std::max(0.001f, mTextScale);
+    const float pad = std::max(3.f, mBtnDefaultPadding * drawScale);
+    const Color outline = IsFocused(id) ? mFocusColor : mBtnOutlineDefaultColor;
+    PushPanel_(r, mBtnDefaultColor, outline, true);
+
+    const bool empty = value->empty();
+    const bool showPlaceholder = empty && !editing;
+    const std::string& full = showPlaceholder ? placeholder : *value;
+    size_t from = 0;
+    size_t to = full.size();
+    TTF_Font* ttf = mDefaultFont ? mDefaultFont->GetSDL() : nullptr;
+    const float available = std::max(0.f, r.w - pad * 2.f);
+    if (ttf && !showPlaceholder && !empty &&
+        TextWidth_(ttf, full) * drawScale > available) {
+        // Keep the caret in view without changing the caller's actual text.
+        from = editing ? std::min(mTextCursorByte, full.size()) : full.size();
+        to = from;
+        while (from > 0) {
+            const size_t previous = PrevUtf8_(full, from);
+            if (TextWidth_(ttf, std::string_view(full).substr(previous, to - previous)) *
+                drawScale > available) break;
+            from = previous;
+        }
+        while (to < full.size()) {
+            const size_t next = NextUtf8_(full, to);
+            if (TextWidth_(ttf, std::string_view(full).substr(from, next - from)) *
+                drawScale > available) break;
+            to = next;
+        }
+    }
+    if (mDefaultFont && !full.empty()) {
+        const Color textColor = showPlaceholder ? Color{160, 160, 160, 255} : mTextDefaultColor;
+        PushTextInRect_(r, mDefaultFont, full.substr(from, to - from), textColor,
+                        AlignH::Left, AlignV::Middle, pad / drawScale);
+    }
+    if (editing) {
+        const size_t caret = std::clamp(mTextCursorByte, from, to);
+        const float offset = ttf ? TextWidth_(ttf,
+            std::string_view(full).substr(from, caret - from)) * drawScale : 0.f;
+        const float x = std::clamp(r.x + pad + offset, r.x + pad,
+                                   std::max(r.x + pad, r.x + r.w - pad - 2.f));
+        const float h = std::max(2.f, r.h - pad * 2.f);
+        Panel(Rect{x, r.y + pad, 2.f, h}, Color{235, 235, 235, 255});
+    }
+    return changed;
 }
 
 void UIManager::ProgressBar(float value01, const Rect& r, Color back, Color fill, Color outline) noexcept
@@ -609,6 +958,8 @@ void UIManager::End() noexcept
 {
     RenderManager* render = RenderManager::GetInstancePtr();
     if (!render) { mCmds.clear(); return; }
+
+    if (gMousePressed && !mMouseHitSelectable) ClearFocus();
 
     for (const auto& c : mCmds) {
         switch (c.type) {

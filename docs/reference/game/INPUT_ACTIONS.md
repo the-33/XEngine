@@ -89,10 +89,29 @@ without blocking those below. You can also push a C++ `InputContext`.
 Explicitly disabled maps always remain disabled. Disabling a map releases
 its held actions.
 
-The example `UI/Navigate`, `UI/Submit` and `UI/Cancel` actions are available
-to menu code. The immediate-mode `UIManager` does not yet provide automatic
-controller focus traversal; wire these actions to your own menu focus logic
-until a dedicated UI navigation layer is implemented.
+The default `UI/Navigate`, `UI/Submit` and `UI/Cancel` actions are consumed by
+`UIManager` automatically for player 0 when its action map is loaded and
+enabled. Navigation chooses the nearest selectable widget in the indicated
+screen-space direction; holding a direction repeats at a controlled rate.
+`UI/Submit` activates a focused button/checkbox or begins editing a text field.
+`UI/Cancel` exits editing without clearing the field. In the absence of an
+action asset, arrow keys, Enter and Escape also work; Tab/Shift+Tab traverse
+the registration order. Mouse clicks select widgets as before.
+
+The BlankGame input asset intentionally enables only `Gameplay` and `Global`
+while the `Playing` context is active. When opening a menu, push the `Menu`
+context (`Input->PushActionContext(0, "Menu")`) to enable the UI action map;
+pop that context when closing the menu. Use `Overlay` for nonexclusive UI.
+Controller navigation needs the UI map enabled, while the basic keyboard
+fallback works even without an action asset.
+
+Widgets with a stable, unique ID register themselves each UI frame; only
+interactive controls (buttons, image/invisible buttons, checkboxes and
+text fields) receive focus. `UIManager::SetNavigationEnabled(false)` disables
+keyboard/controller traversal without disabling the mouse, and
+`UIManager::SetNavigationPlayer(id)` chooses which player operates the UI.
+For multiplayer menus, keep one navigation owner at a time; each menu can
+choose a different owner as needed.
 
 ## Separate players, controllers and characters
 

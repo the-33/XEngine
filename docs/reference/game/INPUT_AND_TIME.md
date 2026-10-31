@@ -39,6 +39,12 @@ typed UTF-8 input; call `GetTextInput()` to inspect the accumulated string
 and `ClearTextInput()` after consuming it. Do not treat raw key codes as
 text characters.
 
+For game menus, prefer `UIManager::TextInput`: it automatically controls the
+SDL text input session while editing a caller-owned `std::string`, supports
+UTF-8 backspace/delete and keyboard/controller focus traversal, and avoids
+manually consuming the frame text buffer in game code. Explicit
+`InputManager::SetTextInput` remains useful for custom text editors.
+
 ## Frame time and simulation time
 
 `Behaviour::Update(dt)` receives frame time, and `FixedUpdate(dt)` receives

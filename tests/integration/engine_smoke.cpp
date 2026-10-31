@@ -184,6 +184,7 @@ class FrameProbe final : public Behaviour {
     Vec2I mousePositionBeforeMotion{0, 0};
     std::string firstButtonId = "integration-button";
     std::string secondButtonId = "integration-button";
+    std::string editableName = "Tester";
 
     void ExerciseInputAndUI(Scene* owner) {
         auto* input = InputManager::GetInstancePtr();
@@ -277,6 +278,14 @@ class FrameProbe final : public Behaviour {
             expect(!input->MouseReleased(MouseButton::Left), "release edge is not repeated");
             expect(!ui->Button(firstButtonId.c_str(), buttonRect),
                    "completed button click is not repeated");
+            expect(ui->Focus("integration-name"), "UI accepts a requested stable focus ID");
+            expect(ui->IsFocused("integration-name"), "UI reports the focused widget");
+            expect(!ui->TextInput("integration-name", Rect{160.f, 20.f, 180.f, 48.f},
+                                  &editableName, "Player name", 24),
+                   "UI text field preserves existing game-owned text without input");
+            expect(editableName == "Tester", "UI text field does not overwrite caller data");
+            ui->ClearFocus();
+            expect(!ui->IsFocused("integration-name"), "UI can clear its focus");
         }
     }
 public:
