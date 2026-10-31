@@ -110,6 +110,7 @@ bool UIManager::Init(const UIStyle& defaultStyle) noexcept
     mFocusColor = {105, 205, 255, 255};
     mNavigationPlayer = 0;
     mLastNavigationDirection = 0;
+    mSliderNavigationStep = 0;
     mNextNavigationTick = 0;
     mNavigationInitialDelayMs = 300;
     mNavigationRepeatDelayMs = 110;
@@ -123,6 +124,7 @@ void UIManager::Shutdown() noexcept
     mFocusableCurrent.clear();
     mFocusablePrevious.clear();
     mFocusedId.clear();
+    mSliderNavigationStep = 0;
     mCmds.clear();
     mDefaultFont = nullptr;
 
@@ -141,6 +143,7 @@ void UIManager::Begin() noexcept
     mMouseHitSelectable = false;
     mSubmitPressed = false;
     mCancelPressed = false;
+    mSliderNavigationStep = 0;
 
     if (auto* input = InputManager::GetInstancePtr()) {
         gMousePos = input->GetMousePos();
@@ -211,7 +214,15 @@ void UIManager::Begin() noexcept
                 const uint32_t now = SDL_GetTicks();
                 if (step != 0 && (step != mLastNavigationDirection ||
                     SDL_TICKS_PASSED(now, mNextNavigationTick))) {
-                    MoveFocus_(step, true);
+                    const auto focused = std::find_if(mFocusablePrevious.begin(),
+                        mFocusablePrevious.end(), [this](const Focusable& widget) {
+                            return widget.id == mFocusedId;
+                        });
+                    if (std::abs(step) == 1 && focused != mFocusablePrevious.end() &&
+                        focused->horizontalAdjust)
+                        mSliderNavigationStep = step;
+                    else
+                        MoveFocus_(step, true);
                     mNextNavigationTick = now + (step == mLastNavigationDirection ?
                         mNavigationRepeatDelayMs : mNavigationInitialDelayMs);
                 }
@@ -340,6 +351,22 @@ bool UIManager::Checkbox(const char* id, const UIRectTransform& layout,
     return Checkbox(id, Resolve(layout, parent), value, label);
 }
 
+bool UIManager::Slider(const char* id, const UIRectTransform& layout,
+                       float* value, float minValue, float maxValue, float step,
+                       const Rect* parent) noexcept
+{
+    const ScopedCanvasTextScale scale(mTextScale, CanvasScale());
+    return Slider(id, Resolve(layout, parent), value, minValue, maxValue, step);
+}
+
+bool UIManager::Toggle(const char* id, const UIRectTransform& layout,
+                       bool* value, const std::string& label,
+                       const Rect* parent) noexcept
+{
+    const ScopedCanvasTextScale scale(mTextScale, CanvasScale());
+    return Toggle(id, Resolve(layout, parent), value, label);
+}
+
 bool UIManager::TextInput(const char* id, const UIRectTransform& layout,
                           std::string* value, const std::string& placeholder,
                           size_t maxCharacters, const Rect* parent) noexcept
@@ -389,12 +416,13 @@ bool UIManager::IsFocused(const char* id) const noexcept
     return id && !mFocusedId.empty() && mFocusedId == id;
 }
 
-void UIManager::RegisterFocusable_(const char* id, const Rect& r) noexcept
+void UIManager::RegisterFocusable_(const char* id, const Rect& r, bool horizontalAdjust) noexcept
 {
     if (!id || !*id) return;
     const auto existing = std::find_if(mFocusableCurrent.begin(), mFocusableCurrent.end(),
         [id](const Focusable& item) { return item.id == id; });
-    if (existing == mFocusableCurrent.end()) mFocusableCurrent.push_back({id, r});
+    if (existing == mFocusableCurrent.end()) mFocusableCurrent.push_back({id, r, horizontalAdjust});
+    else existing->horizontalAdjust = existing->horizontalAdjust || horizontalAdjust;
     if (mFocusedId.empty()) mFocusedId = id;
 }
 
@@ -830,6 +858,87 @@ bool UIManager::Checkbox(const char* id, const Rect& r, bool* value, const std::
     }
 
     return toggled;
+}
+
+bool UIManager::Slider(const char* id, const Rect& r, float* value,
+                       float minValue, float maxValue, float step) noexcept
+{
+    if (!id || !*id || !value || r.w <= 14.f || r.h <= 8.f ||
+        !std::isfinite(minValue) || !std::isfinite(maxValue) ||
+        !std::isfinite(step) || maxValue <= minValue || step <= 0.f)
+        return false;
+
+    // The navigation list is rebuilt every frame. Register the slider as an
+    // adjustable control before the shared button behavior registers its ID.
+    RegisterFocusable_(id, r, true);
+    const bool wasDragging = gActiveID && *gActiveID == id;
+    const ButtonState state = ButtonBehavior_(id, r);
+
+    const float oldValue = *value;
+    float next = std::isfinite(oldValue) ? std::clamp(oldValue, minValue, maxValue)
+                                         : minValue;
+    const float radius = std::min(9.f, r.h * 0.24f);
+    const float left = r.x + radius + 3.f;
+    const float trackWidth = std::max(1.f, r.w - 2.f * (radius + 3.f));
+
+    if (state.held || (wasDragging && gMouseReleased)) {
+        const float fraction = std::clamp((static_cast<float>(gMousePos.x) - left) /
+                                          trackWidth, 0.f, 1.f);
+        next = minValue + (maxValue - minValue) * fraction;
+        if (fraction >= 1.f) next = maxValue;
+        else if (fraction <= 0.f) next = minValue;
+        else next = std::clamp(minValue + std::round((next - minValue) / step) * step,
+                               minValue, maxValue);
+    } else if (mNavigationEnabled && IsFocused(id)) {
+        const int direction = mSliderNavigationStep != 0 ? mSliderNavigationStep :
+                              (mSubmitPressed && mEditingId.empty() ? 1 : 0);
+        if (direction != 0)
+            next = std::clamp(next + static_cast<float>(direction) * step,
+                              minValue, maxValue);
+    }
+    *value = next;
+
+    const float fraction = std::clamp((next - minValue) / (maxValue - minValue), 0.f, 1.f);
+    PushPanel_(r, state.held ? mBtnActiveDefaultColor :
+                  (state.hovered ? mBtnHotDefaultColor : mBtnDefaultColor),
+               IsFocused(id) ? mFocusColor : mBtnOutlineDefaultColor);
+    const Rect track{left, r.y + r.h * 0.5f - 4.f, trackWidth, 8.f};
+    PushPanel_(track, {38, 48, 60, 255}, {91, 116, 139, 255});
+    if (fraction > 0.f)
+        PushPanel_({track.x, track.y, track.w * fraction, track.h},
+                   {86, 179, 216, 255}, {86, 179, 216, 255});
+    PushPanel_({left + trackWidth * fraction - radius, r.y + r.h * 0.5f - radius,
+                radius * 2.f, radius * 2.f},
+               {232, 241, 249, 255}, {61, 92, 113, 255});
+    return !std::isfinite(oldValue) || std::fabs(next - oldValue) > 0.000001f;
+}
+
+bool UIManager::Toggle(const char* id, const Rect& r, bool* value,
+                       const std::string& label) noexcept
+{
+    if (!id || !*id || !value || r.w <= 20.f || r.h <= 12.f) return false;
+    const ButtonState state = ButtonBehavior_(id, r);
+    if (state.pressed) *value = !*value;
+
+    PushPanel_(r, state.held ? mBtnActiveDefaultColor :
+                  (state.hovered ? mBtnHotDefaultColor : mBtnDefaultColor),
+               IsFocused(id) ? mFocusColor : mBtnOutlineDefaultColor);
+    const float margin = std::min(7.f, r.h * 0.16f);
+    const float switchWidth = std::min(r.w - margin * 2.f, r.h * 1.5f);
+    const Rect track{r.x + margin, r.y + margin, switchWidth, r.h - margin * 2.f};
+    PushPanel_(track, *value ? Color{55, 169, 136, 255} : Color{79, 91, 107, 255},
+               mBtnOutlineDefaultColor);
+    const float inset = std::min(3.f, track.h * 0.12f);
+    const float knobWidth = std::max(4.f, track.w * 0.42f);
+    PushPanel_({*value ? track.x + track.w - knobWidth - inset : track.x + inset,
+                track.y + inset, knobWidth, track.h - 2.f * inset},
+               {244, 248, 250, 255}, {244, 248, 250, 255});
+    const Rect textArea{track.x + track.w + margin, r.y,
+                        std::max(0.f, r.w - switchWidth - 3.f * margin), r.h};
+    if (textArea.w > 6.f)
+        Label(label.empty() ? (*value ? "ON" : "OFF") : label, textArea,
+              AlignH::Left, AlignV::Middle, 0.f);
+    return state.pressed;
 }
 
 bool UIManager::TextInput(const char* id, const Rect& r, std::string* value,

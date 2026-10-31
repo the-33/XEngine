@@ -48,7 +48,7 @@ current `Window->drawableSize` rather than hardcoding coordinates for 1280x720.
 
 ## Immediate-mode controls
 
-`UIManager` renders text, panels, buttons and image controls. Draw them from
+`UIManager` renders text, panels, buttons, sliders, switches and image controls. Draw them from
 your `Behaviour::Render()` or equivalent gameplay rendering hook. Button IDs
 must be stable and unique for each interactive control, and the rectangle
 must be computed in screen coordinates.
@@ -61,10 +61,50 @@ if (UI->Button("pause_button", action, "Pause")) {
 }
 ```
 
+### Native Slider and Toggle
+
+Both controls are part of `UIManager` itself; no game-specific UI helper
+headers are necessary. They operate on caller-owned values, return `true`
+**only when those values change**, and have both screen-pixel `Rect` and
+responsive `UIRectTransform` overloads:
+
+```cpp
+// Members of your options panel (keep them between frames):
+float volume = 0.8f;
+bool fullscreen = false;
+
+// In Behaviour::Render(), every frame while the panel is visible:
+if (UI->Slider("options.volume", Rect{100.f, 100.f, 280.f, 40.f},
+               &volume, 0.f, 1.f, 0.05f)) {
+    Sound->SetMasterVolume(volume); // preview
+}
+if (UI->Toggle("options.fullscreen", Rect{100.f, 160.f, 150.f, 44.f},
+               &fullscreen)) {
+    // Save/apply on your own Save button, if desired.
+}
+
+// Anchored version of the same native widgets:
+UI->Slider("audio.preview", UIRectTransform::Center({280.f, 40.f}),
+           &volume, 0.f, 1.f, 0.05f);
+UI->Toggle("display.fullscreen", UIRectTransform::BottomRight({150.f, 44.f}),
+           &fullscreen);
+```
+
+Give each control a unique ID, including when drawing both variants.
+The slider supports mouse press/drag, including dragging past either end to
+reach its minimum/maximum. Mouse positions are automatically adjusted for
+HiDPI displays. Mouse movement snaps to the given positive `step`. When
+focused, Left/Right (or `UI/Navigate` horizontal on a gamepad) changes the
+value by that step; Submit increases it, while Up/Down and Tab still move
+between controls. Toggle changes the bool on mouse click/release or Submit.
+Both show the configured focus outline. Values are not saved implicitly:
+the game decides whether to store options in `PlayerPrefs` or elsewhere.
+
 ### Navigation, focus and text fields
 
 Every interactive widget participates in automatic focus navigation by
-default: arrows or a controller D-pad/stick move to a nearby control,
+default: arrows or a controller D-pad/stick move to a nearby control
+(except Left/Right while a slider has focus, which adjusts that slider),
 Tab/Shift+Tab cycle in draw order, and Enter / the controller South button
 activates the focused widget. The focused widget shows a blue outline.
 The keyboard/controller player is selected with `UI->SetNavigationPlayer(0)`;
@@ -155,6 +195,6 @@ cached texture rather than creating a new TTF font size.
 For customized widgets or several children, call `UI->Resolve(layout, &parent)`
 and pass the resulting `Rect` to any existing drawing or hit-test API. The
 anchored overloads for buttons, labels, images, panels, image buttons,
-checkboxes and progress bars use the exact same resolved rectangles for
+checkboxes, sliders, toggles and progress bars use the exact same resolved rectangles for
 rendering and mouse hit testing. This remains an immediate-mode system, not a
 retained hierarchy or automatic flow/grid layout.

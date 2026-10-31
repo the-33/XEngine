@@ -12,6 +12,24 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 
 class ResponsiveUiTests(unittest.TestCase):
+    def test_native_anchored_controls_document_every_parameter_for_doxygen(self):
+        header = (ROOT / 'engine/include/UIManager.h').read_text(encoding='utf-8')
+        contracts = (
+            ('Slider', ('id', 'layout', 'value', 'minValue', 'maxValue', 'step', 'parent')),
+            ('Toggle', ('id', 'layout', 'value', 'label', 'parent')),
+        )
+        for name, parameters in contracts:
+            with self.subTest(widget=name):
+                signature = f'bool {name}(const char* id, const UIRectTransform& layout'
+                signature_at = header.index(signature)
+                comment_at = header.rfind('/**', 0, signature_at)
+                self.assertGreaterEqual(comment_at, 0)
+                doc = header[comment_at:signature_at]
+                self.assertIn('*/', doc)
+                for parameter in parameters:
+                    self.assertIn(f'@param {parameter} ', doc)
+                self.assertIn('@return ', doc)
+
     def test_cpp_anchor_geometry_for_resolutions_aspects_and_scaling(self):
         compiler = shutil.which('g++') or shutil.which('clang++')
         if not compiler:
@@ -106,6 +124,12 @@ int main() {
         self.assertIn('return Button(id, Resolve(layout, parent), text);', source)
         self.assertIn('return InvisibleButton(id, Resolve(layout, parent));', source)
         self.assertIn('return Checkbox(id, Resolve(layout, parent), value, label);', source)
+        self.assertIn('return Slider(id, Resolve(layout, parent), value, minValue, maxValue, step);', source)
+        self.assertIn('return Toggle(id, Resolve(layout, parent), value, label);', source)
+        self.assertIn('bool Slider(const char* id, const Rect& r, float* value,', header)
+        self.assertIn('bool Toggle(const char* id, const Rect& r, bool* value,', header)
+        self.assertIn('RegisterFocusable_(id, r, true);', source)
+        self.assertIn('focused->horizontalAdjust', source)
         self.assertIn('Image(tex, Resolve(layout, parent), srcPixels, tint, flipX, flipY);', source)
         self.assertIn('ProgressBar(value01, Resolve(layout, parent), back, fill, outline);', source)
         self.assertIn('ScopedCanvasTextScale scale(mTextScale, CanvasScale());', source)

@@ -311,6 +311,8 @@ class FrameProbe final : public Behaviour {
     std::string firstButtonId = "integration-button";
     std::string secondButtonId = "integration-button";
     std::string editableName = "Tester";
+    float sliderValue = 0.25f;
+    bool toggleValue = false;
 
     void ExerciseInputAndUI(Scene* owner) {
         auto* input = InputManager::GetInstancePtr();
@@ -412,6 +414,69 @@ class FrameProbe final : public Behaviour {
             expect(editableName == "Tester", "UI text field does not overwrite caller data");
             ui->ClearFocus();
             expect(!ui->IsFocused("integration-name"), "UI can clear its focus");
+            expect(!ui->Slider("integration-slider", Rect{360.f, 20.f, 200.f, 40.f},
+                               &sliderValue, 0.f, 1.f, 0.1f),
+                   "native slider preserves its caller-owned value without input");
+            expect(almostEqual(sliderValue, 0.25f), "native slider uses supplied value");
+            expect(!ui->Toggle("integration-toggle", Rect{360.f, 80.f, 152.f, 44.f},
+                               &toggleValue), "native toggle preserves bool without input");
+            expect(!toggleValue, "native toggle uses supplied bool");
+            expect(ui->Focus("integration-slider"), "native slider accepts UI focus");
+            SDL_Event move{};
+            move.type = SDL_MOUSEMOTION;
+            move.motion.x = 540;
+            move.motion.y = 40;
+            expect(SDL_PushEvent(&move) == 1, "SDL accepts slider pointer motion");
+            SDL_Event down{};
+            down.type = SDL_MOUSEBUTTONDOWN;
+            down.button.button = SDL_BUTTON_LEFT;
+            down.button.x = 540;
+            down.button.y = 40;
+            expect(SDL_PushEvent(&down) == 1, "SDL accepts slider pointer press");
+        } else if (updates == 5) {
+            expect(ui->Slider("integration-slider", Rect{360.f, 20.f, 200.f, 40.f},
+                              &sliderValue, 0.f, 1.f, 0.1f),
+                   "native slider changes caller-owned value with mouse press");
+            expect(sliderValue > 0.8f && sliderValue <= 1.f,
+                   "native slider clamps and snaps mouse input to configured range");
+            expect(ui->IsFocused("integration-slider"),
+                   "pointer press assigns focus to native slider");
+            expect(!ui->Toggle("integration-toggle", Rect{360.f, 80.f, 152.f, 44.f},
+                               &toggleValue), "native toggle ignores unrelated slider press");
+            SDL_Event up{};
+            up.type = SDL_MOUSEBUTTONUP;
+            up.button.button = SDL_BUTTON_LEFT;
+            up.button.x = 540;
+            up.button.y = 40;
+            expect(SDL_PushEvent(&up) == 1, "SDL releases slider pointer press");
+        } else if (updates == 6) {
+            expect(!ui->Slider("integration-slider", Rect{360.f, 20.f, 200.f, 40.f},
+                               &sliderValue, 0.f, 1.f, 0.1f),
+                   "native slider does not repeat a finished drag");
+            SDL_Event move{};
+            move.type = SDL_MOUSEMOTION;
+            move.motion.x = 390;
+            move.motion.y = 100;
+            expect(SDL_PushEvent(&move) == 1, "SDL accepts toggle pointer motion");
+            SDL_Event down{};
+            down.type = SDL_MOUSEBUTTONDOWN;
+            down.button.button = SDL_BUTTON_LEFT;
+            down.button.x = 390;
+            down.button.y = 100;
+            expect(SDL_PushEvent(&down) == 1, "SDL accepts toggle pointer press");
+        } else if (updates == 7) {
+            expect(!ui->Toggle("integration-toggle", Rect{360.f, 80.f, 152.f, 44.f},
+                               &toggleValue), "native toggle waits for mouse release");
+            SDL_Event up{};
+            up.type = SDL_MOUSEBUTTONUP;
+            up.button.button = SDL_BUTTON_LEFT;
+            up.button.x = 390;
+            up.button.y = 100;
+            expect(SDL_PushEvent(&up) == 1, "SDL releases toggle pointer press");
+        } else if (updates == 8) {
+            expect(ui->Toggle("integration-toggle", Rect{360.f, 80.f, 152.f, 44.f},
+                              &toggleValue), "native toggle changes value after click/release");
+            expect(toggleValue, "native toggle updates caller-owned bool");
         }
     }
 public:
