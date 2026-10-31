@@ -56,6 +56,7 @@
 #include "WindowManager.h"
 #include "RenderManager.h"
 #include "InputManager.h"
+#include "PlayerInput.h"
 #include "TimeManager.h"
 #include "SoundManager.h"
 #include "AssetManager.h"

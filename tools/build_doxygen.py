@@ -35,7 +35,7 @@ ROOT = Path(__file__).resolve().parents[1]
 GAME = {
     "Getting started": ("PROJECTS__AND__INCLUDES", "SCENES__AND__BEHAVIOURS",
                         "PLATFORMS__AND__BUILD__MODES"),
-    "Game systems": ("INPUT__AND__TIME", "RENDERING__AND__UI", "PHYSICS__AND__COLLISIONS",
+    "Game systems": ("INPUT__AND__TIME", "INPUT__ACTIONS", "RENDERING__AND__UI", "PHYSICS__AND__COLLISIONS",
                      "ASSETS__AND__AUDIO", "MATH__AND__UTILITIES"),
     "Files and persistence": ("DATA__AND__PERSISTENCE",),
 }

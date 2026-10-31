@@ -22,6 +22,7 @@ benchmarks and experimental performance investigations are listed separately.
 | Guide | When to use it |
 |---|---|
 | [Your first game](GETTING_STARTED.md) | Start with a generated project, write a `Behaviour`, build a scene and run the game. |
+| [Input Actions and PlayerInput](reference/game/INPUT_ACTIONS.md) | Define JSON/C++ actions, hot-plug gamepads, assign multiplayer devices, use interactions, contexts and rebinding. |
 | [Headers and includes](INCLUDES_AND_DEPENDENCIES.md) | Organize C++ code, choose `<XEngine.h>` versus focused headers, avoid circular includes and work with properties. |
 | [Platform macros and build modes](reference/game/PLATFORMS_AND_BUILD_MODES.md) | Compile Windows/Linux-specific code; use Debug/Release and optional instrumentation flags safely. |
 | [Public API reference](API_REFERENCE.md) | Look up exact classes, signatures, property semantics and enum values. |

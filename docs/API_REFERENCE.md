@@ -39,7 +39,7 @@ documentation index (repository reference: `docs/DOCUMENTATION_INDEX.md`).
 | Game objects | @ref GameObject, @ref Component, @ref Behaviour, @ref Transform | Entities, components, script callbacks, transforms. |
 | Drawing & camera | @ref RenderManager, @ref SpriteRenderer, @ref Camera2D, @ref WindowManager | Draw, sprites, view mapping and window state. |
 | Collision & movement | @ref Collider2D, @ref RigidBody2D, @ref CollisionManager, @ref PhysicsManager | Contacts, triggers and fixed-step physics. |
-| Input & time | @ref InputManager, @ref TimeManager, @ref RandomManager | Keyboard, mouse, clock and random numbers. |
+| Input & time | @ref InputManager, @ref InputAction, @ref PlayerInput, @ref TimeManager, @ref RandomManager | Keyboard, mouse, SDL gamepads, player actions, time and random numbers. |
 | Resources & sound | @ref AssetManager, @ref Texture, @ref Font, @ref SoundManager | Load cached assets, render text and play audio. |
 | Immediate UI | @ref UIManager, @ref UIButtonColors | Buttons, labels, panels and progress bars. |
 | Persistent storage | @ref FileSystem, @ref AtomicFile, @ref PlayerPrefs | Raw files, candidate recovery and small preferences. |
@@ -99,6 +99,8 @@ for the binary layout, backup/temporary recovery policy and PlayerPrefs paths.
   properties, world/screen coordinates and responsive layout.
 - [Persistence and serialization](PERSISTENCE_AND_SERIALIZATION.md) explains
   raw files, recovery choices, binary/JSON formats and player preferences.
+- [Input Actions](reference/game/INPUT_ACTIONS.md) covers gamepads, local
+  players, action maps, JSON, processing, callbacks and control rebinding.
 
 ## Build this reference locally
 

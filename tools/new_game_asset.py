@@ -29,6 +29,9 @@ KIND_TEMPLATES = {
     "behaviour": ("Behaviour.hpp.tpl", "scripts"),
     "object": ("Object.hpp.tpl", "gameobjects"),
     "scene": ("Scene.hpp.tpl", "scenes"),
+    "inputmap": ("InputMap.json.tpl", "input"),
+    "inputscheme": ("InputScheme.json.tpl", "input"),
+    "inputprofile": ("InputProfile.json.tpl", "input"),
 }
 KIND_ALIASES = {"behavior": "behaviour", "script": "behaviour"}
 
@@ -111,6 +114,8 @@ def render_file(kind: str, name: str, sprite: str | None,
     if not template.is_file():
         raise GenerationError(f"Canonical template missing: {template}")
     content = template.read_text(encoding="utf-8")
+    if kind.startswith("input"):
+        return content.replace("{{NAME}}", name)
     includes = (f'#include "{behaviour_include}"\n' if behaviour_include else "")
     sprite_code = ""
     if sprite:
@@ -160,8 +165,11 @@ def create_asset(project: Path, kind: str, name: str, *, directory: str = ".",
         check_identifier(behaviour)
 
     assets = (project / "assets").resolve(strict=True)
+    if directory == "." and kind.startswith("input"):
+        directory = KIND_TEMPLATES[kind][1]
     destination = asset_folder(assets, directory)
-    target = destination / f"{name}.hpp"
+    extension = ".json" if kind.startswith("input") else ".hpp"
+    target = destination / f"{name}{extension}"
     if target.exists() or target.is_symlink():
         raise GenerationError(f"File already exists (not overwritten): {target}")
 
@@ -194,7 +202,7 @@ def create_asset(project: Path, kind: str, name: str, *, directory: str = ".",
 
 def prompt_creation(options: argparse.Namespace) -> None:
     if options.kind is None:
-        value = input("Type [object / scene / behaviour] (object): ").strip().lower()
+        value = input("Type [object / scene / behaviour / inputmap / inputscheme / inputprofile] (object): ").strip().lower()
         options.kind = value or "object"
     if options.name is None:
         options.name = input("C++ name (e.g. Player): ").strip()
@@ -209,9 +217,9 @@ def prompt_creation(options: argparse.Namespace) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Create an XEngine Scene, GameObject factory or Behaviour in assets/."
+        description="Create a Scene, GameObject, Behaviour or JSON input asset in assets/."
     )
-    parser.add_argument("kind", nargs="?", help="object | scene | behaviour (script)")
+    parser.add_argument("kind", nargs="?", help="object | scene | behaviour | inputmap | inputscheme | inputprofile")
     parser.add_argument("name", nargs="?", help="C++ identifier and file basename")
     parser.add_argument("--project-dir", help="Path to an XEngine game (default: current game)")
     parser.add_argument("--game", help="Game directory name under games/")

@@ -202,9 +202,9 @@ bool Engine::StartImpl(const std::string configPath, bool inlineJson) noexcept
     mFrameHistoryIndex = 0;
 
     printf("Initializing SDL... ");
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_EVENTS) != 0)
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_EVENTS | SDL_INIT_GAMECONTROLLER) != 0)
     {
-        LogError("Engine::Start()", "SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_EVENTS) failed.", SDL_GetError());
+        LogError("Engine::Start()", "SDL_Init with video, audio, events and gamecontroller failed.", SDL_GetError());
         return false;
     }
     printf("OK\n");

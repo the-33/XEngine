@@ -38,6 +38,7 @@ the optional Git hooks and from Doxygen generation.
 |---|---|---|
 | Create levels and player behaviour | [Scenes and scripts](SCENES_AND_BEHAVIOURS.md) | @ref SceneManager, @ref Scene, @ref GameObject, @ref Behaviour |
 | Keyboard, pointer, time and randomness | [Input and time](INPUT_AND_TIME.md) | @ref InputManager, @ref TimeManager, @ref RandomManager |
+| Input actions and local multiplayer | [PlayerInput and actions](INPUT_ACTIONS.md) | @ref PlayerInput, @ref InputAction, @ref InputManager |
 | Sprites, window resolution and UI | [Rendering and UI](RENDERING_AND_UI.md) | @ref SpriteRenderer, @ref WindowManager, @ref Camera2D, @ref UIManager |
 | Movement, bodies and triggers | [Physics and collisions](PHYSICS_AND_COLLISIONS.md) | @ref RigidBody2D, @ref Collider2D, @ref PhysicsManager |
 | Load images, fonts and audio | [Assets and sound](ASSETS_AND_AUDIO.md) | @ref AssetManager, @ref SoundManager |

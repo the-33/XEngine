@@ -1,0 +1,16 @@
+{
+  "schemes": {
+    "KeyboardMouseGamepad": {
+      "keyboard": true,
+      "mouse": true,
+      "gamepad": true,
+      "touch": false
+    },
+    "GamepadOnly": {
+      "keyboard": false,
+      "mouse": false,
+      "gamepad": true,
+      "touch": false
+    }
+  }
+}

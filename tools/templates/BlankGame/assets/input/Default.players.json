@@ -1,0 +1,33 @@
+{
+  "players": [
+    {
+      "player": 0,
+      "scheme": "KeyboardMouseGamepad",
+      "mode": "Prefer",
+      "idealDevice": "Gamepad",
+      "autoJoin": true,
+      "priority": 100,
+      "shareDevices": false,
+      "allowMultipleGamepads": false,
+      "maps": ["Gameplay", "UI", "Global"]
+    },
+    {
+      "player": 1,
+      "scheme": "GamepadOnly",
+      "mode": "Strict",
+      "idealDevice": "Gamepad",
+      "autoJoin": true,
+      "priority": 50,
+      "maps": ["Gameplay", "Global"]
+    },
+    {
+      "player": 2,
+      "scheme": "GamepadOnly",
+      "mode": "Any",
+      "idealDevice": "Gamepad",
+      "autoJoin": true,
+      "priority": 10,
+      "maps": ["Gameplay", "Global"]
+    }
+  ]
+}

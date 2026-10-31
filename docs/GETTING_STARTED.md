@@ -114,10 +114,11 @@ Your generated `games/My Game/` project contains:
 | `assets/scenes/` | Functions that build a scene and populate its entities. |
 | `assets/gameobjects/` | Reusable factory functions that configure objects and components. |
 | `assets/scripts/` | Your gameplay classes, usually derived from `Behaviour`. |
+| `assets/input/` | JSON action maps, device schemes and local-player profiles loaded by `InitGame`. |
 | `assets/textures/`, `assets/fonts/`, `assets/audio/` | Runtime resources loaded by the game. |
 | `assets/config/engine.json` | Runtime options such as window size, physics, audio and renderer. |
 | `config.json` | Build, platform, project name, version and packaging choices. |
-| `new_asset.sh` / `new_asset.bat` | Create new Scenes, GameObject factories and Behaviours. |
+| `new_asset.sh` / `new_asset.bat` | Create C++ gameplay files and JSON input maps/schemes/profiles. |
 
 `engine/include/` contains the public engine API; `engine/src/` contains its
 implementation. For ordinary game code, use `#include <XEngine.h>`: common
@@ -138,6 +139,9 @@ an interactive prompt.
 ./new_asset.sh behaviour DriftRight
 ./new_asset.sh object Player --sprite square --collider box --behaviour DriftRight
 ./new_asset.sh scene Level1 --dir scenes
+./new_asset.sh inputmap Vehicle
+./new_asset.sh inputscheme GamepadAndKeyboard
+./new_asset.sh inputprofile Coop
 ./new_asset.sh --list-sprites
 ```
 
@@ -146,6 +150,9 @@ REM Windows CMD, from games\My Game\
 new_asset.bat behaviour DriftRight
 new_asset.bat object Player --sprite square --collider box --behaviour DriftRight
 new_asset.bat scene Level1 --dir scenes
+new_asset.bat inputmap Vehicle
+new_asset.bat inputscheme GamepadAndKeyboard
+new_asset.bat inputprofile Coop
 ```
 
 The object command creates a C++ factory with an optional `SpriteRenderer`,
@@ -156,6 +163,12 @@ missing in your game's `assets/textures/`, copied from the maintained
 overwritten. All C++ source templates are maintained separately under
 `tools/templates/AssetScaffolds/`: deleting sample files inside a game will
 not remove the original templates.
+
+The three input commands create JSON under `assets/input/`. The generated
+BlankGame project already loads example action maps, input schemes and
+player profiles from `src/InitCallback.hpp`; it also contains a `PlayerInput`
+component example. See the [Input Actions guide](reference/game/INPUT_ACTIONS.md)
+for custom controls, local multiplayer, joins and rebinding.
 
 Generated scenes are deliberately unregistered until you add them to
 `src/InitCallback.hpp`; generated factories are likewise called from the

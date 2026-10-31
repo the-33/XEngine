@@ -4,6 +4,11 @@
 `Input` and `Time` accessors when you include `<XEngine.h>`. @ref RandomManager
 provides seeded sampling for procedural logic.
 
+For local multiplayer, gamepads, action maps, processors, rebinding, JSON
+assets and the optional PlayerInput character component, see the
+[PlayerInput and Input Actions guide](INPUT_ACTIONS.md). All classic calls
+below remain supported alongside the new system.
+
 ## Input edges versus held state
 
 ```cpp
