@@ -8,6 +8,7 @@
 #include "RenderManager.h"
 #include "GameObject.h"
 #include "RigidBody2D.h"
+#include "SpriteRenderer.h"
 
 
 static inline float DegToRad(float d) noexcept { return d * 3.14159265358979323846f / 180.f; }
@@ -16,6 +17,77 @@ static inline Vec2 Rot2D(Vec2 v, float deg) noexcept {
     const float c = std::cos(r);
     const float s = std::sin(r);
     return { c * v.x - s * v.y, s * v.x + c * v.y };
+}
+
+bool Collider2D::FitToSprite(FitMode mode, float factor) noexcept
+{
+    return FitToSprite(mode, factor, factor);
+}
+
+bool Collider2D::FitToSprite(FitMode mode, float widthFactor, float heightFactor) noexcept
+{
+    if (!mGameObject || !std::isfinite(widthFactor) || !std::isfinite(heightFactor) ||
+        widthFactor <= 0.f || heightFactor <= 0.f)
+        return false;
+
+    const auto* renderer = mGameObject->GetComponent<SpriteRenderer>();
+    if (!renderer) return false;
+    const Texture* texture = renderer->sprite.get();
+    if (!texture) return false;
+
+    const float ppu = texture->PixelsPerUnit();
+    if (!(ppu > 0.f) || !std::isfinite(ppu)) return false;
+    const RectI source = renderer->source.get();
+    // Use the same source-region fallback as SpriteRenderer::Render().
+    const int pixelWidth = source.w > 0 ? source.w : texture->Width();
+    const int pixelHeight = source.h > 0 ? source.h : texture->Height();
+    if (pixelWidth <= 0 || pixelHeight <= 0) return false;
+
+    const float spriteWidth = static_cast<float>(pixelWidth) / ppu;
+    const float spriteHeight = static_cast<float>(pixelHeight) / ppu;
+    const float fittedWidth = spriteWidth * widthFactor;
+    const float fittedHeight = spriteHeight * heightFactor;
+    const Vec2 pivot = renderer->pivot01.get();
+    const Vec2 offset = renderer->offset.get();
+    const Vec2 center{
+        offset.x + (0.5f - pivot.x) * spriteWidth,
+        offset.y + (0.5f - pivot.y) * spriteHeight
+    };
+    if (!std::isfinite(spriteWidth) || !std::isfinite(spriteHeight) ||
+        !std::isfinite(fittedWidth) || !std::isfinite(fittedHeight) ||
+        !std::isfinite(center.x) || !std::isfinite(center.y) ||
+        fittedWidth <= 0.f || fittedHeight <= 0.f)
+        return false;
+
+    Vec2 newSize = sizeLocal_;
+    Vec2 newOffset = offsetLocal_;
+    float newRadius = radiusLocal_;
+    switch (mode) {
+    case FitMode::Both:
+        newSize = {fittedWidth, fittedHeight};
+        newOffset = center;
+        newRadius = 0.5f * std::min(fittedWidth, fittedHeight);
+        break;
+    case FitMode::Width:
+        newSize.x = fittedWidth;
+        newOffset.x = center.x;
+        newRadius = 0.5f * fittedWidth;
+        break;
+    case FitMode::Height:
+        newSize.y = fittedHeight;
+        newOffset.y = center.y;
+        newRadius = 0.5f * fittedHeight;
+        break;
+    default:
+        return false;
+    }
+
+    if (shape_ == Shape::Circle)
+        radiusLocal_ = newRadius;
+    else
+        sizeLocal_ = newSize;
+    offsetLocal_ = newOffset;
+    return true;
 }
 
 Collider2D::OrientedBox2D Collider2D::WorldOBB() const noexcept

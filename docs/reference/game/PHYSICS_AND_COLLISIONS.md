@@ -35,6 +35,31 @@ collider->shape = Collider2D::Shape::Capsule;
 collider->size = Vec2{0.7f, 1.4f}; // overall width and height, including the rounded ends
 ```
 
+To size the collider automatically from the `SpriteRenderer` on the same
+`GameObject`, call `FitToSprite()` **after** assigning the sprite texture:
+
+```cpp
+collider->FitToSprite();                                 // both axes, 100%
+collider->FitToSprite(0.95f);                            // both axes, 95%
+collider->FitToSprite(0.90f, 0.80f);                     // width 90%, height 80%
+collider->FitToSprite(Collider2D::FitMode::Width, 0.9f);  // width only, 90%
+collider->FitToSprite(Collider2D::FitMode::Height, 0.8f); // height only, 80%
+collider->FitToSprite(Collider2D::FitMode::Both, 0.9f, 0.8f); // both independently
+```
+
+Factors are multipliers: **1.0 means 100%**, not 100. Invalid factors or a
+missing sprite return `false` without modifying the collider. Width-only and
+height-only fits preserve the other dimension and the corresponding offset.
+`FitToSprite()` uses the sprite's selected `source` region, texture
+`PixelsPerUnit()`, `offset` and `pivot01`. It sizes `Box`/`Capsule` using
+`size`; for `Circle`, the chosen dimension controls its diameter (if both
+axes are fitted, the smaller diameter is used). The fit happens **once**:
+call it again after changing the texture, source region, PPU or pivot. It
+does not analyze transparent pixels; transparent padding remains inside the
+fitted dimensions. To match a rotating sprite, leave collider
+`inheritRotation=true` and `rotationOffset=0`; nonzero X/Y sprite rotations
+introduce visual foreshortening that 2D colliders cannot reproduce.
+
 `size` supplies the capsule's total local width and height; the longer scaled
 dimension sets its axis (vertical or horizontal). `localOffset`, `rotationOffset`,
 `inheritRotation` and world scale work as on boxes. Under nonuniform scaling,

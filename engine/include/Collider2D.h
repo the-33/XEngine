@@ -38,6 +38,15 @@ public:
         Capsule  ///< Rounded collider using total local width and height.
     };
 
+    /** @brief Which sprite dimensions are fitted to the collider.
+     * @note Width and Height preserve the other collider dimension and offset.
+     */
+    enum class FitMode : uint8_t {
+        Both,   ///< Fit width and height independently.
+        Width,  ///< Fit only width (or the circle diameter).
+        Height  ///< Fit only height (or the circle diameter).
+    };
+
 private:
     friend class CollisionManager;
 	friend class GameObject;
@@ -173,6 +182,33 @@ public:
     /** @brief Releases the Collider2D instance and any owned resources.
      */
     ~Collider2D() override = default;
+
+    /** @brief Fits this collider to the SpriteRenderer on the same GameObject.
+     * @param mode Fit the sprite's width, height, or both dimensions.
+     * @param factor Size multiplier (1.0 = 100%, 0.95 = 95%).
+     * @return False and leaves geometry unchanged if no valid sprite exists or the factor is invalid.
+     * @note Uses the selected sprite source region and pixels-per-unit, accounting
+     *       for its offset and pivot. For Circle, Both fits the smaller diameter.
+     *       This is a one-time fit; call again if sprite settings change.
+     */
+    bool FitToSprite(FitMode mode = FitMode::Both, float factor = 1.f) noexcept;
+
+    /** @brief Fits selected axes with independent size multipliers.
+     * @param mode Which axes to fit; untouched axes retain their original geometry.
+     * @param widthFactor Multiplier for sprite width (1.0 = 100%).
+     * @param heightFactor Multiplier for sprite height (1.0 = 100%).
+     * @return False if the sprite/factors are invalid, without changing the collider.
+     * @note For Circle, Both chooses the smaller fitted diameter.
+     */
+    bool FitToSprite(FitMode mode, float widthFactor, float heightFactor) noexcept;
+
+    /** @brief Fits both axes using one size multiplier (e.g. 0.9 = 90%). */
+    bool FitToSprite(float factor) noexcept { return FitToSprite(FitMode::Both, factor); }
+
+    /** @brief Fits width and height independently (e.g. 0.9, 0.8). */
+    bool FitToSprite(float widthFactor, float heightFactor) noexcept {
+        return FitToSprite(FitMode::Both, widthFactor, heightFactor);
+    }
 
     /** @cond XENGINE_INTERNAL */
     /** @brief Property accessor type for `shape`; use the corresponding instance member in gameplay code.

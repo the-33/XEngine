@@ -21,6 +21,7 @@
 #include "WindowManager.h"
 #include <SDL.h> // Uses the same SDL_main compatibility mapping as BlankGame.
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -137,6 +138,68 @@ void checkCapsuleGeometry(Scene* scene) {
     expect(almostEqual(scaled.radius, 1.f), "capsule endpoints stay circular under world scaling");
 }
 
+void checkSpriteFitting(Scene* scene, Texture* texture) {
+    if (!scene || !texture) return;
+    auto* object = scene->CreateObject("fit-to-sprite");
+    auto* renderer = object->AddComponent<SpriteRenderer>();
+    renderer->sprite = texture;
+    renderer->offset = Vec2{0.25f, -0.5f};
+    renderer->pivot01 = Vec2{0.f, 1.f};
+    renderer->source = RectI{0, 0, std::max(1, texture->Width() / 2),
+                             std::max(1, texture->Height() / 2)};
+    const RectI src = renderer->source.get();
+    const float spriteWidth = src.w / texture->PixelsPerUnit();
+    const float spriteHeight = src.h / texture->PixelsPerUnit();
+    auto* collider = object->AddComponent<Collider2D>();
+    collider->shape = Collider2D::Shape::Capsule;
+
+    expect(collider->FitToSprite(), "FitToSprite fits both dimensions by default");
+    const Vec2 full = collider->size;
+    const Vec2 center = collider->localOffset;
+    expect(almostEqual(full.x, spriteWidth) && almostEqual(full.y, spriteHeight),
+           "FitToSprite uses the selected source region and pixels per unit");
+    expect(almostEqual(center.x, 0.25f + 0.5f * spriteWidth) &&
+           almostEqual(center.y, -0.5f - 0.5f * spriteHeight),
+           "FitToSprite matches the sprite offset and noncentered pivot");
+
+    collider->size = Vec2{5.f, 6.f};
+    collider->localOffset = Vec2{7.f, 8.f};
+    expect(collider->FitToSprite(Collider2D::FitMode::Width, 0.9f),
+           "FitToSprite supports width-only adjustment");
+    const Vec2 widthOnly = collider->size;
+    const Vec2 widthOffset = collider->localOffset;
+    expect(almostEqual(widthOnly.x, spriteWidth * 0.9f) && almostEqual(widthOnly.y, 6.f) &&
+           almostEqual(widthOffset.x, center.x) && almostEqual(widthOffset.y, 8.f),
+           "width-only adjustment preserves height and vertical offset");
+
+    expect(collider->FitToSprite(Collider2D::FitMode::Height, 0.8f),
+           "FitToSprite supports height-only adjustment");
+    const Vec2 heightOnly = collider->size;
+    expect(almostEqual(heightOnly.x, spriteWidth * 0.9f) &&
+           almostEqual(heightOnly.y, spriteHeight * 0.8f),
+           "height-only adjustment preserves width");
+
+    expect(collider->FitToSprite(0.95f, 0.75f),
+           "FitToSprite supports independent factors");
+    const Vec2 independent = collider->size;
+    expect(almostEqual(independent.x, spriteWidth * 0.95f) &&
+           almostEqual(independent.y, spriteHeight * 0.75f),
+           "independent factors are applied to their respective axes");
+    expect(!collider->FitToSprite(0.f), "FitToSprite rejects zero percentages");
+    const Vec2 unchanged = collider->size;
+    expect(almostEqual(unchanged.x, independent.x) && almostEqual(unchanged.y, independent.y),
+           "invalid FitToSprite parameters do not change the collider");
+
+    collider->shape = Collider2D::Shape::Circle;
+    expect(collider->FitToSprite(0.9f, 0.8f), "FitToSprite supports circle geometry");
+    expect(almostEqual(collider->radius,
+           0.5f * std::min(spriteWidth * 0.9f, spriteHeight * 0.8f)),
+           "circle fits the smaller selected diameter");
+
+    auto* empty = scene->CreateObject("fit-without-sprite")->AddComponent<Collider2D>();
+    expect(!empty->FitToSprite(), "FitToSprite fails safely without a SpriteRenderer");
+}
+
 void checkScene(Scene* scene) {
     checkOptionalSerialization();
     checkCapsuleGeometry(scene);
@@ -198,6 +261,7 @@ void checkScene(Scene* scene) {
                "texture alias resolves correctly");
         expect(assets->LoadTexture("textures/circle.png", "integration-pixel") == nullptr,
                "colliding texture alias is rejected");
+        checkSpriteFitting(scene, assets->LoadTexture("textures/circle.png"));
 
         auto* font = assets->LoadFont("fonts/ui-default.ttf", 18);
         expect(font != nullptr, "SDL_ttf loads a real font");
