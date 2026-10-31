@@ -297,6 +297,182 @@ bool CollisionManager::Contact_OBB_OBB(const Vec2& ac, const Vec2& aHalf, float 
     return true;
 }
 
+// Capsule narrowphase. A capsule is a segment swept by a circle; all helpers
+// operate on immutable world-space snapshots and are safe for parallel passes.
+static Vec2 ClosestOnSegment(const Vec2& p, const Vec2& a, const Vec2& b) noexcept
+{
+    const Vec2 d = b - a;
+    const float lenSq = math::Dot(d, d);
+    if (lenSq <= 1e-12f) return a;
+    return a + d * ClampF(math::Dot(p - a, d) / lenSq, 0.f, 1.f);
+}
+
+static void ClosestSegments(const Vec2& p1, const Vec2& q1,
+                            const Vec2& p2, const Vec2& q2,
+                            Vec2& point1, Vec2& point2) noexcept
+{
+    const Vec2 d1 = q1 - p1;
+    const Vec2 d2 = q2 - p2;
+    const Vec2 r = p1 - p2;
+    const float a = math::Dot(d1, d1);
+    const float e = math::Dot(d2, d2);
+    const float f = math::Dot(d2, r);
+    float s = 0.f, t = 0.f;
+
+    if (a <= 1e-12f && e <= 1e-12f) {
+        point1 = p1;
+        point2 = p2;
+        return;
+    }
+    if (a <= 1e-12f) {
+        t = ClampF(f / e, 0.f, 1.f);
+    } else {
+        const float c = math::Dot(d1, r);
+        if (e <= 1e-12f) {
+            s = ClampF(-c / a, 0.f, 1.f);
+        } else {
+            const float b = math::Dot(d1, d2);
+            const float denom = a * e - b * b;
+            if (denom > 1e-12f)
+                s = ClampF((b * f - c * e) / denom, 0.f, 1.f);
+            t = (b * s + f) / e;
+            if (t < 0.f) {
+                t = 0.f;
+                s = ClampF(-c / a, 0.f, 1.f);
+            } else if (t > 1.f) {
+                t = 1.f;
+                s = ClampF((b - c) / a, 0.f, 1.f);
+            }
+        }
+    }
+    point1 = p1 + d1 * s;
+    point2 = p2 + d2 * t;
+}
+
+template<class Capsule, class Circle>
+static bool Contact_Capsule_Circle(const Capsule& capsule,
+                                   const Circle& circle,
+                                   ContactPoint& out) noexcept
+{
+    const Vec2 p = ClosestOnSegment(circle.center, capsule.a, capsule.b);
+    const Vec2 d = circle.center - p;
+    const float distSq = math::Dot(d, d);
+    const float radii = capsule.radius + circle.radius;
+    if (distSq >= radii * radii) return false;
+    const float dist = std::sqrt(distSq);
+    const Vec2 axis = capsule.b - capsule.a;
+    const Vec2 fallback = NormalizeSafe(circle.center - (capsule.a + capsule.b) * 0.5f,
+        NormalizeSafe(Vec2{-axis.y, axis.x}));
+    const Vec2 n = dist > 1e-6f ? d / dist : fallback;
+    out.normalA = n;
+    out.penetration = radii - dist;
+    out.point = p + n * (capsule.radius - 0.5f * out.penetration);
+    return true;
+}
+
+template<class Capsule>
+static bool Contact_Capsule_Capsule(const Capsule& a,
+                                    const Capsule& b,
+                                    ContactPoint& out) noexcept
+{
+    Vec2 pa{}, pb{};
+    ClosestSegments(a.a, a.b, b.a, b.b, pa, pb);
+    const Vec2 d = pb - pa;
+    const float distSq = math::Dot(d, d);
+    const float radii = a.radius + b.radius;
+    if (distSq >= radii * radii) return false;
+    const float dist = std::sqrt(distSq);
+    const Vec2 axis = a.b - a.a;
+    const Vec2 fallback = NormalizeSafe((b.a + b.b - a.a - a.b) * 0.5f,
+        NormalizeSafe(Vec2{-axis.y, axis.x}));
+    const Vec2 n = dist > 1e-6f ? d / dist : fallback;
+    out.normalA = n;
+    out.penetration = radii - dist;
+    out.point = pa + n * (a.radius - 0.5f * out.penetration);
+    return true;
+}
+
+template<class Capsule, class OBB>
+static bool Contact_Capsule_OBB(const Capsule& capsule,
+                                const OBB& box,
+                                ContactPoint& out) noexcept
+{
+    const Basis2 basis = OBBBases(box.angleDeg);
+    const Vec2 a = WorldToLocal(capsule.a, box.center, basis);
+    const Vec2 b = WorldToLocal(capsule.b, box.center, basis);
+    const Vec2 half = box.half;
+    const Vec2 low{-half.x, -half.y}, high{half.x, half.y};
+    Vec2 closestSegment{}, closestBox{};
+    float bestDistSq = std::numeric_limits<float>::infinity();
+    auto consider = [&](Vec2 onSegment, Vec2 onBox) {
+        const Vec2 d = onBox - onSegment;
+        const float distSq = math::Dot(d, d);
+        if (distSq < bestDistSq) {
+            bestDistSq = distSq;
+            closestSegment = onSegment;
+            closestBox = onBox;
+        }
+    };
+
+    consider(a, ClampV(a, low, high));
+    consider(b, ClampV(b, low, high));
+    const Vec2 corners[4] = {
+        {-half.x, -half.y}, {half.x, -half.y},
+        {half.x, half.y}, {-half.x, half.y}
+    };
+    for (int i = 0; i < 4; ++i) {
+        Vec2 onSegment{}, onEdge{};
+        ClosestSegments(a, b, corners[i], corners[(i + 1) % 4], onSegment, onEdge);
+        consider(onSegment, onEdge);
+    }
+
+    if (bestDistSq >= capsule.radius * capsule.radius && bestDistSq > 1e-12f)
+        return false;
+
+    if (bestDistSq > 1e-12f) {
+        const float dist = std::sqrt(bestDistSq);
+        out.penetration = capsule.radius - dist;
+        if (out.penetration <= 0.f) return false;
+        const Vec2 localNormal = (closestBox - closestSegment) / dist;
+        out.normalA = basis.x * localNormal.x + basis.y * localNormal.y;
+        out.point = LocalToWorld(closestBox, box.center, basis);
+        return true;
+    }
+
+    // The capsule's center segment intersects (or lies inside) the OBB.
+    // A zero distance has no usable gradient: select the shallowest escape
+    // face, accounting for the full segment projection and rounded radius.
+    const float minX = std::min(a.x, b.x), maxX = std::max(a.x, b.x);
+    const float minY = std::min(a.y, b.y), maxY = std::max(a.y, b.y);
+    const float depths[4] = {
+        half.x - minX + capsule.radius, maxX + half.x + capsule.radius,
+        half.y - minY + capsule.radius, maxY + half.y + capsule.radius
+    };
+    int face = 0;
+    for (int i = 1; i < 4; ++i)
+        if (depths[i] < depths[face]) face = i;
+
+    const Vec2 midpoint = (a + b) * 0.5f;
+    Vec2 localNormal{}, localPoint{};
+    if (face == 0) {
+        localNormal = {-1.f, 0.f};
+        localPoint = {half.x, ClampF(midpoint.y, -half.y, half.y)};
+    } else if (face == 1) {
+        localNormal = {1.f, 0.f};
+        localPoint = {-half.x, ClampF(midpoint.y, -half.y, half.y)};
+    } else if (face == 2) {
+        localNormal = {0.f, -1.f};
+        localPoint = {ClampF(midpoint.x, -half.x, half.x), half.y};
+    } else {
+        localNormal = {0.f, 1.f};
+        localPoint = {ClampF(midpoint.x, -half.x, half.x), -half.y};
+    }
+    out.normalA = basis.x * localNormal.x + basis.y * localNormal.y;
+    out.penetration = depths[face];
+    out.point = LocalToWorld(localPoint, box.center, basis);
+    return out.penetration > 0.f;
+}
+
 // =================== Public API ===================
 bool CollisionManager::Init() noexcept {
     mRegisteredColliders.clear();
@@ -508,6 +684,7 @@ void CollisionManager::BuildContacts_(std::vector<NarrowContact>& out) noexcept
         Rect aabb{};
         Collider2D::OrientedBox2D obb{};
         Collider2D::Circle2D circle{};
+        Collider2D::Capsule2D capsule{};
     };
 
     std::vector<Geometry> geometry;
@@ -527,6 +704,8 @@ void CollisionManager::BuildContacts_(std::vector<NarrowContact>& out) noexcept
         g.aabb = collider->WorldAABB();
         if (g.shape == Collider2D::Shape::Circle)
             g.circle = collider->WorldCircle();
+        else if (g.shape == Collider2D::Shape::Capsule)
+            g.capsule = collider->WorldCapsule();
         else
             g.obb = collider->WorldOBB();
         geometry.push_back(g);
@@ -668,6 +847,28 @@ void CollisionManager::BuildContacts_(std::vector<NarrowContact>& out) noexcept
             {
                 hit = Contact_OBB_OBB(a.obb.center, a.obb.half, a.obb.angleDeg,
                                        b.obb.center, b.obb.half, b.obb.angleDeg, contact);
+            }
+            else if (a.shape == Collider2D::Shape::Capsule && b.shape == Collider2D::Shape::Capsule)
+            {
+                hit = Contact_Capsule_Capsule(a.capsule, b.capsule, contact);
+            }
+            else if (a.shape == Collider2D::Shape::Capsule && b.shape == Collider2D::Shape::Circle)
+            {
+                hit = Contact_Capsule_Circle(a.capsule, b.circle, contact);
+            }
+            else if (a.shape == Collider2D::Shape::Circle && b.shape == Collider2D::Shape::Capsule)
+            {
+                hit = Contact_Capsule_Circle(b.capsule, a.circle, contact);
+                if (hit) contact.normalA = -contact.normalA;
+            }
+            else if (a.shape == Collider2D::Shape::Capsule && b.shape == Collider2D::Shape::Box)
+            {
+                hit = Contact_Capsule_OBB(a.capsule, b.obb, contact);
+            }
+            else if (a.shape == Collider2D::Shape::Box && b.shape == Collider2D::Shape::Capsule)
+            {
+                hit = Contact_Capsule_OBB(b.capsule, a.obb, contact);
+                if (hit) contact.normalA = -contact.normalA;
             }
             else if (a.shape == Collider2D::Shape::Circle)
             {

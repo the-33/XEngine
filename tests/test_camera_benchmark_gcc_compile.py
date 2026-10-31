@@ -95,6 +95,8 @@ class CameraBenchmarkGccCompile(unittest.TestCase):
                 ROOT / 'engine' / 'src' / 'Camera2D.cpp',
                 ROOT / 'engine' / 'src' / 'SceneManager.cpp',
                 ROOT / 'engine' / 'src' / 'CollisionManager.cpp',
+                ROOT / 'engine' / 'src' / 'Collider2D.cpp',
+                ROOT / 'engine' / 'src' / 'PhysicsManager.cpp',
                 GAME / 'src' / 'main.cpp',
             ]
             for source in sources:

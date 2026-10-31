@@ -18,7 +18,7 @@ Use `new_asset.bat` on Windows. The default destination is the root of
 `assets/`, but `--dir scripts`, `--dir gameobjects` and `--dir scenes` keep
 the traditional layout. The `--sprite` option restores a missing selected
 default PNG from the central BlankGame template. The `--collider` option
-supports the engine's current box or circle collider; it does not generate
+supports box, circle or capsule colliders; it does not generate
 polygon colliders for arbitrary sprite silhouettes.
 
 ## Register a scene

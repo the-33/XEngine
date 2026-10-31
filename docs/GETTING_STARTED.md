@@ -156,7 +156,7 @@ new_asset.bat inputprofile Coop
 ```
 
 The object command creates a C++ factory with an optional `SpriteRenderer`,
-`Collider2D` (box or circle) and an existing Behaviour. Create the Behaviour
+`Collider2D` (box, circle or capsule) and an existing Behaviour. Create the Behaviour
 first when using `--behaviour`. The selected PNG is loaded at runtime and, if
 missing in your game's `assets/textures/`, copied from the maintained
 `tools/templates/BlankGame/assets/textures/`. Existing textures are never

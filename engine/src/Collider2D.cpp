@@ -57,6 +57,29 @@ Collider2D::Circle2D Collider2D::WorldCircle() const noexcept
     return c;
 }
 
+Collider2D::Capsule2D Collider2D::WorldCapsule() const noexcept
+{
+    const Transform* tr = mGameObject ? mGameObject->GetComponent<Transform>() : nullptr;
+    if (!tr) return {};
+
+    const Vec3 pos = tr->position;
+    const Vec2 scale = tr->scale;
+    const Vec3 rotation = tr->rotation;
+    Vec2 offset{offsetLocal_.x * scale.x, offsetLocal_.y * scale.y};
+    if (inheritRotation_) offset = Rot2D(offset, rotation.z);
+
+    const Vec2 center{pos.x + offset.x, pos.y + offset.y};
+    const float width = std::max(0.f, sizeLocal_.x * scale.x);
+    const float height = std::max(0.f, sizeLocal_.y * scale.y);
+    const float radius = 0.5f * std::min(width, height);
+    const bool vertical = height >= width;
+    const float halfSegment = 0.5f * (std::max(width, height) - 2.f * radius);
+    const float angle = (inheritRotation_ ? rotation.z : 0.f) + localAngleOffsetDeg_;
+    const Vec2 direction = Rot2D(vertical ? Vec2{0.f, 1.f} : Vec2{1.f, 0.f}, angle);
+
+    return {center - direction * halfSegment, center + direction * halfSegment, radius};
+}
+
 Rect Collider2D::WorldAABB() const noexcept
 {
     const Transform* tr = mGameObject ? mGameObject->GetComponent<Transform>() : nullptr;
@@ -83,6 +106,16 @@ Rect Collider2D::WorldAABB() const noexcept
         // Circle: AABB = center +/- radius (no trigonometry needed)
         const float r = radiusLocal_ * std::max(wsc.x, wsc.y);
         return { center.x - r, center.y - r, r * 2.f, r * 2.f };
+    }
+
+    if (shape == Shape::Capsule)
+    {
+        const auto capsule = WorldCapsule();
+        const float x0 = std::min(capsule.a.x, capsule.b.x) - capsule.radius;
+        const float y0 = std::min(capsule.a.y, capsule.b.y) - capsule.radius;
+        const float x1 = std::max(capsule.a.x, capsule.b.x) + capsule.radius;
+        const float y1 = std::max(capsule.a.y, capsule.b.y) + capsule.radius;
+        return {x0, y0, x1 - x0, y1 - y0};
     }
 
     // Box: compute AABB extents without constructing the full OBB
@@ -195,6 +228,42 @@ void Collider2D::Render()
             const Vec2 p1{ c.center.x + std::cos(a1) * c.radius, c.center.y + std::sin(a1) * c.radius };
             r.DrawDebugLine(p0.x, p0.y, p1.x, p1.y, gizmoColor);
         }
+        return;
+    }
+
+    if (shape_ == Shape::Capsule) {
+        const auto capsule = WorldCapsule();
+        const Vec2 segment = capsule.b - capsule.a;
+        const float lengthSq = math::Dot(segment, segment);
+        const Vec2 axis = (lengthSq > 1e-12f)
+            ? segment * (1.f / std::sqrt(lengthSq)) : Vec2{0.f, 1.f};
+        const Vec2 normal{-axis.y, axis.x};
+        const float radius = capsule.radius;
+
+        if (lengthSq > 1e-12f) {
+            const Vec2 leftA = capsule.a + normal * radius;
+            const Vec2 leftB = capsule.b + normal * radius;
+            const Vec2 rightA = capsule.a - normal * radius;
+            const Vec2 rightB = capsule.b - normal * radius;
+            r.DrawDebugLine(leftA.x, leftA.y, leftB.x, leftB.y, gizmoColor);
+            r.DrawDebugLine(rightA.x, rightA.y, rightB.x, rightB.y, gizmoColor);
+        }
+
+        constexpr int segments = 16;
+        constexpr float pi = 3.14159265358979323846f;
+        auto drawArc = [&](Vec2 center, bool forward) {
+            const Vec2 side = forward ? normal : -normal;
+            const Vec2 outward = forward ? axis : -axis;
+            for (int i = 0; i < segments; ++i) {
+                const float a0 = pi * static_cast<float>(i) / segments;
+                const float a1 = pi * static_cast<float>(i + 1) / segments;
+                const Vec2 p0 = center + (side * std::cos(a0) + outward * std::sin(a0)) * radius;
+                const Vec2 p1 = center + (side * std::cos(a1) + outward * std::sin(a1)) * radius;
+                r.DrawDebugLine(p0.x, p0.y, p1.x, p1.y, gizmoColor);
+            }
+        };
+        drawArc(capsule.b, true);
+        drawArc(capsule.a, false);
         return;
     }
 

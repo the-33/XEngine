@@ -56,6 +56,21 @@ int destroyedControllers = 0;
 int targetFrames = 16;
 GameObject* movingBody = nullptr;
 
+class CapsuleContactProbe final : public Behaviour {
+public:
+    int triggerEnters = 0;
+protected:
+    void OnTriggerEnter(const CollisionInfo2D& info) override {
+        if (info.other) ++triggerEnters;
+    }
+};
+
+struct CapsuleContactCase {
+    CapsuleContactProbe* probe = nullptr;
+    bool expectContact = false;
+};
+std::vector<CapsuleContactCase> capsuleContacts;
+
 void expect(bool result, const char* message) {
     if (!result) {
         ++failures;
@@ -76,8 +91,55 @@ void checkOptionalSerialization() {
     expect(fromBinary == original, "opt-in binary serializer round-trips values");
 }
 
+void checkCapsuleGeometry(Scene* scene) {
+    const auto addShape = [scene](const std::string& name, Collider2D::Shape shape,
+                                  Vec3 position, Vec2 size, float radius = 0.5f) {
+        auto* object = scene->CreateObject(name);
+        object->transform->position = position;
+        auto* collider = object->AddComponent<Collider2D>();
+        collider->shape = shape;
+        collider->size = size;
+        collider->radius = radius;
+        collider->isTrigger = true;
+        return collider;
+    };
+    const auto addCase = [&](const char* name, float x, Collider2D::Shape otherShape,
+                             Vec2 otherOffset, bool hit, Vec2 capsuleSize = {1.f, 3.f},
+                             Vec2 otherSize = {1.f, 1.f}) {
+        auto* capsule = addShape(std::string(name) + "-capsule", Collider2D::Shape::Capsule,
+                                 {x, 500.f, 0.f}, capsuleSize);
+        const auto* world = capsule->GetShape() == Collider2D::Shape::Capsule ? capsule : nullptr;
+        expect(world != nullptr, "capsule shape property preserves the new enum");
+        auto* probe = capsule->gameObject->AddComponent<CapsuleContactProbe>();
+        capsuleContacts.push_back({probe, hit});
+        addShape(std::string(name) + "-other", otherShape,
+                 {x + otherOffset.x, 500.f + otherOffset.y, 0.f}, otherSize, 0.4f);
+    };
+
+    addCase("capsule-circle-hit", 100.f, Collider2D::Shape::Circle, {0.65f, 0.f}, true);
+    addCase("capsule-box-hit", 200.f, Collider2D::Shape::Box, {0.7f, 0.f}, true);
+    addCase("capsule-capsule-hit", 300.f, Collider2D::Shape::Capsule, {0.7f, 0.f}, true);
+    addCase("capsule-circle-miss", 400.f, Collider2D::Shape::Circle, {3.f, 0.f}, false);
+    addCase("capsule-box-miss", 500.f, Collider2D::Shape::Box, {3.f, 0.f}, false);
+    addCase("horizontal-capsule-hit", 600.f, Collider2D::Shape::Circle,
+            {1.65f, 0.f}, true, {3.f, 1.f});
+
+    auto* rotated = addShape("rotated-capsule", Collider2D::Shape::Capsule,
+                             {700.f, 500.f, 0.f}, {1.f, 3.f});
+    rotated->gameObject->transform->rotation = Vec3{0.f, 0.f, 90.f};
+    const auto capsule = rotated->WorldCapsule();
+    const Rect aabb = rotated->WorldAABB();
+    expect(almostEqual(capsule.radius, 0.5f), "capsule radius is half its minor dimension");
+    expect(almostEqual(aabb.w, 3.f) && almostEqual(aabb.h, 1.f),
+           "rotated capsule AABB includes both rounded ends");
+    rotated->gameObject->transform->scale = Vec2{2.f, 1.f};
+    const auto scaled = rotated->WorldCapsule();
+    expect(almostEqual(scaled.radius, 1.f), "capsule endpoints stay circular under world scaling");
+}
+
 void checkScene(Scene* scene) {
     checkOptionalSerialization();
+    checkCapsuleGeometry(scene);
     auto* parent = scene->CreateObject("parent");
     auto* child = scene->CreateObject("child", parent);
     expect(parent && child, "scene creates entities");
@@ -291,6 +353,12 @@ class FrameProbe final : public Behaviour {
 public:
     void Update(float) override {
         ++updates;
+        if (updates == 2) {
+            for (const auto& test : capsuleContacts) {
+                expect(test.probe && (test.probe->triggerEnters > 0) == test.expectContact,
+                       "capsule trigger contacts match the expected narrowphase result");
+            }
+        }
         Scene* owner = scene;
         expect(owner != nullptr, "behaviour has a scene");
         if (owner)

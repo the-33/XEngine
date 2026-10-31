@@ -26,6 +26,26 @@ the solver's current motion state.
 ## Set up collisions and triggers
 
 Attach a `Collider2D` and configure its `shape`, `size` or `radius` properties.
+Supported shapes are `Box`, `Circle` and `Capsule`. A capsule is a line segment
+with circular ends, suitable for characters:
+
+```cpp
+auto* collider = player->AddComponent<Collider2D>();
+collider->shape = Collider2D::Shape::Capsule;
+collider->size = Vec2{0.7f, 1.4f}; // overall width and height, including the rounded ends
+```
+
+`size` supplies the capsule's total local width and height; the longer scaled
+dimension sets its axis (vertical or horizontal). `localOffset`, `rotationOffset`,
+`inheritRotation` and world scale work as on boxes. Under nonuniform scaling,
+the capsule retains circular world-space end caps. `radius` applies only to
+`Circle` shapes. `WorldCapsule()` exposes the two world-space cap centers and
+radius; `WorldAABB()` includes the entire capsule, including rotations.
+
+In Debug, press **F3** to open the statistics overlay and see the actual
+collider outlines, including capsules (green for colliders, yellow for triggers).
+You can also enable an individual collider's `showGizmo` property.
+
 For trigger volumes, set `isTrigger=true`. `layer` and `mask` are bitfields:
 the collision system checks the layer/mask relationship before evaluating
 geometry. Matching layers alone do not force a collision if their shapes do

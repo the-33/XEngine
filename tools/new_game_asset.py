@@ -127,7 +127,7 @@ def render_file(kind: str, name: str, sprite: str | None,
         )
     collider_code = ""
     if collider != "none":
-        shape = "Circle" if collider == "circle" else "Box"
+        shape = {"box": "Box", "circle": "Circle", "capsule": "Capsule"}[collider]
         collider_code = (
             "    auto* collider = object->AddComponent<Collider2D>();\n"
             f"    collider->shape = Collider2D::Shape::{shape};\n"
@@ -155,8 +155,8 @@ def create_asset(project: Path, kind: str, name: str, *, directory: str = ".",
     check_identifier(name)
     if kind != "object" and (sprite or collider != "none" or behaviour):
         raise GenerationError("--sprite, --collider and --behaviour only apply to objects")
-    if collider not in {"none", "box", "circle"}:
-        raise GenerationError("--collider must be none, box or circle")
+    if collider not in {"none", "box", "circle", "capsule"}:
+        raise GenerationError("--collider must be none, box, circle or capsule")
     if sprite and sprite not in available_sprites():
         raise GenerationError(
             f"Unknown default sprite {sprite!r}. Available: {', '.join(available_sprites())}"
@@ -212,7 +212,7 @@ def prompt_creation(options: argparse.Namespace) -> None:
         selected = input(f"Default sprite [{sprites}] (Enter for none): ").strip()
         options.sprite = selected or None
     if kind == "object" and options.collider == "none":
-        options.collider = input("Collider [box / circle] (Enter for none): ").strip() or "none"
+        options.collider = input("Collider [box / circle / capsule] (Enter for none): ").strip() or "none"
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -225,7 +225,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--game", help="Game directory name under games/")
     parser.add_argument("--dir", default=".", help="Directory relative to assets/ (default: root)")
     parser.add_argument("--sprite", help="Attach a SpriteRenderer using a BlankGame PNG")
-    parser.add_argument("--collider", choices=("none", "box", "circle"), default="none")
+    parser.add_argument("--collider", choices=("none", "box", "circle", "capsule"), default="none")
     parser.add_argument("--behaviour", help="Attach an existing Behaviour class")
     parser.add_argument("--list-sprites", action="store_true", help="List canonical BlankGame PNGs")
     options = parser.parse_args(argv)

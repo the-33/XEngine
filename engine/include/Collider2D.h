@@ -18,7 +18,9 @@ using LayerBits = uint32_t;
 /** @brief Box/circle collision geometry attached to a GameObject and its Transform.
  *
  * Shape sizes and offsets are local; the current world scale applies. A circle
- * uses the larger world XY scale component for its radius. A collider can share
+ * uses the larger world XY scale component for its radius. Capsules use the
+ * size property as the total width and height, including their rounded ends.
+ * A collider can share
  * the first Rigidbody2D found on its owner or an ancestor.
  * @ingroup xengine_physics
  */
@@ -31,8 +33,9 @@ public:
     /** @brief Available shape modes for Collider2D.
      */
     enum class Shape : uint8_t {
-        Box,   ///< Rectangular collider using local width/height dimensions.
-        Circle ///< Circular collider using its local radius.
+        Box,     ///< Rectangular collider using local width/height dimensions.
+        Circle,  ///< Circular collider using its local radius.
+        Capsule  ///< Rounded collider using total local width and height.
     };
 
 private:
@@ -134,6 +137,14 @@ protected:
          */
         float radius;
     };
+    /** @brief World-space capsule: the line between two circular cap centers and its radius.
+     * @note A zero-length center segment is equivalent to a circle.
+     */
+    struct Capsule2D {
+        Vec2 a{}; ///< Center of the first rounded end.
+        Vec2 b{}; ///< Center of the second rounded end.
+        float radius = 0.f; ///< World-space radius of both rounded ends.
+    };
 
     /** @brief Calculates the collider’s oriented box in world coordinates.
      */
@@ -141,6 +152,12 @@ protected:
     /** @brief Calculates the collider’s circle in world coordinates.
      */
     Circle2D      WorldCircle() const noexcept;  // valid when shape == Circle
+
+    /** @brief Builds the capsule from total local size, world scale and Z rotation.
+     * @note The longer scaled dimension determines its longitudinal axis;
+     *       nonuniform scale still produces circular, not elliptical, end caps.
+     */
+    Capsule2D WorldCapsule() const noexcept; // valid when shape == Capsule
 
     // World-space shape AABB (useful for broad-phase collision checks)
     /** @brief Calculates the axis-aligned world bounds of the collider.
@@ -255,7 +272,7 @@ public:
         &Collider2D::GetLocalAngleOffsetDeg,
 		&Collider2D::SetLocalAngleOffsetDeg>;
     /** @endcond */
-    /** @brief Additional Z rotation, in degrees, applied to box geometry.
+    /** @brief Additional Z rotation, in degrees, applied to box/capsule geometry.
      */
     LocalAngleOffsetDegProp rotationOffset{ this };
 
@@ -266,7 +283,7 @@ public:
 		&Collider2D::GetSizeLocal,
 		&Collider2D::SetSizeLocal>;
     /** @endcond */
-    /** @brief Unscaled local width/height of box geometry in world units.
+    /** @brief Unscaled local width/height for box and total capsule dimensions.
      */
     SizeLocalProp size{ this };
 

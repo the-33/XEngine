@@ -190,6 +190,10 @@ Vec2 PhysicsManager::ColliderCenterWorld_(const Collider2D* c) noexcept
 {
     if (!c) return { 0,0 };
     if (c->GetShape() == Collider2D::Shape::Circle) return c->WorldCircle().center;
+    if (c->GetShape() == Collider2D::Shape::Capsule) {
+        const auto capsule = c->WorldCapsule();
+        return (capsule.a + capsule.b) * 0.5f;
+    }
     return c->WorldOBB().center;
 }
 

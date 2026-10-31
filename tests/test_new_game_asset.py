@@ -64,6 +64,13 @@ class NewGameAssetTests(unittest.TestCase):
         self.assertIn("object->AddComponent<Mover>();", text)
         self.assertIn("Collider2D::Shape::Box", text)
 
+    def test_capsule_colliders_are_available_in_generated_gameobjects(self):
+        output, sprite = new_game_asset.create_asset(
+            self.project, "object", "HeroCapsule", collider="capsule",
+        )
+        self.assertIsNone(sprite)
+        self.assertIn("Collider2D::Shape::Capsule", output.read_text(encoding="utf-8"))
+
     def test_existing_output_and_invalid_options_do_not_modify_files(self):
         target = self.project / "assets" / "Player.hpp"
         target.write_text("custom", encoding="utf-8")
