@@ -64,8 +64,9 @@ introduce visual foreshortening that 2D colliders cannot reproduce.
 dimension sets its axis (vertical or horizontal). `localOffset`, `rotationOffset`,
 `inheritRotation` and world scale work as on boxes. Under nonuniform scaling,
 the capsule retains circular world-space end caps. `radius` applies only to
-`Circle` shapes. `WorldCapsule()` exposes the two world-space cap centers and
-radius; `WorldAABB()` includes the entire capsule, including rotations.
+`Circle` shapes. Internally, the protected `WorldCapsule()` and `WorldAABB()`
+helpers calculate the two cap centers, radius and rotated broadphase bounds;
+gameplay code should configure colliders using the public properties instead.
 
 In Debug, press **F3** to open the statistics overlay and see the actual
 collider outlines, including capsules (green for colliders, yellow for triggers).

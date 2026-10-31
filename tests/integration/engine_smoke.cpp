@@ -106,11 +106,14 @@ void checkCapsuleGeometry(Scene* scene) {
     };
     const auto addCase = [&](const char* name, float x, Collider2D::Shape otherShape,
                              Vec2 otherOffset, bool hit, Vec2 capsuleSize = {1.f, 3.f},
-                             Vec2 otherSize = {1.f, 1.f}) {
+                             Vec2 otherSize = {1.f, 1.f}, float rotationZ = 0.f,
+                             Vec2 capsuleScale = {1.f, 1.f}) {
         auto* capsule = addShape(std::string(name) + "-capsule", Collider2D::Shape::Capsule,
                                  {x, 500.f, 0.f}, capsuleSize);
-        const auto* world = capsule->GetShape() == Collider2D::Shape::Capsule ? capsule : nullptr;
-        expect(world != nullptr, "capsule shape property preserves the new enum");
+        expect(capsule->shape.get() == Collider2D::Shape::Capsule,
+               "capsule shape property preserves the new enum");
+        capsule->gameObject->transform->rotation = Vec3{0.f, 0.f, rotationZ};
+        capsule->gameObject->transform->scale = capsuleScale;
         auto* probe = capsule->gameObject->AddComponent<CapsuleContactProbe>();
         capsuleContacts.push_back({probe, hit});
         addShape(std::string(name) + "-other", otherShape,
@@ -125,17 +128,14 @@ void checkCapsuleGeometry(Scene* scene) {
     addCase("horizontal-capsule-hit", 600.f, Collider2D::Shape::Circle,
             {1.65f, 0.f}, true, {3.f, 1.f});
 
-    auto* rotated = addShape("rotated-capsule", Collider2D::Shape::Capsule,
-                             {700.f, 500.f, 0.f}, {1.f, 3.f});
-    rotated->gameObject->transform->rotation = Vec3{0.f, 0.f, 90.f};
-    const auto capsule = rotated->WorldCapsule();
-    const Rect aabb = rotated->WorldAABB();
-    expect(almostEqual(capsule.radius, 0.5f), "capsule radius is half its minor dimension");
-    expect(almostEqual(aabb.w, 3.f) && almostEqual(aabb.h, 1.f),
-           "rotated capsule AABB includes both rounded ends");
-    rotated->gameObject->transform->scale = Vec2{2.f, 1.f};
-    const auto scaled = rotated->WorldCapsule();
-    expect(almostEqual(scaled.radius, 1.f), "capsule endpoints stay circular under world scaling");
+    // These pairs exercise the transformed world geometry and AABB indirectly,
+    // without depending on Collider2D's protected internal geometry helpers.
+    addCase("rotated-capsule-hit", 700.f, Collider2D::Shape::Circle,
+            {1.6f, 0.f}, true, {1.f, 3.f}, {1.f, 1.f}, 90.f);
+    addCase("rotated-capsule-miss", 800.f, Collider2D::Shape::Circle,
+            {0.f, 1.5f}, false, {1.f, 3.f}, {1.f, 1.f}, 90.f);
+    addCase("scaled-capsule-hit", 900.f, Collider2D::Shape::Circle,
+            {1.3f, 0.f}, true, {1.f, 3.f}, {1.f, 1.f}, 0.f, {2.f, 1.f});
 }
 
 void checkSpriteFitting(Scene* scene, Texture* texture) {
