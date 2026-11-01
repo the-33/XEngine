@@ -5,6 +5,7 @@
 
 #include <vector>
 #include <string>
+#include <unordered_map>
 
 #include "Singleton.h"
 #include "BaseTypes.h"
@@ -46,6 +47,28 @@ struct UIButtonColors {
     Color outline;
 };
 
+/** @brief Policy used when moving focus from an interactive UI control. */
+enum class UINavigationMode {
+    Automatic, ///< Choose the nearest control in the requested direction.
+    Explicit,  ///< Follow the direction-specific IDs supplied by the caller.
+    None       ///< Ignore directional navigation from this control.
+};
+
+/** @brief Optional directional neighbours for a focusable UI control. */
+struct UINavigation {
+    UINavigationMode mode = UINavigationMode::Automatic; ///< Directional focus policy.
+    std::string up;    ///< ID to focus on Up; empty means no transition.
+    std::string down;  ///< ID to focus on Down; empty means no transition.
+    std::string left;  ///< ID to focus on Left; empty means no transition.
+    std::string right; ///< ID to focus on Right; empty means no transition.
+};
+
+/** @brief Units used to interpret UIStyle::cornerRadius. */
+enum class UICornerRadiusUnit {
+    Pixels,  ///< Drawable UI pixels, scaled by UICanvas for anchored widgets.
+    Percent  ///< Percentage of the shortest side of the resolved widget.
+};
+
 /** @brief Immediate-mode widgets and draw commands in drawable screen pixels.
  *
  * Call widgets every frame from the UI phase; their rectangles use the SDL
@@ -65,18 +88,45 @@ class UIManager : public Singleton<UIManager>
     friend class Engine;
 
 private:
-    // --- Estilo global overrideable ---
+public:
+    /** @brief Reusable appearance for built-in UI controls.
+     * Values are applied by SetStyle or temporarily by PushStyle/PopStyle.
+     * Corner radius can be in pixels or a percentage of the shortest side;
+     * border thickness and padding are in drawable UI pixels. Anchored
+     * controls scale pixel measurements with the active canvas.
+     */
     struct UIStyle {
-        Color text{ 240,240,240,255 };
-        Color btn{ 60,60,60,255 };
-        Color btnHot{ 80,80,80,255 };
-        Color btnActive{ 40,40,40,255 };
-        Color outline{ 200,200,200,255 };
-        float padding = 6.f;
-        std::string defaultFontKey = "ui_default"; // <-- Not const; this may be changed
+        Color text{240, 240, 240, 255};              ///< Foreground text color.
+        Color btn{60, 60, 60, 255};                 ///< Normal control background.
+        Color btnHot{80, 80, 80, 255};              ///< Hovered control background.
+        Color btnActive{40, 40, 40, 255};           ///< Pressed control background.
+        Color outline{200, 200, 200, 255};          ///< Unfocused border color.
+        float padding = 6.f;                        ///< Internal text padding.
+        std::string defaultFontKey = "ui_default";  ///< Font asset key for text.
+        float cornerRadius = 0.f;                   ///< Corner radius value in cornerRadiusUnit units.
+        float borderWidth = 1.f;                    ///< Thickness of panel/control borders.
+        UICornerRadiusUnit cornerRadiusUnit = UICornerRadiusUnit::Pixels; ///< Unit for cornerRadius.
+        Color focus{105, 205, 255, 255};           ///< Focus outline color.
+        Color sliderTrack{38, 48, 60, 255};        ///< Slider track background.
+        Color sliderTrackOutline{91, 116, 139, 255}; ///< Slider track border.
+        Color sliderFill{86, 179, 216, 255};       ///< Slider progress color.
+        Color sliderHandle{232, 241, 249, 255};    ///< Slider handle fill.
+        Color sliderHandleOutline{61, 92, 113, 255}; ///< Slider handle border.
+        Color toggleOn{55, 169, 136, 255};         ///< Enabled toggle track.
+        Color toggleOff{79, 91, 107, 255};         ///< Disabled toggle track.
+        Color dropdownBackground{22, 30, 42, 250}; ///< Expanded dropdown background.
+        Color dropdownSelected{59, 105, 130, 255}; ///< Selected dropdown row.
+        Color dropdownHovered{60, 72, 87, 255};    ///< Hovered dropdown row.
+        Color dropdownArrow{240, 240, 240, 255};   ///< Dropdown chevron color.
+        Color checkboxBackground{20, 20, 20, 255}; ///< Checkbox empty fill.
+        Color checkboxCheck{180, 180, 180, 255};   ///< Checkbox checked fill.
+        Color placeholder{160, 160, 160, 255};     ///< Text input placeholder color.
+        Color textSelection{66, 125, 185, 255};    ///< Text input selection background.
     };
 
-    enum class CmdType { Rect, Text, Image, TextInRect };
+private:
+
+    enum class CmdType { Rect, RoundedPanel, Line, Text, Image, TextInRect };
 
     struct DrawCmd {
         CmdType type = CmdType::Rect;
@@ -91,6 +141,12 @@ private:
 
         // Rect
         bool filled = true;
+        Color outline{0, 0, 0, 0};
+        float cornerRadius = 0.f;
+        float borderWidth = 1.f;
+        Vec2 from{};
+        Vec2 to{};
+        float lineWidth = 1.f;
 
         // Image
         const Texture* tex = nullptr;
@@ -120,7 +176,10 @@ private:
     std::vector<Focusable> mFocusableCurrent;
     std::vector<Focusable> mFocusablePrevious;
     std::string mFocusedId;
+    std::string mPendingFocusId;
     std::string mEditingId;
+    bool mAutoSelectFirst = true;
+    std::unordered_map<std::string, UINavigation> mNavigationRules;
     PlayerId mNavigationPlayer = 0;
     bool mNavigationEnabled = true;
     Color mFocusColor{105, 205, 255, 255};
@@ -163,6 +222,10 @@ private:
     Color mBtnOutlineDefaultColor = { 200,200,200,255 };
     float mBtnDefaultPadding = 6.f;
 
+    UIStyle mBaseStyle{};
+    UIStyle mActiveStyle{};
+    std::vector<UIStyle> mStyleStack;
+
     Font* mDefaultFont = nullptr;
     UICanvas mCanvas{};
     float mTextScale = 1.f;
@@ -175,6 +238,8 @@ private:
     void PushText_(const std::string& text, const Rect& r, Font* font, Color color) noexcept;
     void PushImage_(const Texture& tex, const Rect& dst, const Rect* srcPixels, Color tint, bool flipX, bool flipY) noexcept;
     void PushTextInRect_(const Rect& r, Font* font, const std::string& text, Color color, AlignH h, AlignV v, float padding) noexcept;
+    void PushChevron_(const Rect& r, bool upward) noexcept;
+    void ApplyStyle_(const UIStyle& style) noexcept;
 
     bool ButtonImpl_(const char* id, const Rect& r, Font* font, const UIButtonColors& colors, const std::string& text) noexcept;
 
@@ -185,6 +250,20 @@ private:
     void End() noexcept;
 
 public:
+    /** @brief Set the default appearance of subsequent controls.
+     * @param style Appearance to use outside temporary style scopes.
+     */
+    void SetStyle(const UIStyle& style) noexcept;
+    /** @brief Return the appearance currently used for drawing. */
+    const UIStyle& GetStyle() const noexcept { return mActiveStyle; }
+    /** @brief Temporarily override all UI appearance fields.
+     * Pair each call with PopStyle, including conditional drawing paths.
+     * @param style Appearance used until the matching PopStyle.
+     */
+    void PushStyle(const UIStyle& style) noexcept;
+    /** @brief Restore the appearance preceding the most recent PushStyle. */
+    void PopStyle() noexcept;
+
     // --------------------------
     // Keyboard/controller navigation and editable fields
     // --------------------------
@@ -199,14 +278,44 @@ public:
     /** @brief Read the player currently controlling UI navigation. */
     PlayerId NavigationPlayer() const noexcept { return mNavigationPlayer; }
     /** @brief Set the outline color for focused UI controls. */
-    void SetFocusColor(Color color) noexcept { mFocusColor = color; }
+    void SetFocusColor(Color color) noexcept;
     /** @brief Read the current UI focus outline color. */
     Color FocusColor() const noexcept { return mFocusColor; }
     /** @brief Configure delays in milliseconds before and during held-direction repeats. */
     void SetNavigationRepeat(uint32_t initialMs, uint32_t repeatMs) noexcept;
+    /** @brief Control whether an empty focus automatically selects the first widget.
+     * Disable it to allow a menu to remain initially unselected. Directional
+     * input or Tab can still select the first eligible widget.
+     * @param enabled Whether first-widget selection is automatic.
+     */
+    void SetAutoSelectFirst(bool enabled) noexcept;
+    /** @brief Whether empty focus selects the first available widget. */
+    bool AutoSelectFirst() const noexcept { return mAutoSelectFirst; }
+    /** @brief Request the initial focused widget of an upcoming panel.
+     * The requested ID receives focus when its widget is next drawn.
+     * @param id Widget ID, or null/empty to remove the pending request.
+     */
+    void SetInitialFocus(const char* id) noexcept;
+    /** @brief Configure directional navigation for one widget ID.
+     * Rules persist across frames until cleared; missing explicit neighbours
+     * do not move focus. An ID with mode None can still be clicked or focused
+     * programmatically.
+     * @param id Unique focusable widget ID.
+     * @param navigation Directional navigation mode and optional neighbours.
+     */
+    void SetNavigation(const char* id, const UINavigation& navigation) noexcept;
+    /** @brief Remove the navigation override for a specific widget ID.
+     * @param id Widget identifier to reset to automatic navigation.
+     */
+    void ClearNavigation(const char* id) noexcept;
+    /** @brief Remove every explicit UI navigation override. */
+    void ClearAllNavigation() noexcept;
     /** @brief Focus a widget by stable ID; it must be drawn on the current UI frame. */
     bool Focus(const char* id) noexcept;
-    /** @brief Clear widget focus and end text editing if active. */
+    /** @brief Clear widget focus and end text editing if active.
+     * If automatic first-selection is enabled, focus returns to the first
+     * eligible widget on the next frame.
+     */
     void ClearFocus() noexcept;
     /** @brief Stable ID of the focused widget, or an empty string. */
     const std::string& FocusedId() const noexcept { return mFocusedId; }

@@ -16,6 +16,7 @@
 #include "XEngine/detail/RendererBackendPolicy.h"
 #include <chrono>
 #include <algorithm>
+#include <array>
 #include <cstdio>
 #include "ErrorHandler.h"
 #include "TimeManager.h"
@@ -29,6 +30,91 @@ static inline bool SDL_Intersect(const SDL_Rect& a, const SDL_Rect& b, SDL_Rect&
     out.w = std::max(0, x2 - x1);
     out.h = std::max(0, y2 - y1);
     return out.w > 0 && out.h > 0;
+}
+
+namespace {
+constexpr int kRoundedArcSteps_ = 10;
+constexpr int kRoundedVertices_ = (kRoundedArcSteps_ + 1) * 4;
+
+void RoundedPath_(const Rect& rect, float radius,
+                  std::array<SDL_FPoint, kRoundedVertices_>& points) noexcept
+{
+    constexpr float pi = 3.14159265358979323846f;
+    const float centersX[4]{rect.x + rect.w - radius, rect.x + rect.w - radius,
+                            rect.x + radius, rect.x + radius};
+    const float centersY[4]{rect.y + radius, rect.y + rect.h - radius,
+                            rect.y + rect.h - radius, rect.y + radius};
+    for (int corner = 0; corner < 4; ++corner) {
+        for (int step = 0; step <= kRoundedArcSteps_; ++step) {
+            const float angle = (float(corner) - 1.f +
+                                 float(step) / float(kRoundedArcSteps_)) * pi * 0.5f;
+            const int index = corner * (kRoundedArcSteps_ + 1) + step;
+            points[index] = {centersX[corner] + std::cos(angle) * radius,
+                             centersY[corner] + std::sin(angle) * radius};
+        }
+    }
+}
+
+SDL_Color VertexColor_(Color color) noexcept
+{
+    return {static_cast<Uint8>(color.r), static_cast<Uint8>(color.g),
+            static_cast<Uint8>(color.b), static_cast<Uint8>(color.a)};
+}
+
+void FilledPolygon_(SDL_Renderer* renderer, const Rect& rect, float radius,
+                    Color color) noexcept
+{
+    if (color.a <= 0 || rect.w <= 0.f || rect.h <= 0.f) return;
+    std::array<SDL_FPoint, kRoundedVertices_> path{};
+    RoundedPath_(rect, radius, path);
+    std::array<SDL_Vertex, kRoundedVertices_ + 1> vertices{};
+    vertices[0] = {{rect.x + rect.w * 0.5f, rect.y + rect.h * 0.5f},
+                   VertexColor_(color), {0.f, 0.f}};
+    for (int i = 0; i < kRoundedVertices_; ++i)
+        vertices[i + 1] = {path[i], VertexColor_(color), {0.f, 0.f}};
+    std::array<int, kRoundedVertices_ * 3> indices{};
+    for (int i = 0; i < kRoundedVertices_; ++i) {
+        indices[i * 3] = 0;
+        indices[i * 3 + 1] = i + 1;
+        indices[i * 3 + 2] = (i + 1) % kRoundedVertices_ + 1;
+    }
+    SDL_RenderGeometry(renderer, nullptr, vertices.data(),
+                       static_cast<int>(vertices.size()), indices.data(),
+                       static_cast<int>(indices.size()));
+}
+
+void RoundedOutline_(SDL_Renderer* renderer, const Rect& rect, float radius,
+                     float thickness, Color color) noexcept
+{
+    if (color.a <= 0 || thickness <= 0.f || rect.w <= 0.f || rect.h <= 0.f) return;
+    const float innerWidth = rect.w - 2.f * thickness;
+    const float innerHeight = rect.h - 2.f * thickness;
+    if (innerWidth <= 0.f || innerHeight <= 0.f) {
+        FilledPolygon_(renderer, rect, radius, color);
+        return;
+    }
+    const Rect inner{rect.x + thickness, rect.y + thickness, innerWidth, innerHeight};
+    std::array<SDL_FPoint, kRoundedVertices_> outside{}, inside{};
+    RoundedPath_(rect, radius, outside);
+    RoundedPath_(inner, std::max(0.f, radius - thickness), inside);
+    std::array<SDL_Vertex, kRoundedVertices_ * 2> vertices{};
+    std::array<int, kRoundedVertices_ * 6> indices{};
+    for (int i = 0; i < kRoundedVertices_; ++i) {
+        const int next = (i + 1) % kRoundedVertices_;
+        vertices[i * 2] = {outside[i], VertexColor_(color), {0.f, 0.f}};
+        vertices[i * 2 + 1] = {inside[i], VertexColor_(color), {0.f, 0.f}};
+        const int first = i * 6;
+        indices[first] = i * 2;
+        indices[first + 1] = next * 2;
+        indices[first + 2] = i * 2 + 1;
+        indices[first + 3] = i * 2 + 1;
+        indices[first + 4] = next * 2;
+        indices[first + 5] = next * 2 + 1;
+    }
+    SDL_RenderGeometry(renderer, nullptr, vertices.data(),
+                       static_cast<int>(vertices.size()), indices.data(),
+                       static_cast<int>(indices.size()));
+}
 }
 
 namespace {
@@ -877,6 +963,8 @@ void RenderManager::RenderSnapshot(const Snapshot& snap) noexcept
         const auto& c = snap.cmds[index];
         mDrawPhase = c.debugDraw ? DrawPhase::Debug :
             (c.type == DrawCmd::Type::ScreenRect ||
+             c.type == DrawCmd::Type::ScreenRoundedRect ||
+             c.type == DrawCmd::Type::ScreenLine ||
              c.type == DrawCmd::Type::ScreenImage ||
              c.type == DrawCmd::Type::ScreenText ? DrawPhase::UI : DrawPhase::World);
         switch (c.type)
@@ -904,6 +992,17 @@ void RenderManager::RenderSnapshot(const Snapshot& snap) noexcept
 
         case DrawCmd::Type::ScreenRect:
             DrawRectScreenImmediate_(c.dstScreen, c.color, c.filled);
+            break;
+
+        case DrawCmd::Type::ScreenRoundedRect:
+            DrawRoundedRectScreenImmediate_(c.dstScreen, c.color, c.screenOutline,
+                                            c.screenCornerRadius, c.screenStrokeWidth,
+                                            c.filled);
+            break;
+
+        case DrawCmd::Type::ScreenLine:
+            DrawLineScreenImmediate_(c.x1, c.y1, c.x2, c.y2,
+                                     c.color, c.screenStrokeWidth);
             break;
 
         case DrawCmd::Type::ScreenImage:
@@ -1145,6 +1244,48 @@ void RenderManager::DrawRectScreen(const Rect& screenRect, Color color, bool fil
 
 }
 
+void RenderManager::DrawRoundedRectScreen(const Rect& screenRect, Color fill,
+                                          Color outline, float cornerRadius,
+                                          float borderWidth, bool filled) noexcept
+{
+    if (snapRecord) {
+        DrawCmd& command = snapRecord->cmds.emplace_back();
+        command.type = DrawCmd::Type::ScreenRoundedRect;
+        command.color = fill;
+        command.screenOutline = outline;
+        command.dstScreen = screenRect;
+        command.screenCornerRadius = cornerRadius;
+        command.screenStrokeWidth = borderWidth;
+        command.filled = filled;
+        return;
+    }
+    const DrawPhase previousPhase = mDrawPhase;
+    mDrawPhase = DrawPhase::UI;
+    DrawRoundedRectScreenImmediate_(screenRect, fill, outline,
+                                    cornerRadius, borderWidth, filled);
+    mDrawPhase = previousPhase;
+}
+
+void RenderManager::DrawLineScreen(float x1, float y1, float x2, float y2,
+                                   Color color, float thickness) noexcept
+{
+    if (snapRecord) {
+        DrawCmd& command = snapRecord->cmds.emplace_back();
+        command.type = DrawCmd::Type::ScreenLine;
+        command.x1 = x1;
+        command.y1 = y1;
+        command.x2 = x2;
+        command.y2 = y2;
+        command.color = color;
+        command.screenStrokeWidth = thickness;
+        return;
+    }
+    const DrawPhase previousPhase = mDrawPhase;
+    mDrawPhase = DrawPhase::UI;
+    DrawLineScreenImmediate_(x1, y1, x2, y2, color, thickness);
+    mDrawPhase = previousPhase;
+}
+
 void RenderManager::DrawImageScreen(const Texture& tex, const Rect& dstScreen, const Rect* srcPixels, Color tint, bool flipX, bool flipY) noexcept
 {
     // --- RECORDING MODE ---
@@ -1380,6 +1521,61 @@ void RenderManager::DrawRectScreenImmediate_(const Rect& r, Color color, bool fi
     if (filled) SDL_RenderFillRect(mRenderer, &clipped);
     else        SDL_RenderDrawRect(mRenderer, &clipped);
 	nUIDrawCallsThisFrame++;
+    CountSubmission_();
+}
+
+void RenderManager::DrawRoundedRectScreenImmediate_(const Rect& r, Color fill,
+    Color outline, float cornerRadius, float borderWidth, bool filled) noexcept
+{
+    if (!mRenderer || !mWindow || r.w <= 0.f || r.h <= 0.f ||
+        !std::isfinite(r.x) || !std::isfinite(r.y) ||
+        !std::isfinite(r.w) || !std::isfinite(r.h)) return;
+    if (r.x >= float(mWinW) || r.y >= float(mWinH) ||
+        r.x + r.w <= 0.f || r.y + r.h <= 0.f) return;
+
+    const float radius = std::clamp(std::isfinite(cornerRadius) ? cornerRadius : 0.f,
+                                    0.f, std::min(r.w, r.h) * 0.5f);
+    const float stroke = std::clamp(std::isfinite(borderWidth) ? borderWidth : 0.f,
+                                    0.f, std::min(r.w, r.h) * 0.5f);
+    SDL_SetRenderDrawBlendMode(mRenderer, SDL_BLENDMODE_BLEND);
+    if (filled) FilledPolygon_(mRenderer, r, radius, fill);
+    RoundedOutline_(mRenderer, r, radius, stroke, outline);
+    ++nUIDrawCallsThisFrame;
+    CountSubmission_();
+}
+
+void RenderManager::DrawLineScreenImmediate_(float x1, float y1, float x2, float y2,
+                                             Color color, float thickness) noexcept
+{
+    if (!mRenderer || !mWindow || color.a <= 0 ||
+        !std::isfinite(x1) || !std::isfinite(y1) ||
+        !std::isfinite(x2) || !std::isfinite(y2) ||
+        !std::isfinite(thickness) || thickness <= 0.f) return;
+    const float half = thickness * 0.5f;
+    if (std::max(x1, x2) + half < 0.f || std::min(x1, x2) - half >= float(mWinW) ||
+        std::max(y1, y2) + half < 0.f || std::min(y1, y2) - half >= float(mWinH)) return;
+    SDL_SetRenderDrawBlendMode(mRenderer, SDL_BLENDMODE_BLEND);
+    if (thickness <= 1.f) {
+        SDL_SetRenderDrawColor(mRenderer, color.r, color.g, color.b, color.a);
+        SDL_RenderDrawLineF(mRenderer, x1, y1, x2, y2);
+    } else {
+        const float dx = x2 - x1;
+        const float dy = y2 - y1;
+        const float length = std::hypot(dx, dy);
+        if (length <= 0.001f) return;
+        const float nx = -dy * half / length;
+        const float ny = dx * half / length;
+        const SDL_Color tint = VertexColor_(color);
+        const SDL_Vertex vertices[4]{
+            {{x1 + nx, y1 + ny}, tint, {0.f, 0.f}},
+            {{x1 - nx, y1 - ny}, tint, {0.f, 0.f}},
+            {{x2 + nx, y2 + ny}, tint, {0.f, 0.f}},
+            {{x2 - nx, y2 - ny}, tint, {0.f, 0.f}},
+        };
+        const int triangles[6]{0, 1, 2, 1, 3, 2};
+        SDL_RenderGeometry(mRenderer, nullptr, vertices, 4, triangles, 6);
+    }
+    ++nUIDrawCallsThisFrame;
     CountSubmission_();
 }
 

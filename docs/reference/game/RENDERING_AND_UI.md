@@ -161,6 +161,9 @@ Up/Down or controller `UI/Navigate` changes the highlighted option; Submit
 chooses; Escape/UI Cancel closes without changing the selection. Mouse wheel
 scrolls longer lists. The popup draws above other controls and opens upward
 when there is more space above it.
+Its arrow is a screen-space vector chevron, not a font character: its color,
+line thickness and proportions stay consistent across fonts and operating
+systems. The arrow uses the current `UIStyle::dropdownArrow` color.
 
 ```cpp
 // Persistent Behaviour fields, not temporary locals recreated each frame:
@@ -178,6 +181,78 @@ An anchored `UIRectTransform` overload also exists. If a parent menu handles
 Escape itself, check `UI->DropdownConsumedCancel()` during Update and ignore
 that Cancel event: it was already used to dismiss the open dropdown.
 
+### Styling, borders and rounded corners
+
+Built-in controls use a reusable `UIManager::UIStyle` containing normal,
+hover and active backgrounds, text and focus colors, fonts, padding, corner
+radius and border thickness. It also exposes the slider track/fill/handle,
+toggle colors, dropdown popup/selection/arrow, and text-input placeholder and
+selection colors. The default radius is zero, preserving existing square UIs.
+`SetStyle` changes the default appearance; `PushStyle` and `PopStyle` apply a
+temporary appearance to just the controls drawn between them:
+
+```cpp
+// Once, when configuring the game UI:
+UIManager::UIStyle rounded = UI->GetStyle();
+rounded.cornerRadius = 10.f;
+rounded.borderWidth = 2.f;
+rounded.focus = Color{110, 205, 255, 255};
+rounded.dropdownArrow = Color{235, 240, 255, 255};
+UI->SetStyle(rounded);
+
+// Alternatively, express the radius as a percentage of the widget's
+// shortest side; 50% gives a capsule (or a circle for a square widget).
+UIManager::UIStyle pill = rounded;
+pill.cornerRadiusUnit = UICornerRadiusUnit::Percent;
+pill.cornerRadius = 50.f;
+
+// In Behaviour::Render(), every frame that this control is visible:
+UI->PushStyle(pill);
+UI->Button("menu.play", Rect{50.f, 80.f, 220.f, 50.f}, "Play");
+UI->PopStyle();
+
+// In Behaviour::Render(), for a single differently styled button:
+UIManager::UIStyle danger = UI->GetStyle();
+danger.btn = Color{105, 40, 45, 255};
+danger.btnHot = Color{140, 50, 60, 255};
+danger.cornerRadius = 16.f;
+UI->PushStyle(danger);
+bool quit = UI->Button("main.quit", Rect{50.f, 160.f, 220.f, 50.f}, "Quit");
+UI->PopStyle();
+if (quit) { /* Handle the click. */ }
+```
+
+The radius and border thickness apply to buttons, panels, text fields, dropdowns,
+sliders, toggles, checkboxes and progress bars. The outline stays inside each
+rectangle. Existing `UIButtonColors`, explicit label fonts/colors and
+progress-bar colors remain supported. Textures and `ImageButton` images are not
+masked to the border radius; use an image with transparency if its actual
+picture must have rounded corners. An `ImageButton`'s optional focus frame does
+use the configured radius. `UICornerRadiusUnit::Pixels` uses drawable pixels;
+`UICornerRadiusUnit::Percent` computes the radius from the **shortest side of
+each resolved rectangle** and clamps it to 50%, avoiding over-rounded corners.
+The percentage adapts automatically when an anchor changes the control's size;
+anchored controls scale pixel radii, borders and text spacing with `UICanvas`.
+
+When using a temporary style, always pair `PushStyle` and `PopStyle`, even
+inside conditional rendering branches. `SetStyle` changes the base style only:
+an active temporary style remains in effect until popped.
+
+The engine's `assets/config/engine.json` accepts these optional startup values:
+
+```json
+"UIStyle": {
+  "defaultFontKey": "ui_default",
+  "cornerRadius": 10.0,
+  "borderWidth": 2.0,
+  "cornerRadiusUnit": "pixels"
+}
+```
+
+The full palette is configured in C++ through `UIStyle`. The JSON values do
+not affect world-space sprites or the camera. For proportional rounding,
+set `cornerRadiusUnit` to `"percent"` and a `cornerRadius` such as `50.0`.
+
 ### Navigation, focus and text fields
 
 Every interactive widget participates in automatic focus navigation by
@@ -190,6 +265,56 @@ call `UI->SetNavigationEnabled(false)` when a particular screen must not
 consume UI navigation. Labels, panels and progress bars never take focus.
 You can change the focus outline with `UI->SetFocusColor(...)` and the
 held-direction repeat timing with `UI->SetNavigationRepeat(initialMs, repeatMs)`.
+
+Focus on a particular widget with `Focus(id)` after its draw call, or request
+an initial widget with `SetInitialFocus(id)` when opening a panel: the request
+is applied as soon as that widget is registered. `IsFocused(id)` and
+`FocusedId()` report the current selection. By default, focus automatically
+falls back to the first available widget. To allow a menu to stay **without**
+selection, disable this behavior and clear focus:
+
+```cpp
+// When opening a mouse-first menu:
+UI->SetAutoSelectFirst(false);
+UI->ClearFocus();
+
+// Alternatively, when opening a controller-first menu:
+UI->SetInitialFocus("menu.play");
+```
+
+With auto-selection disabled, a direction or Tab selects the first eligible
+control on the next input. Clicking a control focuses it normally. If you call
+`ClearFocus()` while auto-selection is enabled, the first eligible control
+will be selected again on the next frame.
+
+`UINavigation` configures each control's directional behavior. There are three
+modes: `Automatic` selects the nearest widget geometrically; `Explicit`
+follows stable widget IDs; `None` prevents directional/Tab navigation to or
+from a widget, while mouse clicks and explicit `Focus(id)` still work.
+Missing IDs or empty directions under `Explicit` leave focus unchanged.
+
+```cpp
+UINavigation links;
+links.mode = UINavigationMode::Explicit;
+links.down = "menu.options";
+links.up = "menu.quit";
+UI->SetNavigation("menu.play", links);
+
+// Another widget can use automatic navigation or be mouse-only:
+UI->SetNavigation("menu.decorative_hotspot",
+                  UINavigation{UINavigationMode::None});
+
+// Undo the overrides when the menu is destroyed or the IDs are reused:
+UI->ClearNavigation("menu.play");
+UI->ClearNavigation("menu.decorative_hotspot");
+// UI->ClearAllNavigation(); // Also available for a full menu rebuild.
+```
+
+Tab/Shift+Tab traverse the registration order, skipping widgets marked `None`.
+Explicit directional rules apply only to the arrow keys and `UI/Navigate`;
+they do not override Tab order. Sliders still consume Left/Right to adjust
+their value, and an expanded dropdown consumes its own navigation until closed.
+Navigation rules persist across frames; do not register them anew every frame.
 
 The new `TextInput` edits a **game-owned** UTF-8 string, so its contents can
 be saved with your gameplay data (for example, the name in a save slot):

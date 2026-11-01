@@ -462,6 +462,31 @@ public:
      */
     void DrawRectScreen(const Rect& screenRect, Color color, bool filled) noexcept;
 
+    /** @brief Draw a filled or outlined rounded rectangle in screen pixels.
+     * The radius is clamped to half the shortest side and the border stays
+     * inside the supplied rectangle; zero radius produces square corners.
+     * @param screenRect Destination rectangle in drawable pixels.
+     * @param fill Interior color (ignored when filled is false).
+     * @param outline Border color; alpha zero disables the border.
+     * @param cornerRadius Corner radius in pixels.
+     * @param borderWidth Border thickness in pixels.
+     * @param filled Whether to draw the interior.
+     */
+    void DrawRoundedRectScreen(const Rect& screenRect, Color fill, Color outline,
+                               float cornerRadius, float borderWidth = 1.f,
+                               bool filled = true) noexcept;
+
+    /** @brief Draw a screen-space line independent of the active camera.
+     * @param x1 Starting X coordinate in drawable pixels.
+     * @param y1 Starting Y coordinate in drawable pixels.
+     * @param x2 Ending X coordinate in drawable pixels.
+     * @param y2 Ending Y coordinate in drawable pixels.
+     * @param color RGBA line color.
+     * @param thickness Positive line width in drawable pixels.
+     */
+    void DrawLineScreen(float x1, float y1, float x2, float y2,
+                        Color color, float thickness = 1.f) noexcept;
+
     /** @brief Draws a texture in screen pixels without applying the camera transform.
      * @param tex Texture to draw or cache.
      * @param dstScreen Destination rectangle in screen pixels.
@@ -523,6 +548,12 @@ private:
     void DrawLineImmediate_(float x1, float y1, float x2, float y2, Color color) noexcept;
 
     void DrawRectScreenImmediate_(const Rect& screenRect, Color color, bool filled) noexcept;
+
+    void DrawRoundedRectScreenImmediate_(const Rect& screenRect, Color fill,
+        Color outline, float cornerRadius, float borderWidth, bool filled) noexcept;
+
+    void DrawLineScreenImmediate_(float x1, float y1, float x2, float y2,
+        Color color, float thickness) noexcept;
 
     void DrawImageScreenImmediate_(const Texture& tex,
         const Rect& dstScreen,

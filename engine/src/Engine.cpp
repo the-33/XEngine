@@ -407,7 +407,11 @@ bool Engine::StartImpl(const std::string configPath, bool inlineJson) noexcept
             mCfg.uiStyle.outline,
             mCfg.uiStyle.padding,
             mCfg.uiStyle.defaultFontKey,
+            mCfg.uiStyle.cornerRadius,
+            mCfg.uiStyle.borderWidth,
         };
+        style.cornerRadiusUnit = mCfg.uiStyle.cornerRadiusUnit == "percent"
+            ? UICornerRadiusUnit::Percent : UICornerRadiusUnit::Pixels;
 
         ok = ui->Init(style);
         if (!ok)
@@ -963,8 +967,11 @@ static inline Color ParseColor(const std::string& s)
     "btnActive":[40, 40, 40, 255],
     "outline": [200, 200, 200, 255],
     "padding": 6.0,
-    "defaultFontKey": "ui_default"
-	"defaultFontPtSize": 24
+    "defaultFontKey": "ui_default",
+    "defaultFontPtSize": 24,
+    "cornerRadius": 0.0,
+    "borderWidth": 1.0,
+    "cornerRadiusUnit": "pixels"
   },
   "Physics": {
     "baseGravity":     [0.0, 9.81],
@@ -1242,6 +1249,21 @@ bool Engine::LoadConfigFromJson(const std::string& text, const std::string& orig
 
             if (ui.contains("padding") && ui["padding"].is_number())
                 out.uiStyle.padding = ui["padding"].get<float>();
+            if (ui.contains("cornerRadius") && ui["cornerRadius"].is_number()) {
+                const float radius = ui["cornerRadius"].get<float>();
+                if (std::isfinite(radius) && radius >= 0.f)
+                    out.uiStyle.cornerRadius = radius;
+            }
+            if (ui.contains("borderWidth") && ui["borderWidth"].is_number()) {
+                const float width = ui["borderWidth"].get<float>();
+                if (std::isfinite(width) && width >= 0.f)
+                    out.uiStyle.borderWidth = width;
+            }
+            if (ui.contains("cornerRadiusUnit") && ui["cornerRadiusUnit"].is_string()) {
+                const std::string unit = ui["cornerRadiusUnit"].get<std::string>();
+                if (unit == "percent" || unit == "pixels")
+                    out.uiStyle.cornerRadiusUnit = unit;
+            }
             if (ui.contains("defaultFontKey") && ui["defaultFontKey"].is_string())
                 out.uiStyle.defaultFontKey = ui["defaultFontKey"].get<std::string>();
             if (ui.contains("defaultFontPtSize") && ui["defaultFontPtSize"].is_number())

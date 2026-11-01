@@ -204,6 +204,17 @@ Use stable, distinct widget IDs. `UI->Button`, `UI->Label`, `UI->Panel` and
 other UI calls use screen-space rectangles rather than world-space camera
 coordinates. Camera movement should not affect the position of a HUD control.
 
+UI appearance is configured with `UIManager::UIStyle` (including reusable
+colors, corner radius and border thickness), either globally with `SetStyle`
+or for individual controls with `PushStyle`/`PopStyle`. Pixel or percentage-based
+rounding (`UICornerRadiusUnit`) lets anchored layouts retain proportional corner
+shapes while resizing. Widgets can use automatic or explicit directional
+navigation through `UINavigation`, and
+`SetInitialFocus` can select the desired control when a panel opens.
+Call `SetAutoSelectFirst(false)` and `ClearFocus()` to allow an initially
+unselected menu. See [UI styles and navigation](reference/game/RENDERING_AND_UI.md#styling-borders-and-rounded-corners)
+for examples, including controller navigation and dropdown appearance.
+
 For text and images, be consistent about whether you call world-space
 `RenderManager` methods or their explicit screen-space counterparts. A sprite
 attached to a world `GameObject` and a fixed HUD image do **not** share the

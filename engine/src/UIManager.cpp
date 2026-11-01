@@ -84,14 +84,9 @@ int TextWidth_(TTF_Font* font, std::string_view value) noexcept {
 
 bool UIManager::Init(const UIStyle& defaultStyle) noexcept
 {
-    mTextDefaultColor = defaultStyle.text;
-    mBtnDefaultColor = defaultStyle.btn;
-    mBtnHotDefaultColor = defaultStyle.btnHot;
-    mBtnActiveDefaultColor = defaultStyle.btnActive;
-    mBtnOutlineDefaultColor = defaultStyle.outline;
-    mBtnDefaultPadding = defaultStyle.padding;
-
-    mDefaultFont = AssetManager::GetInstancePtr()->GetFontByKey(defaultStyle.defaultFontKey);
+    mBaseStyle = defaultStyle;
+    mStyleStack.clear();
+    ApplyStyle_(defaultStyle);
     if (!mDefaultFont && !defaultStyle.defaultFontKey.empty()) {
         LogWarning("UIManager",
             std::string("Init(): Could not find font asset '") + defaultStyle.defaultFontKey +
@@ -106,9 +101,11 @@ bool UIManager::Init(const UIStyle& defaultStyle) noexcept
     mFocusableCurrent.clear();
     mFocusablePrevious.clear();
     mFocusedId.clear();
+    mPendingFocusId.clear();
     StopEditing_();
     mNavigationEnabled = true;
-    mFocusColor = {105, 205, 255, 255};
+    mAutoSelectFirst = true;
+    mNavigationRules.clear();
     mNavigationPlayer = 0;
     mLastNavigationDirection = 0;
     mSliderNavigationStep = 0;
@@ -129,6 +126,9 @@ void UIManager::Shutdown() noexcept
     mFocusableCurrent.clear();
     mFocusablePrevious.clear();
     mFocusedId.clear();
+    mPendingFocusId.clear();
+    mNavigationRules.clear();
+    mStyleStack.clear();
     mSliderNavigationStep = 0;
     mOpenDropdownId.clear();
     mDropdownOverlayCmds.clear();
@@ -183,10 +183,20 @@ void UIManager::Begin() noexcept
                 mFocusablePrevious.end(), [this](const Focusable& f) {
                     return f.id == mFocusedId;
                 });
-            if (!stillPresent) ClearFocus();
+            if (!stillPresent) {
+                StopEditing_();
+                mFocusedId.clear();
+            }
         }
-        if (mFocusedId.empty() && !mFocusablePrevious.empty())
-            mFocusedId = mFocusablePrevious.front().id;
+        if (mFocusedId.empty() && mAutoSelectFirst && mPendingFocusId.empty()) {
+            const auto first = std::find_if(mFocusablePrevious.begin(),
+                mFocusablePrevious.end(), [this](const Focusable& item) {
+                    const auto rule = mNavigationRules.find(item.id);
+                    return rule == mNavigationRules.end() ||
+                           rule->second.mode != UINavigationMode::None;
+                });
+            if (first != mFocusablePrevious.end()) mFocusedId = first->id;
+        }
 
         if (mNavigationEnabled) {
             const bool uiActions = input->IsActionMapEnabled("UI", mNavigationPlayer);
@@ -424,6 +434,47 @@ void UIManager::ProgressBar(float value01, const UIRectTransform& layout,
 // --------------------------
 // Helpers
 // --------------------------
+void UIManager::ApplyStyle_(const UIStyle& style) noexcept
+{
+    mActiveStyle = style;
+    mTextDefaultColor = style.text;
+    mBtnDefaultColor = style.btn;
+    mBtnHotDefaultColor = style.btnHot;
+    mBtnActiveDefaultColor = style.btnActive;
+    mBtnOutlineDefaultColor = style.outline;
+    mBtnDefaultPadding = std::max(0.f, style.padding);
+    mFocusColor = style.focus;
+    if (auto* assets = AssetManager::GetInstancePtr_NO_ERROR_MSG())
+        mDefaultFont = assets->GetFontByKey(style.defaultFontKey);
+}
+
+void UIManager::SetStyle(const UIStyle& style) noexcept
+{
+    mBaseStyle = style;
+    if (mStyleStack.empty()) ApplyStyle_(style);
+}
+
+void UIManager::PushStyle(const UIStyle& style) noexcept
+{
+    mStyleStack.push_back(mActiveStyle);
+    ApplyStyle_(style);
+}
+
+void UIManager::PopStyle() noexcept
+{
+    if (mStyleStack.empty()) return;
+    const UIStyle previous = std::move(mStyleStack.back());
+    mStyleStack.pop_back();
+    ApplyStyle_(mStyleStack.empty() ? mBaseStyle : previous);
+}
+
+void UIManager::SetFocusColor(Color color) noexcept
+{
+    mFocusColor = color;
+    mActiveStyle.focus = color;
+    if (mStyleStack.empty()) mBaseStyle.focus = color;
+}
+
 bool UIManager::PointInRect_(const Vec2I& p, const Rect& r) noexcept
 {
     return (p.x >= r.x && p.x <= r.x + r.w &&
@@ -435,7 +486,38 @@ bool UIManager::Focus(const char* id) noexcept
     if (!id || !*id) return false;
     if (mFocusedId != id) StopEditing_();
     mFocusedId = id;
+    mPendingFocusId.clear();
     return true;
+}
+
+void UIManager::SetAutoSelectFirst(bool enabled) noexcept
+{
+    mAutoSelectFirst = enabled;
+}
+
+void UIManager::SetInitialFocus(const char* id) noexcept
+{
+    ClearFocus();
+    if (!id || !*id) return;
+    const auto current = std::find_if(mFocusableCurrent.begin(),
+        mFocusableCurrent.end(), [id](const Focusable& item) { return item.id == id; });
+    if (current != mFocusableCurrent.end()) Focus(id);
+    else mPendingFocusId = id;
+}
+
+void UIManager::SetNavigation(const char* id, const UINavigation& navigation) noexcept
+{
+    if (id && *id) mNavigationRules[std::string(id)] = navigation;
+}
+
+void UIManager::ClearNavigation(const char* id) noexcept
+{
+    if (id) mNavigationRules.erase(id);
+}
+
+void UIManager::ClearAllNavigation() noexcept
+{
+    mNavigationRules.clear();
 }
 
 void UIManager::SetNavigationRepeat(uint32_t initialMs, uint32_t repeatMs) noexcept
@@ -448,6 +530,7 @@ void UIManager::ClearFocus() noexcept
 {
     StopEditing_();
     mFocusedId.clear();
+    mPendingFocusId.clear();
     mOpenDropdownId.clear();
     mDropdownPressedRow = -1;
 }
@@ -464,24 +547,58 @@ void UIManager::RegisterFocusable_(const char* id, const Rect& r, bool horizonta
         [id](const Focusable& item) { return item.id == id; });
     if (existing == mFocusableCurrent.end()) mFocusableCurrent.push_back({id, r, horizontalAdjust});
     else existing->horizontalAdjust = existing->horizontalAdjust || horizontalAdjust;
-    if (mFocusedId.empty()) mFocusedId = id;
+    if (mPendingFocusId == id) {
+        Focus(id);
+    } else if (mFocusedId.empty() && mAutoSelectFirst && mPendingFocusId.empty()) {
+        const auto rule = mNavigationRules.find(id);
+        if (rule == mNavigationRules.end() || rule->second.mode != UINavigationMode::None)
+            mFocusedId = id;
+    }
 }
 
 void UIManager::MoveFocus_(int direction, bool spatial) noexcept
 {
     if (mFocusablePrevious.empty() || direction == 0) return;
+    const auto selectable = [this](const Focusable& item) {
+        const auto rule = mNavigationRules.find(item.id);
+        return rule == mNavigationRules.end() || rule->second.mode != UINavigationMode::None;
+    };
     auto current = std::find_if(mFocusablePrevious.begin(), mFocusablePrevious.end(),
         [this](const Focusable& item) { return item.id == mFocusedId; });
     if (current == mFocusablePrevious.end()) {
-        Focus(mFocusablePrevious.front().id.c_str());
+        const auto first = std::find_if(mFocusablePrevious.begin(),
+                                        mFocusablePrevious.end(), selectable);
+        if (first != mFocusablePrevious.end()) Focus(first->id.c_str());
         return;
     }
 
     if (!spatial) {
         const auto count = static_cast<int>(mFocusablePrevious.size());
         const auto index = static_cast<int>(std::distance(mFocusablePrevious.begin(), current));
-        Focus(mFocusablePrevious[(index + (direction > 0 ? 1 : -1) + count) % count].id.c_str());
+        for (int offset = 1; offset <= count; ++offset) {
+            const auto& next = mFocusablePrevious[
+                (index + (direction > 0 ? offset : -offset) + count * 2) % count];
+            if (selectable(next)) { Focus(next.id.c_str()); break; }
+        }
         return;
+    }
+
+    const auto rule = mNavigationRules.find(current->id);
+    if (rule != mNavigationRules.end()) {
+        const UINavigation& navigation = rule->second;
+        if (navigation.mode == UINavigationMode::None) return;
+        if (navigation.mode == UINavigationMode::Explicit) {
+            const std::string& target = direction == 1 ? navigation.right :
+                direction == -1 ? navigation.left : direction == 2 ?
+                navigation.down : navigation.up;
+            if (target.empty()) return;
+            const auto found = std::find_if(mFocusablePrevious.begin(),
+                mFocusablePrevious.end(), [&target, &selectable](const Focusable& item) {
+                    return item.id == target && selectable(item);
+                });
+            if (found != mFocusablePrevious.end()) Focus(target.c_str());
+            return;
+        }
     }
 
     const float cx = current->bounds.x + current->bounds.w * 0.5f;
@@ -490,6 +607,7 @@ void UIManager::MoveFocus_(int direction, bool spatial) noexcept
     const Focusable* best = nullptr;
     for (const Focusable& candidate : mFocusablePrevious) {
         if (candidate.id == current->id) continue;
+        if (!selectable(candidate)) continue;
         const float dx = candidate.bounds.x + candidate.bounds.w * 0.5f - cx;
         const float dy = candidate.bounds.y + candidate.bounds.h * 0.5f - cy;
         const float forward = direction == 1 ? dx : direction == -1 ? -dx :
@@ -575,6 +693,24 @@ UIManager::ButtonState UIManager::ButtonBehavior_(const char* id, const Rect& r)
 
 void UIManager::PushPanel_(const Rect& r, Color fill, Color outline, bool filled) noexcept
 {
+    const float radius = mActiveStyle.cornerRadiusUnit == UICornerRadiusUnit::Percent
+        ? std::max(0.f, std::min(r.w, r.h)) *
+          std::clamp(mActiveStyle.cornerRadius, 0.f, 50.f) * 0.01f
+        : std::max(0.f, mActiveStyle.cornerRadius * mTextScale);
+    const float border = std::max(0.f, mActiveStyle.borderWidth * mTextScale);
+    if (radius > 0.f || std::fabs(border - 1.f) > 0.01f) {
+        DrawCmd command;
+        command.type = CmdType::RoundedPanel;
+        command.r = r;
+        command.color = fill;
+        command.outline = outline;
+        command.filled = filled;
+        command.cornerRadius = radius;
+        command.borderWidth = border;
+        mCmds.push_back(std::move(command));
+        return;
+    }
+
     // Fondo
     if (filled) {
         DrawCmd a;
@@ -592,6 +728,29 @@ void UIManager::PushPanel_(const Rect& r, Color fill, Color outline, bool filled
     b.color = outline;
     b.filled = false;
     mCmds.push_back(std::move(b));
+}
+
+void UIManager::PushChevron_(const Rect& r, bool upward) noexcept
+{
+    const float scale = std::max(0.25f, mTextScale);
+    const float halfWidth = std::min(r.h * 0.16f, 7.f * scale);
+    const float halfHeight = std::max(2.f * scale, halfWidth * 0.55f);
+    const float centerX = r.x + r.w - std::min(r.w * 0.22f, 21.f * scale);
+    const float centerY = r.y + r.h * 0.5f;
+    const float sign = upward ? -1.f : 1.f;
+    const Vec2 left{centerX - halfWidth, centerY - sign * halfHeight};
+    const Vec2 middle{centerX, centerY + sign * halfHeight};
+    const Vec2 right{centerX + halfWidth, centerY - sign * halfHeight};
+    for (const auto& segment : {std::pair<Vec2, Vec2>{left, middle},
+                                std::pair<Vec2, Vec2>{middle, right}}) {
+        DrawCmd command;
+        command.type = CmdType::Line;
+        command.from = segment.first;
+        command.to = segment.second;
+        command.color = mActiveStyle.dropdownArrow;
+        command.lineWidth = std::max(1.5f, 2.f * scale);
+        mCmds.push_back(std::move(command));
+    }
 }
 
 void UIManager::PushText_(const std::string& text, const Rect& r, Font* font, Color color) noexcept
@@ -769,6 +928,11 @@ void UIManager::Panel(const Rect& r, Color fill, Color outline, bool filled) noe
 
 void UIManager::Panel(const Rect& r, Color fill) noexcept
 {
+    if (mActiveStyle.cornerRadius > 0.f ||
+        std::fabs(mActiveStyle.borderWidth - 1.f) > 0.01f) {
+        PushPanel_(r, fill, Color{0, 0, 0, 0});
+        return;
+    }
     // fast panel without an outline (or with a transparent outline)
     DrawCmd c;
     c.type = CmdType::Rect;
@@ -893,14 +1057,14 @@ bool UIManager::Checkbox(const char* id, const Rect& r, bool* value, const std::
     if (toggled) *value = !*value;
 
     // Dibujo caja
-    Panel(box, Color{ 20,20,20,255 },
+    Panel(box, mActiveStyle.checkboxBackground,
           IsFocused(id) ? mFocusColor : mBtnOutlineDefaultColor,
           /*filled*/true);
 
     if (*value) {
         const float pad = std::max(2.f, mBtnDefaultPadding * 0.35f);
         Rect inner{ box.x + pad, box.y + pad, box.w - pad * 2.f, box.h - pad * 2.f };
-        Panel(inner, Color{ 180,180,180,255 });
+        Panel(inner, mActiveStyle.checkboxCheck);
     }
 
     // Text on the right
@@ -957,13 +1121,13 @@ bool UIManager::Slider(const char* id, const Rect& r, float* value,
                   (state.hovered ? mBtnHotDefaultColor : mBtnDefaultColor),
                IsFocused(id) ? mFocusColor : mBtnOutlineDefaultColor);
     const Rect track{left, r.y + r.h * 0.5f - 4.f, trackWidth, 8.f};
-    PushPanel_(track, {38, 48, 60, 255}, {91, 116, 139, 255});
+    PushPanel_(track, mActiveStyle.sliderTrack, mActiveStyle.sliderTrackOutline);
     if (fraction > 0.f)
         PushPanel_({track.x, track.y, track.w * fraction, track.h},
-                   {86, 179, 216, 255}, {86, 179, 216, 255});
+                   mActiveStyle.sliderFill, mActiveStyle.sliderFill);
     PushPanel_({left + trackWidth * fraction - radius, r.y + r.h * 0.5f - radius,
                 radius * 2.f, radius * 2.f},
-               {232, 241, 249, 255}, {61, 92, 113, 255});
+               mActiveStyle.sliderHandle, mActiveStyle.sliderHandleOutline);
     return !std::isfinite(oldValue) || std::fabs(next - oldValue) > 0.000001f;
 }
 
@@ -980,7 +1144,7 @@ bool UIManager::Toggle(const char* id, const Rect& r, bool* value,
     const float margin = std::min(7.f, r.h * 0.16f);
     const float switchWidth = std::min(r.w - margin * 2.f, r.h * 1.5f);
     const Rect track{r.x + margin, r.y + margin, switchWidth, r.h - margin * 2.f};
-    PushPanel_(track, *value ? Color{55, 169, 136, 255} : Color{79, 91, 107, 255},
+    PushPanel_(track, *value ? mActiveStyle.toggleOn : mActiveStyle.toggleOff,
                mBtnOutlineDefaultColor);
     const float inset = std::min(3.f, track.h * 0.12f);
     const float knobWidth = std::max(4.f, track.w * 0.42f);
@@ -1027,10 +1191,10 @@ bool UIManager::Dropdown(const char* id, const Rect& r, int* selectedIndex,
                IsFocused(id) ? mFocusColor : mBtnOutlineDefaultColor);
     const int current = *selectedIndex;
     const std::string display = current >= 0 && current < count ? options[current] : "Select...";
-    const Rect textRect{r.x + 8.f, r.y, std::max(0.f, r.w - 45.f), r.h};
+    const Rect textRect{r.x + 8.f * mTextScale, r.y,
+                        std::max(0.f, r.w - 45.f * mTextScale), r.h};
     Label(display, textRect, AlignH::Left, AlignV::Middle);
-    Label(opened ? "^" : "v", Rect{r.x + r.w - 32.f, r.y, 28.f, r.h},
-          AlignH::Center, AlignV::Middle);
+    PushChevron_(r, opened);
     if (!opened) return false;
     mDropdownSeenLastFrame = true;
 
@@ -1100,14 +1264,14 @@ bool UIManager::Dropdown(const char* id, const Rect& r, int* selectedIndex,
     if (mOpenDropdownId != id) return changed;
 
     const std::size_t firstCommand = mCmds.size();
-    PushPanel_(popup, Color{22, 30, 42, 250}, mFocusColor);
+    PushPanel_(popup, mActiveStyle.dropdownBackground, mFocusColor);
     for (int visibleRow = 0; visibleRow < visible; ++visibleRow) {
         const int item = mDropdownFirstVisible + visibleRow;
         const Rect row{popup.x + 2.f, popup.y + visibleRow * rowHeight,
                        popup.w - 4.f, rowHeight};
         if (item == mDropdownHighlighted || visibleRow == hovered)
-            Panel(row, item == mDropdownHighlighted ? Color{59, 105, 130, 255}
-                                                   : Color{60, 72, 87, 255});
+            Panel(row, item == mDropdownHighlighted ? mActiveStyle.dropdownSelected
+                                                   : mActiveStyle.dropdownHovered);
         Label(options[item], {row.x + 8.f, row.y, row.w - 16.f, row.h},
               AlignH::Left, AlignV::Middle);
     }
@@ -1300,11 +1464,11 @@ bool UIManager::TextInput(const char* id, const Rect& r, std::string* value,
             const float left = TextWidth_(ttf, std::string_view(full).substr(from, begin - from)) * drawScale;
             const float right = TextWidth_(ttf, std::string_view(full).substr(from, end - from)) * drawScale;
             Panel({r.x + pad + left, r.y + pad, right - left,
-                   std::max(2.f, r.h - 2.f * pad)}, Color{66, 125, 185, 255});
+                   std::max(2.f, r.h - 2.f * pad)}, mActiveStyle.textSelection);
         }
     }
     if (mDefaultFont && !full.empty()) {
-        const Color textColor = showPlaceholder ? Color{160, 160, 160, 255} : mTextDefaultColor;
+        const Color textColor = showPlaceholder ? mActiveStyle.placeholder : mTextDefaultColor;
         PushTextInRect_(r, mDefaultFont, full.substr(from, to - from), textColor,
                         AlignH::Left, AlignV::Middle, pad / drawScale);
     }
@@ -1351,6 +1515,16 @@ void UIManager::End() noexcept
         switch (c.type) {
         case CmdType::Rect:
             render->DrawRectScreen(c.r, c.color, c.filled);
+            break;
+
+        case CmdType::RoundedPanel:
+            render->DrawRoundedRectScreen(c.r, c.color, c.outline,
+                                          c.cornerRadius, c.borderWidth, c.filled);
+            break;
+
+        case CmdType::Line:
+            render->DrawLineScreen(c.from.x, c.from.y, c.to.x, c.to.y,
+                                   c.color, c.lineWidth);
             break;
 
         case CmdType::Text:

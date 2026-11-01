@@ -73,6 +73,8 @@ struct DrawCmd
         WorldLine,   ///< Line segment in world coordinates.
 
         ScreenRect,  ///< Rectangle in window screen pixels.
+        ScreenRoundedRect, ///< Rounded rectangle with optional outline in screen pixels.
+        ScreenLine,  ///< Screen-space line segment with configurable thickness.
         ScreenImage, ///< Image in window screen pixels without camera projection.
         ScreenText,  ///< Text in window screen pixels.
     };
@@ -128,7 +130,7 @@ struct DrawCmd
     bool filled = true;
 
     // WorldLine
-    /** @brief World-space X/Y coordinates of both endpoints for `WorldLine` commands.
+    /** @brief Endpoints for WorldLine (world units) or ScreenLine (screen pixels).
      */
     float x1 = 0, y1 = 0, x2 = 0, y2 = 0;
 
@@ -150,10 +152,16 @@ struct DrawCmd
      */
     Vec2 preparedPivot{};
 
-    // ScreenRect / ScreenImage / ScreenText
+    // ScreenRect / ScreenRoundedRect / ScreenLine / ScreenImage / ScreenText
     /** @brief Destination rectangle in screen pixels.
      */
     Rect dstScreen{};
+    /** @brief Outer border color used for a rounded screen rectangle. */
+    Color screenOutline{0, 0, 0, 0};
+    /** @brief Corner radius for a screen-space rounded rectangle, in pixels. */
+    float screenCornerRadius = 0.f;
+    /** @brief Outline thickness for a rounded rectangle or screen line, in pixels. */
+    float screenStrokeWidth = 1.f;
 
     // ScreenImage uses tex + srcPx/hasSrc + flips + tint in color
     // ScreenText
@@ -305,6 +313,9 @@ private:
             Color outline{ 200,200,200,255 };
             float padding = 6.f;
             std::string defaultFontKey = "ui_default";
+            float cornerRadius = 0.f; ///< Default UI corner radius in cornerRadiusUnit units.
+            float borderWidth = 1.f;  ///< Default UI border thickness in pixels.
+            std::string cornerRadiusUnit = "pixels"; ///< Unit of cornerRadius: pixels or percent.
             int defaultFontptSize = 24;
 
 			UIStyle() noexcept = default;
@@ -318,6 +329,10 @@ private:
                 outline = other.outline;
                 padding = other.padding;
                 defaultFontKey = other.defaultFontKey;
+                cornerRadius = other.cornerRadius;
+                borderWidth = other.borderWidth;
+                cornerRadiusUnit = other.cornerRadiusUnit;
+                defaultFontptSize = other.defaultFontptSize;
                 return *this;
             }
         } uiStyle;
