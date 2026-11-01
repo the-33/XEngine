@@ -87,6 +87,7 @@ private:
     // --- Bucle principal ---
     void FixedUpdate(float dt);
     void Update(float dt);
+    void LateUpdate(float dt);
     void Render();
 
     void OnCollisionEnter(const CollisionInfo2D&);

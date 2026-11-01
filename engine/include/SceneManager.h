@@ -66,6 +66,7 @@ private:
     // --- Bucle principal ---
     void FixedUpdate(float fixedDt);
     void Update(float dt);
+    void LateUpdate(float dt);
     void Render();
 
     bool HasPendingScene() const noexcept;

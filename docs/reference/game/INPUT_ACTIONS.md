@@ -106,14 +106,58 @@ Controller navigation needs the UI map enabled, while the basic keyboard
 fallback works even without an action asset.
 
 Widgets with a stable, unique ID register themselves each UI frame; only
-interactive controls (buttons, image/invisible buttons, checkboxes and
-text fields) receive focus. `UIManager::SetNavigationEnabled(false)` disables
+interactive controls (buttons, image/invisible buttons, checkboxes/toggles,
+sliders, dropdowns and text fields) receive focus. A focused slider accepts
+left/right adjustments; a dropdown supports keyboard/controller selection
+and scroll navigation. `UIManager::SetNavigationEnabled(false)` disables
 keyboard/controller traversal without disabling the mouse, and
 `UIManager::SetNavigationPlayer(id)` chooses which player operates the UI.
 For multiplayer menus, keep one navigation owner at a time; each menu can
 choose a different owner as needed.
 
 ## Separate players, controllers and characters
+
+For **one local player**, you still need the player profile if you want
+consistent keyboard/gamepad assignment and automatic hot-plug joining.
+The default BlankGame ships three slots to demonstrate local multiplayer;
+games that only use player 0 may reduce `Default.players.json` to one entry:
+
+~~~json
+{
+  "players": [
+    {
+      "player": 0,
+      "scheme": "KeyboardMouseGamepad",
+      "mode": "Prefer",
+      "idealDevice": "Gamepad",
+      "keyboard": true,
+      "mouse": true,
+      "autoJoin": true,
+      "priority": 100,
+      "shareDevices": false,
+      "allowMultipleGamepads": false,
+      "maps": ["Gameplay", "UI", "Global"]
+    }
+  ]
+}
+~~~
+
+Its `scheme` must refer to a name in the schemes JSON, for example:
+
+~~~json
+{
+  "schemes": {
+    "KeyboardMouseGamepad": {
+      "keyboard": true, "mouse": true, "gamepad": true, "touch": false
+    }
+  }
+}
+~~~
+
+The profile is not a permanent save-game record; it initializes *logical
+input routing*. PlayerPrefs are suitable for user-selected device or
+rebind preferences, while action binding overrides have their own atomic
+persistence API. **Do not** serialize live SDL controller IDs into a game save.
 
 A `PlayerId` names a logical slot, **not** a gamepad's list index or a
 `GameObject`. One player can have keyboard, mouse and a controller at the
@@ -200,6 +244,24 @@ custom SDL controller mapping.
 
 ## JSON actions, control paths and processing
 
+The actions document is independent of the schemes and profiles documents.
+It defines maps, actions, bindings and context stacks; loading only a
+standalone generated `inputmap` JSON does not implicitly load the
+schemes or player profiles. The recommended initialization order is:
+
+~~~cpp
+if (!Input->LoadInputSchemes("input/Default.inputschemes.json") ||
+    !Input->LoadPlayerProfiles("input/Default.players.json") ||
+    !Input->LoadActionAsset("input/Default.inputactions.json") ||
+    !Input->PushActionContext(0, "Playing")) {
+    Console.Error(Input->GetInputError(), "Input");
+}
+~~~
+
+Run this after engine initialization and before gameplay queries. The
+`Input` service is not available before the engine starts or after it shuts
+down. Recreate typed handles and listeners after reloading an actions JSON.
+
 ~~~json
 {
   "maps": {
@@ -258,6 +320,52 @@ Interactions: `Press` (default), `Release`, `Tap`, `SlowTap`,
 duration; taps fire on release and multi-taps require consecutive quick
 taps. Timing uses real (unscaled) SDL time, even during gameplay pause.
 
+### A complete UI/Gameplay/Global setup with Escape and Start
+
+This is a minimal two-context variant of the JSON format used in the
+assignment. Escape and gamepad Start activate `Global/Pause` while playing.
+In `Menu`, the same physical controls activate `UI/Cancel` to return to the
+game. Because the contexts are exclusive, pressing Escape/Start does not
+fire Pause **and** Cancel at the same time.
+
+~~~json
+{
+  "maps": {
+    "Gameplay": {"actions": {
+      "Move": {"type": "Axis2D", "combine": "Strongest", "bindings": [
+        "Keyboard/WASD", "Keyboard/Arrows", "Gamepad/LeftStick", "Gamepad/Dpad"
+      ]}
+    }},
+    "UI": {"actions": {
+      "Navigate": {"type": "Axis2D", "bindings": [
+        "Keyboard/Arrows", "Gamepad/Dpad", "Gamepad/LeftStick"
+      ]},
+      "Submit": {"type": "Button", "bindings": ["Keyboard/Return", "Gamepad/South"]},
+      "Cancel": {"type": "Button", "bindings": [
+        "Keyboard/Escape", "Gamepad/East", "Gamepad/Start"
+      ]}
+    }},
+    "Global": {"actions": {
+      "Pause": {"type": "Button", "bindings": [
+        "Keyboard/Escape", "Gamepad/Start"
+      ]}
+    }}
+  },
+  "contexts": {
+    "Playing": {"maps": ["Gameplay", "Global"], "exclusive": true},
+    "Menu": {"maps": ["UI"], "exclusive": true}
+  }
+}
+~~~
+
+Menus should react to **press edges** (`WasPressedThisFrame`), not held
+`IsPressed` values. When changing contexts due to the very same button,
+require its release before accepting another toggle; otherwise a still-held
+key can close and reopen the menu across frames. The engine already consumes
+a controller's unassigned **Start-to-join** action to prevent joining and
+pausing in the same frame. Navigation itself is handled by `UIManager`
+when the `UI` map is active for its `NavigationPlayer`.
+
 ## Rebinding and persistent overrides
 
 ~~~cpp
@@ -279,6 +387,25 @@ load them once during initialization rather than while live code holds
 raw action pointers.
 
 ## Lifecycle and supported platforms
+
+### Useful inspection and debugging APIs
+
+| Task | API |
+|---|---|
+| Confirm a map is effective | `Input->IsActionMapEnabled("UI", 0)` |
+| Inspect the top of the menu stack | `Input->CurrentActionContext(0)` |
+| Identify the active device for button prompts | `Input->GetLastActiveDevice(0)` |
+| Enumerate physical connected controllers | `Input->GetConnectedGamepads()` |
+| Handle unplugging | `Input->OnGamepadDisconnected(...)` and `RemoveGamepadListener(token)` |
+| Check a failed load or rebind | `Input->GetInputError()` |
+| Detect ongoing interactive capture | `Input->IsRebinding()` |
+| Switch UI focus ownership | `UI->SetNavigationPlayer(0)` |
+
+For nonblocking UI text entry, use `UIManager::TextInput` rather than treating
+typed characters as separate `Keyboard/...` actions. The UI manager handles
+SDL text input, cursor movement, selection, held-key repetition and clipboard
+interaction. Ordinary actions remain useful for `Navigate`, `Submit` and
+`Cancel`. The UI and gameplay input paths have different responsibilities.
 
 SDL events are consumed **once** by `InputManager::Update`. Focus loss
 clears keyboard/mouse held state; unplugging a gamepad releases actions.

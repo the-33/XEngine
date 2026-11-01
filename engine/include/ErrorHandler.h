@@ -92,9 +92,9 @@ namespace Debug {
 
 /** @brief Acceso directo al registro de consola desde los scripts del juego.
  * @code{.cpp}
- * console.log("Jugador creado");
- * console.warning("Quedan pocas vidas");
- * console.error("No se pudo cargar la textura");
+ * Console.Log("Jugador creado");
+ * Console.Warning("Quedan pocas vidas");
+ * Console.Error("No se pudo cargar la textura");
  * @endcode
  * @ingroup xengine_services
  */
@@ -103,27 +103,51 @@ struct ConsoleLogger {
      * @param message Mensaje UTF-8 que se quiere registrar.
      * @param title Título opcional del registro.
      */
-    void log(std::string_view message, std::string_view title = "Game") const noexcept {
+    void Log(std::string_view message, std::string_view title = "Game") const noexcept {
         Debug::Log(message, title);
     }
     /** @brief Escribe una línea WARNING en la consola.
      * @param message Mensaje UTF-8 de advertencia.
      * @param title Título opcional del registro.
      */
-    void warning(std::string_view message, std::string_view title = "Game") const noexcept {
+    void Warning(std::string_view message, std::string_view title = "Game") const noexcept {
         Debug::LogWarning(message, title);
     }
     /** @brief Escribe una línea ERROR en la consola.
      * @param message Mensaje UTF-8 del error.
      * @param title Título opcional del registro.
      */
-    void error(std::string_view message, std::string_view title = "Game") const noexcept {
+    void Error(std::string_view message, std::string_view title = "Game") const noexcept {
         Debug::LogError(message, title);
     }
 };
 
-/** @brief Instancia global del registro, sin necesidad de inicializarla. */
-inline constexpr ConsoleLogger console{};
+/** @brief Global console logger; no initialization is required. */
+inline constexpr ConsoleLogger Console{};
+
+/** @brief Compatibility facade for existing games; prefer Console.Log/Warning/Error.
+ * @deprecated Migrate to the PascalCase Console API.
+ */
+struct LegacyConsoleLogger {
+    /** @brief Legacy alias of Console.Log.
+     * @param message Message to record.
+     * @param title Diagnostic category.
+     */
+    void log(std::string_view message, std::string_view title = "Game") const noexcept { Console.Log(message, title); }
+    /** @brief Legacy alias of Console.Warning.
+     * @param message Warning description.
+     * @param title Diagnostic category.
+     */
+    void warning(std::string_view message, std::string_view title = "Game") const noexcept { Console.Warning(message, title); }
+    /** @brief Legacy alias of Console.Error.
+     * @param message Error description.
+     * @param title Diagnostic category.
+     */
+    void error(std::string_view message, std::string_view title = "Game") const noexcept { Console.Error(message, title); }
+};
+/** @brief Legacy lower-case facade retained for source compatibility. */
+[[deprecated("Use Console.Log(), Console.Warning() or Console.Error()")]]
+inline constexpr LegacyConsoleLogger console{};
 
 /** @brief Registra una advertencia con la función de origen.
  * @param caption Subsistema que detectó la condición.

@@ -15,6 +15,7 @@ at `build/docs/game/html/index.html` and the engine's public headers.
 - @subpage xengine_documentation_workflow "Maintaining XEngine documentation"
 - @subpage xengine_engine_manuals "Developer manuals and current guides"
 - @subpage xengine_game_reference "Game API and feature tutorials"
+- @subpage xengine_animation_internals "Animation evaluator and property registry"
 
 ## Explore the implementation
 

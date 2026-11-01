@@ -188,6 +188,11 @@ void SceneManager::Update(float dt)
     mActive->Update(dt);
 }
 
+void SceneManager::LateUpdate(float dt)
+{
+    if (mActive) mActive->LateUpdate(dt);
+}
+
 void SceneManager::Render()
 {
     if (!mActive) return;

@@ -1,6 +1,9 @@
 #include "AssetManager.h"
 
 #include <filesystem>
+#include <fstream>
+#include <iterator>
+#include <stdexcept>
 
 #include "ErrorHandler.h"
 #include "RenderManager.h"
@@ -77,6 +80,8 @@ bool AssetManager::Init(const std::string& assetsFolderPath) noexcept
     mFonts.clear();
     mSfx.clear();
     mMusic.clear();
+    mAnimations.clear();
+    mAnimatorControllers.clear();
     mTextureAliases.clear();
     mFontAliases.clear();
     mSfxAliases.clear();
@@ -109,6 +114,8 @@ void AssetManager::Shutdown() noexcept
     mFonts.clear();
     mSfx.clear();
     mMusic.clear();
+    mAnimations.clear();
+    mAnimatorControllers.clear();
     mTextureAliases.clear();
     mFontAliases.clear();
     mSfxAliases.clear();
@@ -456,4 +463,75 @@ Music* AssetManager::GetMusicByKey(const std::string& key) const noexcept
     if (auto it = mMusic.find(key); it != mMusic.end())
         return it->second.get();
     return nullptr;
+}
+
+namespace {
+std::string ReadAnimationText(const std::string& base, const std::string& relative)
+{
+    const fs::path request(relative);
+    if (request.empty() || request.is_absolute())
+        throw std::runtime_error("Animation path must be relative to assets");
+    const fs::path root = fs::weakly_canonical(base);
+    const fs::path full = fs::weakly_canonical(root / request);
+    const fs::path inside = full.lexically_relative(root);
+    if (inside.empty() || inside == ".")
+        throw std::runtime_error("Animation path is not a file inside assets");
+    for (const auto& part : inside)
+        if (part == "..") throw std::runtime_error("Animation path escapes assets root");
+    if (!fs::is_regular_file(full) || fs::file_size(full) > 4*1024*1024)
+        throw std::runtime_error("Animation file missing or larger than 4 MiB");
+    std::ifstream input(full, std::ios::binary);
+    if (!input) throw std::runtime_error("Could not open animation asset");
+    std::string contents(std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>{});
+    if (!input.eof() && input.fail()) throw std::runtime_error("Could not read animation asset");
+    return contents;
+}
+} // namespace
+
+const AnimationClip* AssetManager::LoadAnimation(const std::string& path) noexcept
+{
+    try {
+        if (auto it = mAnimations.find(path); it != mAnimations.end()) return it->second.get();
+        std::string error;
+        auto loaded = AnimationClip::FromJson(ReadAnimationText(basePath, path), error);
+        if (!loaded) {
+            Console.Warning("Animation '" + path + "': " + error, "Animation");
+            return nullptr;
+        }
+        auto clip = std::make_unique<AnimationClip>(std::move(*loaded));
+        const auto* result = clip.get();
+        mAnimations.emplace(path, std::move(clip));
+        return result;
+    } catch (const std::exception& error) {
+        Console.Warning("Animation '" + path + "': " + error.what(), "Animation");
+        return nullptr;
+    }
+}
+
+const AnimatorController* AssetManager::LoadAnimatorController(const std::string& path) noexcept
+{
+    try {
+        if (auto it = mAnimatorControllers.find(path); it != mAnimatorControllers.end())
+            return it->second.get();
+        std::string error;
+        auto loaded = AnimatorController::FromJson(ReadAnimationText(basePath, path), error);
+        if (!loaded) {
+            Console.Warning("Animator controller '" + path + "': " + error, "Animation");
+            return nullptr;
+        }
+        auto controller = std::make_unique<AnimatorController>(std::move(*loaded));
+        const auto* result = controller.get();
+        mAnimatorControllers.emplace(path, std::move(controller));
+        return result;
+    } catch (const std::exception& error) {
+        Console.Warning("Animator controller '" + path + "': " + error.what(), "Animation");
+        return nullptr;
+    }
+}
+
+std::string AssetManager::FindTexturePath(const Texture* texture) const
+{
+    for (const auto& [path, cached] : mTextures)
+        if (cached.get() == texture) return path;
+    return {};
 }

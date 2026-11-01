@@ -229,6 +229,17 @@ void Scene::Update(float dt)
         if (go) go->Update(dt);
 }
 
+void Scene::LateUpdate(float dt)
+{
+    std::vector<GameObject*> list;
+    list.reserve(mEntities.size());
+    for (auto& entity : mEntities)
+        if (entity) list.push_back(entity.get());
+
+    for (auto* object : list)
+        if (object) object->LateUpdate(dt);
+}
+
 void Scene::Render()
 {
     // Build a flat list of valid pointers

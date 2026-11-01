@@ -310,6 +310,18 @@ void GameObject::Update(float dt)
     }
 }
 
+void GameObject::LateUpdate(float dt)
+{
+    if (!mAwoken || !mStarted || !mActive || !mParentActive) return;
+
+    for (auto& component : components) {
+        if (auto* behaviour = dynamic_cast<Behaviour*>(component.get())) {
+            if (behaviour->mAwoken && behaviour->mStarted && behaviour->enabled)
+                behaviour->LateUpdate(dt);
+        }
+    }
+}
+
 void GameObject::Render()
 {
     if (!mAwoken || !mStarted) return;

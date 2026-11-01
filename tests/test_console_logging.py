@@ -30,9 +30,9 @@ class ConsoleLoggingTests(unittest.TestCase):
                 '  if (!XEngineConsole::BeginStdoutCapture()) return 2;\n'
                 '  std::printf("raw-from-game\\n");\n'
                 '  std::cout << "cout-from-game" << std::endl;\n'
-                '  console.log("hello");\n'
-                '  console.warning("careful", "Inventory");\n'
-                '  console.error("broken", "FileLoad");\n'
+                '  Console.Log("hello");\n'
+                '  Console.Warning("careful", "Inventory");\n'
+                '  Console.Error("broken", "FileLoad");\n'
                 '  LogError("FileSystem", "No file");\n'
                 '  XEngineConsole::EndStdoutCapture();\n'
                 '}\n',

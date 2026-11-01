@@ -38,6 +38,11 @@ private:
     // (0,0)=esquina superior izq, (0.5,0.5)=centro, (1,1)=inferior dcha.
     Vec2 pivot01_{ 0.5f, 0.5f };
 
+    // Temporary second sprite used to blend animation transitions.
+    const Texture* animationPreviousTexture_ = nullptr;
+    RectI animationPreviousSource_{};
+    float animationBlend_ = 1.f;
+
     // Conveniencia
     void SetTexture(const Texture* tex) noexcept;
     void SetSource(RectI src) noexcept;
@@ -63,6 +68,16 @@ protected:
     void Render() override; // Apply texture PPU, Transform.sx/sy, rotated offsetLocal and Transform.rotDeg
 
 public:
+    /** @brief Crossfade the last animation sprite into the current sprite.
+     * The previous texture is borrowed from AssetManager; it must outlive
+     * the transition. A blend of 0 shows the previous sprite, 1 the current.
+     * @param previous Previous texture owned by AssetManager.
+     * @param source Previous texture's pixel source rectangle.
+     * @param blend Destination opacity fraction, clamped to [0,1].
+     */
+    void SetAnimationBlend(const Texture* previous, RectI source, float blend) noexcept;
+    /** @brief Disable the temporary animation crossfade overlay. */
+    void ClearAnimationBlend() noexcept;
     /** @brief Constructs a SpriteRenderer instance.
      */
     SpriteRenderer() = default;

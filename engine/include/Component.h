@@ -12,7 +12,7 @@
 /** @brief Base class for scene-owned components attached to a GameObject.
  *
  * Awake is called once when initialized, Start once before first use, then
- * FixedUpdate/Update/Render while the owner participates in the engine loop.
+ * FixedUpdate/Update/LateUpdate/Render while the owner participates in the engine loop.
  * `gameObject` is a non-owning property; it is null before attachment.
  * @ingroup xengine_core
  */
@@ -110,6 +110,8 @@ public:
     /** @brief Called once per frame after fixed updates; argument is scaled elapsed seconds.
      */
     virtual void Update(float) {}
+    /** @brief Called after every component Update and before rendering. */
+    virtual void LateUpdate(float) {}
     /** @brief Lifecycle hook for render; the engine controls invocation order.
      */
     virtual void Render() {}

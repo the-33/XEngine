@@ -1387,6 +1387,7 @@ void Engine::DoUpdate_(float dt) noexcept
     if (mOnUpdate)
         mOnUpdate(dt);
 	scenes->Update(dt);
+	scenes->LateUpdate(dt);
 
 	mUpdateTime = ProfileElapsed_(updateStart);
 }

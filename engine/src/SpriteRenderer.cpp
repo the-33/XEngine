@@ -9,6 +9,19 @@ void SpriteRenderer::SetTexture(const Texture* tex) noexcept {
     if (tex != nullptr) texture = tex;
 }
 
+void SpriteRenderer::SetAnimationBlend(const Texture* previous, RectI source, float blend) noexcept
+{
+    animationPreviousTexture_ = previous;
+    animationPreviousSource_ = source;
+    animationBlend_ = std::clamp(blend, 0.f, 1.f);
+}
+
+void SpriteRenderer::ClearAnimationBlend() noexcept
+{
+    animationPreviousTexture_ = nullptr;
+    animationBlend_ = 1.f;
+}
+
 void SpriteRenderer::SetSource(RectI src) noexcept {
 
     if (!texture) {
@@ -92,8 +105,30 @@ void SpriteRenderer::Render()
         wp.x, wp.y, sc.x, sc.y, rot.x, rot.y, rot.z,
         baseW, baseH, offset_.x, offset_.y, pivot01_.x, pivot01_.y};
     const Rect srcPx{(float)srcX, (float)srcY, (float)pxW, (float)pxH};
-    RenderManager::GetInstance().DrawSprite_(
-        *texture, pose, srcPx, tint_, flipX_, flipY_);
+    if (animationPreviousTexture_ && animationBlend_ < 1.f) {
+        const auto old = animationPreviousSource_;
+        const int oldWidth = old.w > 0 ? old.w : animationPreviousTexture_->Width();
+        const int oldHeight = old.h > 0 ? old.h : animationPreviousTexture_->Height();
+        const float oldPPU = animationPreviousTexture_->PixelsPerUnit();
+        SpriteProjection::Pose previousPose{
+            wp.x, wp.y, sc.x, sc.y, rot.x, rot.y, rot.z,
+            oldWidth / (oldPPU > 0.f ? oldPPU : 100.f),
+            oldHeight / (oldPPU > 0.f ? oldPPU : 100.f),
+            offset_.x, offset_.y, pivot01_.x, pivot01_.y};
+        Color oldTint = tint_;
+        oldTint.a = static_cast<uint8_t>(oldTint.a * (1.f - animationBlend_));
+        RenderManager::GetInstance().DrawSprite_(*animationPreviousTexture_, previousPose,
+            Rect{static_cast<float>(old.x), static_cast<float>(old.y),
+                 static_cast<float>(oldWidth), static_cast<float>(oldHeight)},
+            oldTint, flipX_, flipY_);
+
+        Color newTint = tint_;
+        newTint.a = static_cast<uint8_t>(newTint.a * animationBlend_);
+        RenderManager::GetInstance().DrawSprite_(*texture, pose, srcPx, newTint, flipX_, flipY_);
+    } else {
+        RenderManager::GetInstance().DrawSprite_(
+            *texture, pose, srcPx, tint_, flipX_, flipY_);
+    }
 
 }
 

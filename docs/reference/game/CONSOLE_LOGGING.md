@@ -5,9 +5,9 @@ incluya `<XEngine.h>`. Los mensajes se imprimen por consola, sin abrir ventanas
 de error que interrumpan el juego.
 
 ```cpp
-console.log("Jugador creado", "Player");
-console.warning("Queda poca vida", "PlayerHealth");
-console.error("No se pudo abrir el guardado", "SaveSystem");
+Console.Log("Jugador creado", "Player");
+Console.Warning("Queda poca vida", "PlayerHealth");
+Console.Error("No se pudo abrir el guardado", "SaveSystem");
 ```
 
 El segundo argumento es el título del registro. Es opcional y toma el valor

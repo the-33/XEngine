@@ -9,6 +9,7 @@
 
 #include "Singleton.h"
 #include "Assets.h"
+#include "Animation.h"
 #include "Engine.h"
 
 /** @brief Loads and owns cached textures, fonts, sound effects and music.
@@ -32,6 +33,8 @@ private:
 	std::unordered_map<std::string, std::unique_ptr<Font>>       mFonts;
 	std::unordered_map<std::string, std::unique_ptr<SoundEffect>> mSfx;
 	std::unordered_map<std::string, std::unique_ptr<Music>>       mMusic;
+	std::unordered_map<std::string, std::unique_ptr<AnimationClip>> mAnimations;
+	std::unordered_map<std::string, std::unique_ptr<AnimatorController>> mAnimatorControllers;
 	// Logical-key aliases point to canonical cache keys, never owning duplicates.
 	std::unordered_map<std::string, std::string> mTextureAliases;
 	std::unordered_map<std::string, std::string> mFontAliases;
@@ -54,6 +57,21 @@ private:
 	Font* GetEngineDefaultFont(bool bold) noexcept;
 
 public:
+	/** @brief Load and cache a validated JSON AnimationClip by assets-relative path.
+	 * @param path Path relative to the initialized assets root.
+	 * @return Shared immutable clip, or nullptr on malformed/missing input.
+	 */
+	const AnimationClip* LoadAnimation(const std::string& path) noexcept;
+	/** @brief Load and cache a validated AnimatorController by assets-relative path.
+	 * @param path Path relative to the initialized assets root.
+	 * @return Shared immutable controller, or nullptr on malformed/missing input.
+	 */
+	const AnimatorController* LoadAnimatorController(const std::string& path) noexcept;
+	/** @brief Locate a cached texture's original assets-relative path, if known.
+	 * @param texture Non-owning texture pointer.
+	 * @return Relative path or empty string for an unknown texture.
+	 */
+	std::string FindTexturePath(const Texture* texture) const;
 	// TEXTURAS
 	/** @brief Loads or returns a cached texture under its relative path.
 	 * @param path Resource path relative to the game assets directory.
