@@ -1,6 +1,7 @@
 """Regresiones de estilos, foco y navegación de la UI del motor."""
 
 from pathlib import Path
+import re
 import unittest
 
 
@@ -12,6 +13,58 @@ def source(relative_path):
 
 
 class UIStyleNavigationTests(unittest.TestCase):
+    def test_minimal_rounded_slider_and_track_only_toggle(self):
+        header = source("engine/include/UIManager.h")
+        cpp = source("engine/src/UIManager.cpp")
+        for member in (
+            "sliderShowBackground", "sliderRoundElements", "sliderTrackThickness",
+            "sliderHandleDiameter", "toggleShowBackground", "toggleRoundElements",
+            "toggleTrackOnlyHit", "toggleShowStateText",
+        ):
+            with self.subTest(member=member):
+                self.assertIn(member, header)
+                self.assertIn(member, cpp)
+        self.assertIn("mActiveStyle.toggleTrackOnlyHit ? track : r", cpp)
+        self.assertIn("mActiveStyle.sliderRoundElements ? radius : -1.f", cpp)
+        self.assertIn("float radiusOverride", header)
+        self.assertIn("radiusOverride >= 0.f ? radiusOverride : styleRadius", cpp)
+
+    def test_individual_style_overloads_restore_the_previous_style(self):
+        header = source("engine/include/UIManager.h")
+        cpp = source("engine/src/UIManager.cpp")
+
+        styled_header = header[header.index("// One-call style overrides"):]
+        signatures = list(re.finditer(
+            r"(?m)^    (?:bool|void) (\w+)\(([^;]*?const UIStyle& style[^;]*?)\) noexcept;",
+            styled_header, re.S,
+        ))
+        self.assertEqual(len(signatures), 25)
+        self.assertEqual(cpp.count("const ScopedControlStyle scope(*this, style);"),
+                         len(signatures))
+        self.assertIn("~ScopedControlStyle() { ui.PopStyle(); }", cpp)
+
+        parameter_names = (
+            "id", "r", "layout", "tex", "style", "text", "parent", "srcPixels",
+            "tints", "drawFrame", "hAlign", "vAlign", "textPadding", "padding",
+            "filled", "value", "label", "minValue", "maxValue", "step",
+            "placeholder", "maxCharacters", "selectedIndex", "options",
+            "maxVisibleItems", "value01", "back", "fill", "outline",
+        )
+        for match in signatures:
+            name, parameters = match.groups()
+            doc_start = styled_header.rfind("/**", 0, match.start())
+            doc_end = styled_header.find("*/", doc_start)
+            self.assertGreaterEqual(doc_start, 0, name)
+            self.assertGreater(doc_end, doc_start, name)
+            self.assertLess(doc_end, match.start(), name)
+            doc = styled_header[doc_start:doc_end]
+            for parameter in parameter_names:
+                if re.search(r"\b" + parameter + r"\b", parameters):
+                    with self.subTest(widget=name, parameter=parameter):
+                        self.assertIn(f"@param {parameter} ", doc)
+            if match.group(0).strip().startswith("bool"):
+                self.assertIn("@return ", doc, name)
+
     def test_public_styling_api_and_reusable_colors(self):
         header = source("engine/include/UIManager.h")
         cpp = source("engine/src/UIManager.cpp")

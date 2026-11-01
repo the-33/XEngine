@@ -33,6 +33,18 @@ struct ScopedCanvasTextScale {
     ~ScopedCanvasTextScale() { current = previous; }
 };
 
+struct ScopedControlStyle {
+    UIManager& ui;
+
+    ScopedControlStyle(UIManager& manager, const UIManager::UIStyle& style) noexcept
+        : ui(manager) { ui.PushStyle(style); }
+
+    ~ScopedControlStyle() { ui.PopStyle(); }
+
+    ScopedControlStyle(const ScopedControlStyle&) = delete;
+    ScopedControlStyle& operator=(const ScopedControlStyle&) = delete;
+};
+
 size_t NextUtf8_(std::string_view text, size_t pos) noexcept {
     if (pos >= text.size()) return text.size();
     ++pos;
@@ -691,12 +703,14 @@ UIManager::ButtonState UIManager::ButtonBehavior_(const char* id, const Rect& r)
     return st;
 }
 
-void UIManager::PushPanel_(const Rect& r, Color fill, Color outline, bool filled) noexcept
+void UIManager::PushPanel_(const Rect& r, Color fill, Color outline, bool filled,
+                           float radiusOverride) noexcept
 {
-    const float radius = mActiveStyle.cornerRadiusUnit == UICornerRadiusUnit::Percent
+    const float styleRadius = mActiveStyle.cornerRadiusUnit == UICornerRadiusUnit::Percent
         ? std::max(0.f, std::min(r.w, r.h)) *
           std::clamp(mActiveStyle.cornerRadius, 0.f, 50.f) * 0.01f
         : std::max(0.f, mActiveStyle.cornerRadius * mTextScale);
+    const float radius = radiusOverride >= 0.f ? radiusOverride : styleRadius;
     const float border = std::max(0.f, mActiveStyle.borderWidth * mTextScale);
     if (radius > 0.f || std::fabs(border - 1.f) > 0.01f) {
         DrawCmd command;
@@ -1095,7 +1109,9 @@ bool UIManager::Slider(const char* id, const Rect& r, float* value,
     const float oldValue = *value;
     float next = std::isfinite(oldValue) ? std::clamp(oldValue, minValue, maxValue)
                                          : minValue;
-    const float radius = std::min(9.f, r.h * 0.24f);
+    const float diameter = std::clamp(mActiveStyle.sliderHandleDiameter * mTextScale,
+                                      8.f, r.h);
+    const float radius = diameter * 0.5f;
     const float left = r.x + radius + 3.f;
     const float trackWidth = std::max(1.f, r.w - 2.f * (radius + 3.f));
 
@@ -1117,17 +1133,27 @@ bool UIManager::Slider(const char* id, const Rect& r, float* value,
     *value = next;
 
     const float fraction = std::clamp((next - minValue) / (maxValue - minValue), 0.f, 1.f);
-    PushPanel_(r, state.held ? mBtnActiveDefaultColor :
-                  (state.hovered ? mBtnHotDefaultColor : mBtnDefaultColor),
-               IsFocused(id) ? mFocusColor : mBtnOutlineDefaultColor);
-    const Rect track{left, r.y + r.h * 0.5f - 4.f, trackWidth, 8.f};
-    PushPanel_(track, mActiveStyle.sliderTrack, mActiveStyle.sliderTrackOutline);
+    if (mActiveStyle.sliderShowBackground)
+        PushPanel_(r, state.held ? mBtnActiveDefaultColor :
+                      (state.hovered ? mBtnHotDefaultColor : mBtnDefaultColor),
+                   IsFocused(id) ? mFocusColor : mBtnOutlineDefaultColor);
+    const float trackHeight = std::clamp(mActiveStyle.sliderTrackThickness * mTextScale,
+                                         2.f, r.h * 0.85f);
+    const Rect track{left, r.y + (r.h - trackHeight) * 0.5f,
+                     trackWidth, trackHeight};
+    const float trackRadius = mActiveStyle.sliderRoundElements ? trackHeight * 0.5f : -1.f;
+    PushPanel_(track, mActiveStyle.sliderTrack, mActiveStyle.sliderTrackOutline,
+               true, trackRadius);
     if (fraction > 0.f)
         PushPanel_({track.x, track.y, track.w * fraction, track.h},
-                   mActiveStyle.sliderFill, mActiveStyle.sliderFill);
+                   mActiveStyle.sliderFill, mActiveStyle.sliderFill, true,
+                   mActiveStyle.sliderRoundElements
+                       ? std::min(trackHeight, trackWidth * fraction) * 0.5f : -1.f);
     PushPanel_({left + trackWidth * fraction - radius, r.y + r.h * 0.5f - radius,
                 radius * 2.f, radius * 2.f},
-               mActiveStyle.sliderHandle, mActiveStyle.sliderHandleOutline);
+               mActiveStyle.sliderHandle,
+               IsFocused(id) ? mFocusColor : mActiveStyle.sliderHandleOutline,
+               true, mActiveStyle.sliderRoundElements ? radius : -1.f);
     return !std::isfinite(oldValue) || std::fabs(next - oldValue) > 0.000001f;
 }
 
@@ -1135,25 +1161,33 @@ bool UIManager::Toggle(const char* id, const Rect& r, bool* value,
                        const std::string& label) noexcept
 {
     if (!id || !*id || !value || r.w <= 20.f || r.h <= 12.f) return false;
-    const ButtonState state = ButtonBehavior_(id, r);
+    const bool minimal = !mActiveStyle.toggleShowBackground;
+    const float margin = minimal ? 0.f : std::min(7.f, r.h * 0.16f);
+    const float switchWidth = std::min(r.w - margin * 2.f,
+                                        r.h * (minimal ? 1.85f : 1.5f));
+    const Rect track{r.x + margin, r.y + margin, switchWidth, r.h - margin * 2.f};
+    // El foco y el clic pueden limitarse a la píldora sin incluir el texto.
+    const ButtonState state = ButtonBehavior_(id,
+        mActiveStyle.toggleTrackOnlyHit ? track : r);
     if (state.pressed) *value = !*value;
 
-    PushPanel_(r, state.held ? mBtnActiveDefaultColor :
-                  (state.hovered ? mBtnHotDefaultColor : mBtnDefaultColor),
-               IsFocused(id) ? mFocusColor : mBtnOutlineDefaultColor);
-    const float margin = std::min(7.f, r.h * 0.16f);
-    const float switchWidth = std::min(r.w - margin * 2.f, r.h * 1.5f);
-    const Rect track{r.x + margin, r.y + margin, switchWidth, r.h - margin * 2.f};
+    if (mActiveStyle.toggleShowBackground)
+        PushPanel_(r, state.held ? mBtnActiveDefaultColor :
+                      (state.hovered ? mBtnHotDefaultColor : mBtnDefaultColor),
+                   IsFocused(id) ? mFocusColor : mBtnOutlineDefaultColor);
     PushPanel_(track, *value ? mActiveStyle.toggleOn : mActiveStyle.toggleOff,
-               mBtnOutlineDefaultColor);
+               IsFocused(id) ? mFocusColor : mBtnOutlineDefaultColor,
+               true, mActiveStyle.toggleRoundElements ? track.h * 0.5f : -1.f);
     const float inset = std::min(3.f, track.h * 0.12f);
-    const float knobWidth = std::max(4.f, track.w * 0.42f);
+    const float knobWidth = mActiveStyle.toggleRoundElements
+        ? track.h - 2.f * inset : std::max(4.f, track.w * 0.42f);
     PushPanel_({*value ? track.x + track.w - knobWidth - inset : track.x + inset,
                 track.y + inset, knobWidth, track.h - 2.f * inset},
-               {244, 248, 250, 255}, {244, 248, 250, 255});
+               {244, 248, 250, 255}, {244, 248, 250, 255}, true,
+               mActiveStyle.toggleRoundElements ? knobWidth * 0.5f : -1.f);
     const Rect textArea{track.x + track.w + margin, r.y,
                         std::max(0.f, r.w - switchWidth - 3.f * margin), r.h};
-    if (textArea.w > 6.f)
+    if (mActiveStyle.toggleShowStateText && textArea.w > 6.f)
         Label(label.empty() ? (*value ? "ON" : "OFF") : label, textArea,
               AlignH::Left, AlignV::Middle, 0.f);
     return state.pressed;
@@ -1575,4 +1609,201 @@ void UIManager::End() noexcept
 
     if (gMouseReleased && gActiveID && !gMouseDown)
         gActiveID.reset();
+}
+// Los estilos de una sola llamada se restauran incluso cuando el control
+// devuelve antes de dibujar. Los widgets siguen usando su implementación normal.
+
+bool UIManager::Button(const char* id, const Rect& r, const UIStyle& style,
+                       const std::string& text) noexcept
+{
+    const ScopedControlStyle scope(*this, style);
+    return Button(id, r, text);
+}
+
+bool UIManager::Button(const char* id, const UIRectTransform& layout,
+                       const UIStyle& style, const std::string& text,
+                       const Rect* parent) noexcept
+{
+    const ScopedControlStyle scope(*this, style);
+    return Button(id, layout, text, parent);
+}
+
+bool UIManager::Button(const char* id, const Rect& r, const UIStyle& style,
+                       const std::string& text, AlignH hAlign, AlignV vAlign,
+                       float textPadding) noexcept
+{
+    const ScopedControlStyle scope(*this, style);
+    return Button(id, r, text, hAlign, vAlign, textPadding);
+}
+
+bool UIManager::ImageButton(const char* id, const Rect& r, const Texture& tex,
+                            const UIStyle& style, const Rect* srcPixels,
+                            const UIButtonColors& tints, bool drawFrame) noexcept
+{
+    const ScopedControlStyle scope(*this, style);
+    return ImageButton(id, r, tex, srcPixels, tints, drawFrame);
+}
+
+bool UIManager::ImageButton(const char* id, const UIRectTransform& layout,
+                            const Texture& tex, const UIStyle& style,
+                            const Rect* srcPixels, const UIButtonColors& tints,
+                            bool drawFrame, const Rect* parent) noexcept
+{
+    const ScopedControlStyle scope(*this, style);
+    return ImageButton(id, layout, tex, srcPixels, tints, drawFrame, parent);
+}
+
+void UIManager::Label(const std::string& text, const Rect& r,
+                      const UIStyle& style, AlignH hAlign, AlignV vAlign,
+                      float padding) noexcept
+{
+    const ScopedControlStyle scope(*this, style);
+    Label(text, r, hAlign, vAlign, padding);
+}
+
+void UIManager::Label(const std::string& text, const UIRectTransform& layout,
+                      const UIStyle& style, AlignH hAlign, AlignV vAlign,
+                      float padding, const Rect* parent) noexcept
+{
+    const ScopedControlStyle scope(*this, style);
+    Label(text, layout, hAlign, vAlign, padding, parent);
+}
+
+void UIManager::Panel(const Rect& r, const UIStyle& style, bool filled) noexcept
+{
+    const ScopedControlStyle scope(*this, style);
+    Panel(r, style.btn, style.outline, filled);
+}
+
+void UIManager::Panel(const Rect& r, const UIStyle& style, Color fill,
+                      Color outline, bool filled) noexcept
+{
+    const ScopedControlStyle scope(*this, style);
+    Panel(r, fill, outline, filled);
+}
+
+void UIManager::Panel(const UIRectTransform& layout, const UIStyle& style,
+                      bool filled, const Rect* parent) noexcept
+{
+    const ScopedControlStyle scope(*this, style);
+    Panel(layout, style.btn, style.outline, filled, parent);
+}
+
+void UIManager::Panel(const UIRectTransform& layout, const UIStyle& style,
+                      Color fill, Color outline, bool filled,
+                      const Rect* parent) noexcept
+{
+    const ScopedControlStyle scope(*this, style);
+    Panel(layout, fill, outline, filled, parent);
+}
+
+bool UIManager::Checkbox(const char* id, const Rect& r, bool* value,
+                         const UIStyle& style, const std::string& label) noexcept
+{
+    const ScopedControlStyle scope(*this, style);
+    return Checkbox(id, r, value, label);
+}
+
+bool UIManager::Checkbox(const char* id, const UIRectTransform& layout,
+                         bool* value, const UIStyle& style,
+                         const std::string& label, const Rect* parent) noexcept
+{
+    const ScopedControlStyle scope(*this, style);
+    return Checkbox(id, layout, value, label, parent);
+}
+
+bool UIManager::Slider(const char* id, const Rect& r, float* value,
+                       const UIStyle& style, float minValue, float maxValue,
+                       float step) noexcept
+{
+    const ScopedControlStyle scope(*this, style);
+    return Slider(id, r, value, minValue, maxValue, step);
+}
+
+bool UIManager::Slider(const char* id, const UIRectTransform& layout,
+                       float* value, const UIStyle& style, float minValue,
+                       float maxValue, float step, const Rect* parent) noexcept
+{
+    const ScopedControlStyle scope(*this, style);
+    return Slider(id, layout, value, minValue, maxValue, step, parent);
+}
+
+bool UIManager::Toggle(const char* id, const Rect& r, bool* value,
+                       const UIStyle& style, const std::string& label) noexcept
+{
+    const ScopedControlStyle scope(*this, style);
+    return Toggle(id, r, value, label);
+}
+
+bool UIManager::Toggle(const char* id, const UIRectTransform& layout,
+                       bool* value, const UIStyle& style,
+                       const std::string& label, const Rect* parent) noexcept
+{
+    const ScopedControlStyle scope(*this, style);
+    return Toggle(id, layout, value, label, parent);
+}
+
+bool UIManager::TextInput(const char* id, const Rect& r, std::string* value,
+                          const UIStyle& style, const std::string& placeholder,
+                          size_t maxCharacters) noexcept
+{
+    const ScopedControlStyle scope(*this, style);
+    return TextInput(id, r, value, placeholder, maxCharacters);
+}
+
+bool UIManager::TextInput(const char* id, const UIRectTransform& layout,
+                          std::string* value, const UIStyle& style,
+                          const std::string& placeholder, size_t maxCharacters,
+                          const Rect* parent) noexcept
+{
+    const ScopedControlStyle scope(*this, style);
+    return TextInput(id, layout, value, placeholder, maxCharacters, parent);
+}
+
+bool UIManager::Dropdown(const char* id, const Rect& r, int* selectedIndex,
+                         const std::vector<std::string>& options,
+                         const UIStyle& style, int maxVisibleItems) noexcept
+{
+    const ScopedControlStyle scope(*this, style);
+    return Dropdown(id, r, selectedIndex, options, maxVisibleItems);
+}
+
+bool UIManager::Dropdown(const char* id, const UIRectTransform& layout,
+                         int* selectedIndex, const std::vector<std::string>& options,
+                         const UIStyle& style, int maxVisibleItems,
+                         const Rect* parent) noexcept
+{
+    const ScopedControlStyle scope(*this, style);
+    return Dropdown(id, layout, selectedIndex, options, maxVisibleItems, parent);
+}
+
+void UIManager::ProgressBar(float value01, const Rect& r,
+                            const UIStyle& style) noexcept
+{
+    const ScopedControlStyle scope(*this, style);
+    ProgressBar(value01, r, style.progressBack, style.progressFill,
+                style.progressOutline);
+}
+
+void UIManager::ProgressBar(float value01, const Rect& r, const UIStyle& style,
+                            Color back, Color fill, Color outline) noexcept
+{
+    const ScopedControlStyle scope(*this, style);
+    ProgressBar(value01, r, back, fill, outline);
+}
+
+void UIManager::ProgressBar(float value01, const UIRectTransform& layout,
+                            const UIStyle& style, const Rect* parent) noexcept
+{
+    const ScopedControlStyle scope(*this, style);
+    ProgressBar(value01, layout, style.progressBack, style.progressFill,
+                style.progressOutline, parent);
+}
+
+void UIManager::ProgressBar(float value01, const UIRectTransform& layout,
+                            const UIStyle& style, Color back, Color fill,
+                            Color outline, const Rect* parent) noexcept
+{
+    const ScopedControlStyle scope(*this, style);
+    ProgressBar(value01, layout, back, fill, outline, parent);
 }

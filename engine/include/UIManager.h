@@ -112,8 +112,16 @@ public:
         Color sliderFill{86, 179, 216, 255};       ///< Slider progress color.
         Color sliderHandle{232, 241, 249, 255};    ///< Slider handle fill.
         Color sliderHandleOutline{61, 92, 113, 255}; ///< Slider handle border.
+        bool sliderShowBackground = true;           ///< Draw the rectangular slider container.
+        bool sliderRoundElements = false;           ///< Round the slider track and thumb into capsules/circles.
+        float sliderTrackThickness = 8.f;           ///< Track height in drawable UI pixels.
+        float sliderHandleDiameter = 18.f;          ///< Thumb diameter in drawable UI pixels.
         Color toggleOn{55, 169, 136, 255};         ///< Enabled toggle track.
         Color toggleOff{79, 91, 107, 255};         ///< Disabled toggle track.
+        bool toggleShowBackground = true;           ///< Draw the rectangular toggle container.
+        bool toggleRoundElements = false;           ///< Round the switch track and thumb.
+        bool toggleTrackOnlyHit = false;            ///< Restrict pointer interaction to the switch itself.
+        bool toggleShowStateText = true;            ///< Draw ON/OFF text when the label is empty.
         Color dropdownBackground{22, 30, 42, 250}; ///< Expanded dropdown background.
         Color dropdownSelected{59, 105, 130, 255}; ///< Selected dropdown row.
         Color dropdownHovered{60, 72, 87, 255};    ///< Hovered dropdown row.
@@ -122,6 +130,9 @@ public:
         Color checkboxCheck{180, 180, 180, 255};   ///< Checkbox checked fill.
         Color placeholder{160, 160, 160, 255};     ///< Text input placeholder color.
         Color textSelection{66, 125, 185, 255};    ///< Text input selection background.
+        Color progressBack{40, 40, 40, 255};       ///< Progress bar background.
+        Color progressFill{120, 200, 120, 255};    ///< Progress bar filled portion.
+        Color progressOutline{200, 200, 200, 255}; ///< Progress bar outline.
     };
 
 private:
@@ -234,7 +245,8 @@ private:
     static bool PointInRect_(const Vec2I& p, const Rect& r) noexcept;
     ButtonState ButtonBehavior_(const char* id, const Rect& r) noexcept;
 
-    void PushPanel_(const Rect& r, Color fill, Color outline, bool filled = true) noexcept;
+    void PushPanel_(const Rect& r, Color fill, Color outline, bool filled = true,
+                    float radiusOverride = -1.f) noexcept;
     void PushText_(const std::string& text, const Rect& r, Font* font, Color color) noexcept;
     void PushImage_(const Texture& tex, const Rect& dst, const Rect* srcPixels, Color tint, bool flipX, bool flipY) noexcept;
     void PushTextInRect_(const Rect& r, Font* font, const std::string& text, Color color, AlignH h, AlignV v, float padding) noexcept;
@@ -732,4 +744,314 @@ public:
         Color back = { 40,40,40,255 },
         Color fill = { 120,200,120,255 },
         Color outline = { 200,200,200,255 }) noexcept;
+    // One-call style overrides use an internal scope: they never change the
+    // appearance of subsequent controls or the global default style.
+
+    /** @brief Draw a button using a style only for this call.
+     * @param id Stable widget identifier.
+     * @param r Rectangle in drawable screen pixels.
+     * @param style Temporary appearance for the button.
+     * @param text Visible button caption; empty uses the identifier.
+     * @return True when the button is activated.
+     */
+    bool Button(const char* id, const Rect& r, const UIStyle& style,
+                const std::string& text = "") noexcept;
+
+    /** @brief Draw an anchored button with a temporary individual style.
+     * @param id Stable widget identifier.
+     * @param layout Anchors, offsets, pivot and size.
+     * @param style Appearance of this button only.
+     * @param text Visible caption; empty uses the identifier.
+     * @param parent Optional resolved parent rectangle.
+     * @return True when the button is activated.
+     */
+    bool Button(const char* id, const UIRectTransform& layout, const UIStyle& style,
+                const std::string& text = "", const Rect* parent = nullptr) noexcept;
+
+    /** @brief Draw an aligned button with an individual style.
+     * @param id Stable widget identifier.
+     * @param r Screen-space rectangle.
+     * @param style Temporary appearance for this button.
+     * @param text Button caption.
+     * @param hAlign Horizontal text alignment.
+     * @param vAlign Vertical text alignment.
+     * @param textPadding Text inset, or negative for the style default.
+     * @return True when activated.
+     */
+    bool Button(const char* id, const Rect& r, const UIStyle& style,
+                const std::string& text, AlignH hAlign, AlignV vAlign,
+                float textPadding = -1.f) noexcept;
+
+    /** @brief Draw a textured button with its own frame style.
+     * @param id Stable widget identifier.
+     * @param r Screen-space rectangle.
+     * @param tex Texture to display.
+     * @param style Appearance of the optional focus/frame outline.
+     * @param srcPixels Optional source rectangle in texture pixels.
+     * @param tints Normal, hover, pressed and outline tints.
+     * @param drawFrame Whether to draw the outline frame.
+     * @return True when activated.
+     */
+    bool ImageButton(const char* id, const Rect& r, const Texture& tex,
+                     const UIStyle& style, const Rect* srcPixels = nullptr,
+                     const UIButtonColors& tints = UIButtonColors{
+                         {255,255,255,255}, {230,230,230,255},
+                         {200,200,200,255}, {200,200,200,0}},
+                     bool drawFrame = true) noexcept;
+
+    /** @brief Draw an anchored textured button with an individual frame style.
+     * @param id Stable widget identifier.
+     * @param layout Anchored rectangle.
+     * @param tex Texture to display.
+     * @param style Appearance of the optional focus/frame outline.
+     * @param srcPixels Optional source rectangle in texture pixels.
+     * @param tints Normal, hover, pressed and outline tints.
+     * @param drawFrame Whether to draw the outline frame.
+     * @param parent Optional resolved parent rectangle.
+     * @return True when activated.
+     */
+    bool ImageButton(const char* id, const UIRectTransform& layout,
+                     const Texture& tex, const UIStyle& style,
+                     const Rect* srcPixels = nullptr,
+                     const UIButtonColors& tints = UIButtonColors{
+                         {255,255,255,255}, {230,230,230,255},
+                         {200,200,200,255}, {200,200,200,0}},
+                     bool drawFrame = true, const Rect* parent = nullptr) noexcept;
+
+    /** @brief Draw text with the font, color and padding of one UI style.
+     * @param text Text to display.
+     * @param r Screen-space rectangle.
+     * @param style Individual appearance for this label.
+     * @param hAlign Horizontal text alignment.
+     * @param vAlign Vertical text alignment.
+     * @param padding Padding, or negative for the style default.
+     */
+    void Label(const std::string& text, const Rect& r, const UIStyle& style,
+               AlignH hAlign = AlignH::Center, AlignV vAlign = AlignV::Middle,
+               float padding = -1.f) noexcept;
+
+    /** @brief Draw anchored text with a temporary individual style.
+     * @param text Text to display.
+     * @param layout Anchored rectangle.
+     * @param style Individual appearance for this label.
+     * @param hAlign Horizontal text alignment.
+     * @param vAlign Vertical text alignment.
+     * @param padding Padding, or negative for the style default.
+     * @param parent Optional resolved parent rectangle.
+     */
+    void Label(const std::string& text, const UIRectTransform& layout,
+               const UIStyle& style, AlignH hAlign = AlignH::Center,
+               AlignV vAlign = AlignV::Middle, float padding = -1.f,
+               const Rect* parent = nullptr) noexcept;
+
+    /** @brief Draw a panel using only the colors and geometry of its style.
+     * @param r Screen-space rectangle.
+     * @param style Background, outline, border width and corner radius.
+     * @param filled Whether the panel has an interior fill.
+     */
+    void Panel(const Rect& r, const UIStyle& style, bool filled = true) noexcept;
+
+    /** @brief Draw a panel using explicit colors and an individual geometry style.
+     * @param r Screen-space rectangle.
+     * @param style Border width, corner radius and other UI appearance.
+     * @param fill Panel fill color.
+     * @param outline Panel outline color.
+     * @param filled Whether the panel has an interior fill.
+     */
+    void Panel(const Rect& r, const UIStyle& style, Color fill, Color outline,
+               bool filled = true) noexcept;
+
+    /** @brief Draw an anchored panel with colors from its individual style.
+     * @param layout Anchored rectangle.
+     * @param style Background, outline, border width and corner radius.
+     * @param filled Whether the panel has an interior fill.
+     * @param parent Optional resolved parent rectangle.
+     */
+    void Panel(const UIRectTransform& layout, const UIStyle& style,
+               bool filled = true, const Rect* parent = nullptr) noexcept;
+
+    /** @brief Draw an anchored panel with explicit colors and its own style.
+     * @param layout Anchored rectangle.
+     * @param style Border width, corner radius and other UI appearance.
+     * @param fill Panel fill color.
+     * @param outline Panel outline color.
+     * @param filled Whether the panel has an interior fill.
+     * @param parent Optional resolved parent rectangle.
+     */
+    void Panel(const UIRectTransform& layout, const UIStyle& style, Color fill,
+               Color outline, bool filled = true, const Rect* parent = nullptr) noexcept;
+
+    /** @brief Draw a checkbox with an individual style.
+     * @param id Stable widget identifier.
+     * @param r Screen-space hit rectangle.
+     * @param value Caller-owned boolean to toggle.
+     * @param style Individual appearance for this checkbox.
+     * @param label Optional caption.
+     * @return True when its value changes.
+     */
+    bool Checkbox(const char* id, const Rect& r, bool* value,
+                  const UIStyle& style, const std::string& label = "") noexcept;
+
+    /** @brief Draw an anchored checkbox with an individual style.
+     * @param id Stable widget identifier.
+     * @param layout Anchored hit rectangle.
+     * @param value Caller-owned boolean to toggle.
+     * @param style Individual appearance for this checkbox.
+     * @param label Optional caption.
+     * @param parent Optional resolved parent rectangle.
+     * @return True when its value changes.
+     */
+    bool Checkbox(const char* id, const UIRectTransform& layout, bool* value,
+                  const UIStyle& style, const std::string& label = "",
+                  const Rect* parent = nullptr) noexcept;
+
+    /** @brief Draw a slider with an individual style.
+     * @param id Stable widget identifier.
+     * @param r Screen-space hit rectangle.
+     * @param value Caller-owned float to edit.
+     * @param style Individual slider appearance.
+     * @param minValue Inclusive minimum.
+     * @param maxValue Inclusive maximum.
+     * @param step Positive value increment.
+     * @return True when the value changes.
+     */
+    bool Slider(const char* id, const Rect& r, float* value, const UIStyle& style,
+                float minValue = 0.f, float maxValue = 1.f,
+                float step = 0.05f) noexcept;
+
+    /** @brief Draw an anchored slider with an individual style.
+     * @param id Stable widget identifier.
+     * @param layout Anchored hit rectangle.
+     * @param value Caller-owned float to edit.
+     * @param style Individual slider appearance.
+     * @param minValue Inclusive minimum.
+     * @param maxValue Inclusive maximum.
+     * @param step Positive value increment.
+     * @param parent Optional resolved parent rectangle.
+     * @return True when the value changes.
+     */
+    bool Slider(const char* id, const UIRectTransform& layout, float* value,
+                const UIStyle& style, float minValue = 0.f,
+                float maxValue = 1.f, float step = 0.05f,
+                const Rect* parent = nullptr) noexcept;
+
+    /** @brief Draw a toggle with an individual style.
+     * @param id Stable widget identifier.
+     * @param r Screen-space hit rectangle.
+     * @param value Caller-owned boolean to toggle.
+     * @param style Individual toggle appearance.
+     * @param label Optional caption.
+     * @return True when its value changes.
+     */
+    bool Toggle(const char* id, const Rect& r, bool* value,
+                const UIStyle& style, const std::string& label = "") noexcept;
+
+    /** @brief Draw an anchored toggle with an individual style.
+     * @param id Stable widget identifier.
+     * @param layout Anchored hit rectangle.
+     * @param value Caller-owned boolean to toggle.
+     * @param style Individual toggle appearance.
+     * @param label Optional caption.
+     * @param parent Optional resolved parent rectangle.
+     * @return True when its value changes.
+     */
+    bool Toggle(const char* id, const UIRectTransform& layout, bool* value,
+                const UIStyle& style, const std::string& label = "",
+                const Rect* parent = nullptr) noexcept;
+
+    /** @brief Draw an editable single-line text field with an individual style.
+     * @param id Stable widget identifier.
+     * @param r Screen-space hit rectangle.
+     * @param value Caller-owned UTF-8 string.
+     * @param style Individual text field appearance.
+     * @param placeholder Hint text displayed when empty.
+     * @param maxCharacters Maximum UTF-8 code points.
+     * @return True when the string changes.
+     */
+    bool TextInput(const char* id, const Rect& r, std::string* value,
+                   const UIStyle& style, const std::string& placeholder = "",
+                   size_t maxCharacters = 64) noexcept;
+
+    /** @brief Draw an anchored text field with an individual style.
+     * @param id Stable widget identifier.
+     * @param layout Anchored hit rectangle.
+     * @param value Caller-owned UTF-8 string.
+     * @param style Individual text field appearance.
+     * @param placeholder Hint text displayed when empty.
+     * @param maxCharacters Maximum UTF-8 code points.
+     * @param parent Optional resolved parent rectangle.
+     * @return True when the string changes.
+     */
+    bool TextInput(const char* id, const UIRectTransform& layout,
+                   std::string* value, const UIStyle& style,
+                   const std::string& placeholder = "", size_t maxCharacters = 64,
+                   const Rect* parent = nullptr) noexcept;
+
+    /** @brief Draw a dropdown with an individual style.
+     * @param id Stable widget identifier.
+     * @param r Screen-space hit rectangle.
+     * @param selectedIndex Caller-owned selected option index.
+     * @param options Display labels of the choices.
+     * @param style Individual dropdown field and popup appearance.
+     * @param maxVisibleItems Maximum number of visible popup rows.
+     * @return True when the selection changes.
+     */
+    bool Dropdown(const char* id, const Rect& r, int* selectedIndex,
+                  const std::vector<std::string>& options, const UIStyle& style,
+                  int maxVisibleItems = 6) noexcept;
+
+    /** @brief Draw an anchored dropdown with an individual style.
+     * @param id Stable widget identifier.
+     * @param layout Anchored hit rectangle.
+     * @param selectedIndex Caller-owned selected option index.
+     * @param options Display labels of the choices.
+     * @param style Individual dropdown field and popup appearance.
+     * @param maxVisibleItems Maximum number of visible popup rows.
+     * @param parent Optional resolved parent rectangle.
+     * @return True when the selection changes.
+     */
+    bool Dropdown(const char* id, const UIRectTransform& layout,
+                  int* selectedIndex, const std::vector<std::string>& options,
+                  const UIStyle& style, int maxVisibleItems = 6,
+                  const Rect* parent = nullptr) noexcept;
+
+    /** @brief Draw a progress bar using the colors and geometry of its style.
+     * @param value01 Progress fraction between zero and one.
+     * @param r Screen-space rectangle.
+     * @param style Individual background, fill, outline and corner appearance.
+     */
+    void ProgressBar(float value01, const Rect& r, const UIStyle& style) noexcept;
+
+    /** @brief Draw a progress bar with explicit colors and an individual style.
+     * @param value01 Progress fraction between zero and one.
+     * @param r Screen-space rectangle.
+     * @param style Individual corner radius and border appearance.
+     * @param back Background color.
+     * @param fill Filled progress color.
+     * @param outline Border color.
+     */
+    void ProgressBar(float value01, const Rect& r, const UIStyle& style,
+                     Color back, Color fill, Color outline) noexcept;
+
+    /** @brief Draw an anchored progress bar using colors from its style.
+     * @param value01 Progress fraction between zero and one.
+     * @param layout Anchored rectangle.
+     * @param style Individual background, fill, outline and corner appearance.
+     * @param parent Optional resolved parent rectangle.
+     */
+    void ProgressBar(float value01, const UIRectTransform& layout,
+                     const UIStyle& style, const Rect* parent = nullptr) noexcept;
+
+    /** @brief Draw an anchored progress bar with explicit colors and a style.
+     * @param value01 Progress fraction between zero and one.
+     * @param layout Anchored rectangle.
+     * @param style Individual corner radius and border appearance.
+     * @param back Background color.
+     * @param fill Filled progress color.
+     * @param outline Border color.
+     * @param parent Optional resolved parent rectangle.
+     */
+    void ProgressBar(float value01, const UIRectTransform& layout,
+                     const UIStyle& style, Color back, Color fill, Color outline,
+                     const Rect* parent = nullptr) noexcept;
 };

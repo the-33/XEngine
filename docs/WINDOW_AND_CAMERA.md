@@ -214,6 +214,10 @@ navigation through `UINavigation`, and
 Call `SetAutoSelectFirst(false)` and `ClearFocus()` to allow an initially
 unselected menu. See [UI styles and navigation](reference/game/RENDERING_AND_UI.md#styling-borders-and-rounded-corners)
 for examples, including controller navigation and dropdown appearance.
+An individual `UIStyle` can also be passed directly to the widget overload,
+for example `UI->Button("ok", rect, style, "OK")`, without manually balancing
+the style stack. Sliders and toggles support independent rounded tracks and
+handles, optional surrounding rectangles and switch-only pointer hit areas.
 
 For text and images, be consistent about whether you call world-space
 `RenderManager` methods or their explicit screen-space counterparts. A sprite

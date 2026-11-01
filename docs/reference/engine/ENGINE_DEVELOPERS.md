@@ -60,8 +60,17 @@ nearest-neighbour selection otherwise. Explicit targets must exist in the
 previous frame's focus list, which prevents navigation to hidden widgets.
 Style overrides use a balanced stack, and each queued drawing command
 captures the appearance it needs before `PopStyle` restores the base style.
+The per-widget `UIStyle` overloads use `ScopedControlStyle`, an RAII push/pop
+pair that restores the previous appearance on every return path and forwards
+to the existing input and rendering implementations. Maintain matching
+overloads for pixel-space `Rect` and anchored `UIRectTransform` widgets.
 `UICornerRadiusUnit::Percent` converts the requested radius using the shortest
 side of each resolved widget; pixel mode follows canvas scaling instead.
+For slider tracks/handles and toggle tracks/knobs, `PushPanel_` can take an
+explicit pixel-radius override so they can be pill-shaped independently of
+the surrounding control's corner radius. `toggleTrackOnlyHit` changes the
+registered hit/focus bounds to the visible switch without changing controller
+Submit behavior. The other controls still use their original interaction bounds.
 
 The root `VERSION` identifies the engine release; a game's own version does
 not change when the engine is rebuilt. Follow the

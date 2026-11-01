@@ -234,6 +234,58 @@ each resolved rectangle** and clamps it to 50%, avoiding over-rounded corners.
 The percentage adapts automatically when an anchor changes the control's size;
 anchored controls scale pixel radii, borders and text spacing with `UICanvas`.
 
+#### Individual styles without PushStyle/PopStyle
+
+All built-in controls have overloads accepting `const UIManager::UIStyle&`.
+For a single widget, pass the style directly; it affects only that call and
+automatically restores the previous active style afterwards. This also works
+inside a surrounding `PushStyle` scope. The normal and styled overloads can
+be freely mixed within the same UI frame.
+
+```cpp
+UIManager::UIStyle danger = UI->GetStyle();
+danger.btn = Color{105, 40, 45, 255};
+danger.btnHot = Color{140, 50, 60, 255};
+danger.cornerRadiusUnit = UICornerRadiusUnit::Percent;
+danger.cornerRadius = 25.f;
+
+// Only this button has the red appearance and proportional corners.
+bool quit = UI->Button("menu.quit", Rect{50.f, 160.f, 220.f, 50.f},
+                       danger, "Quit");
+
+// The next control still uses the normal UI appearance.
+UI->Button("menu.back", Rect{50.f, 220.f, 220.f, 50.f}, "Back");
+
+// Anchored widgets use the same extra style argument.
+UIRectTransform anchored = /* menu layout */;
+UI->Toggle("options.fullscreen", anchored, &fullscreen, danger, "Fullscreen");
+```
+
+The style argument is placed immediately after the rectangle/layout for
+`Button`, `Label` and `Panel`, after the texture for `ImageButton`, and after
+the caller-owned value for `Checkbox`, `Toggle`, `Slider` and `TextInput`.
+For `Dropdown`, it follows the options vector; for `ProgressBar`, it follows
+the rectangle/layout. See each overload in the C++ API reference for the
+remaining optional parameters and the versions using `UIRectTransform`.
+
+`Panel` and `ProgressBar` have two styled variants: one takes colors from the
+`UIStyle` palette, and one takes explicit colors while still using the style's
+corner radius and border width. The progress-bar palette fields are
+`progressBack`, `progressFill` and `progressOutline`. For example:
+
+```cpp
+UIManager::UIStyle healthStyle = UI->GetStyle();
+healthStyle.progressBack = Color{45, 45, 50, 255};
+healthStyle.progressFill = Color{210, 65, 80, 255};
+healthStyle.cornerRadius = 8.f;
+
+UI->ProgressBar(health01, Rect{24.f, 24.f, 280.f, 28.f}, healthStyle);
+UI->Panel(Rect{24.f, 64.f, 280.f, 100.f}, healthStyle);
+```
+
+All styled overloads reuse the original input handling, keyboard/controller
+navigation and queued rendering. They do not create a separate styling system.
+
 When using a temporary style, always pair `PushStyle` and `PopStyle`, even
 inside conditional rendering branches. `SetStyle` changes the base style only:
 an active temporary style remains in effect until popped.
@@ -252,6 +304,45 @@ The engine's `assets/config/engine.json` accepts these optional startup values:
 The full palette is configured in C++ through `UIStyle`. The JSON values do
 not affect world-space sprites or the camera. For proportional rounding,
 set `cornerRadiusUnit` to `"percent"` and a `cornerRadius` such as `50.0`.
+
+#### Rounded slider and toggle parts
+
+Individual styles can also change the geometry of sliders and toggles without
+changing the game-wide appearance. These values are part of `UIManager::UIStyle`:
+
+| Field | Default | Effect |
+| --- | --- | --- |
+| `sliderShowBackground` | `true` | Draw the large surrounding slider rectangle. |
+| `sliderRoundElements` | `false` | Make the track ends round and the handle circular. |
+| `sliderTrackThickness` | `8` | Track thickness in drawable UI pixels. |
+| `sliderHandleDiameter` | `18` | Handle diameter in drawable UI pixels. |
+| `toggleShowBackground` | `true` | Draw the large surrounding toggle rectangle. |
+| `toggleRoundElements` | `false` | Make the switch a pill with a circular knob. |
+| `toggleTrackOnlyHit` | `false` | Limit pointer clicks and focus bounds to the switch track. |
+| `toggleShowStateText` | `true` | Draw ON/OFF or the supplied label next to the switch. |
+
+```cpp
+auto volumeStyle = UI->GetStyle();
+volumeStyle.sliderShowBackground = false;
+volumeStyle.sliderRoundElements = true;
+volumeStyle.sliderTrackThickness = 13.f;
+volumeStyle.sliderHandleDiameter = 25.f;
+UI->Slider("volume", volumeRect, &volume, volumeStyle, 0.f, 1.f, 0.05f);
+
+auto modeStyle = UI->GetStyle();
+modeStyle.toggleShowBackground = false;
+modeStyle.toggleRoundElements = true;
+modeStyle.toggleTrackOnlyHit = true;
+modeStyle.toggleShowStateText = false;
+UI->Toggle("fullscreen", switchRect, &fullscreen, modeStyle);
+UI->Label("Fullscreen", separateLabelRect);
+```
+
+When `toggleTrackOnlyHit` is enabled, the adjacent text does not activate the
+switch. Controller Submit still activates it when focused. The values scale
+with `UICanvas` for anchored controls. The round track/handle settings are
+independent of the control's outer `cornerRadius`; old layouts retain their
+previous appearance until the new options are enabled.
 
 ### Navigation, focus and text fields
 
