@@ -84,7 +84,7 @@ def main() -> int:
         else:
             library = native_build.create_engine(target=target, profile=profile,
                                                  arch='x86_64', tooling=tooling,
-                                                 no_doc=True)
+                                                 generate_doc=False)
         source = ROOT / 'tests' / 'integration' / 'engine_smoke.cpp'
         flags = [*native_build.common_flags(target, profile),
                  *tooling.cxxflags, *sanitizer_flags]

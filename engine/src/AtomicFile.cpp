@@ -185,27 +185,33 @@ FileError AtomicFile::Write(const std::filesystem::path& target,
         if (result != FileError::None) return result;
 
         const bool hasPrimary = FileSystem::Exists(target);
-        const bool needsBackup = keepBackup && hasPrimary && !FileSystem::Exists(backup);
-#if !defined(_WIN32)
+        const bool needsBackup = keepBackup && hasPrimary;
         if (needsBackup) {
-            // Try an instantaneous hardlink first; otherwise stage and sync a full copy.
+            // Cada escritura conserva la versión inmediatamente anterior.
+            auto stagedBackup = backup;
+            stagedBackup += ".tmp";
+            if (FileSystem::Exists(stagedBackup)) return FileError::RecoveryRequired;
+
+#if !defined(_WIN32)
+            // El enlace evita copiar datos cuando el sistema de archivos lo permite.
             std::error_code ec;
-            std::filesystem::create_hard_link(target, backup, ec);
+            std::filesystem::create_hard_link(target, stagedBackup, ec);
             if (ec) {
-                auto stagedBackup = backup;
-                stagedBackup += ".tmp";
-                if (FileSystem::Exists(stagedBackup)) return FileError::RecoveryRequired;
                 result = FileSystem::Copy(target, stagedBackup);
                 if (result != FileError::None) return result;
-                result = SyncExistingFile(stagedBackup);
-                if (result != FileError::None) return result;
-                std::filesystem::rename(stagedBackup, backup, ec);
-                if (ec) return ErrorFromCode(ec);
             }
+#else
+            result = FileSystem::Copy(target, stagedBackup);
+            if (result != FileError::None) return result;
+#endif
+            result = SyncExistingFile(stagedBackup);
+            if (result != FileError::None) return result;
+            result = FileSystem::Move(stagedBackup, backup, true);
+            if (result != FileError::None) return result;
+
             result = SyncDirectory(target);
             if (result != FileError::None) return result;
         }
-#endif
-        return PublishNew(temp, target, hasPrimary, backup, needsBackup);
+        return PublishNew(temp, target, hasPrimary, backup, false);
     } catch (...) { return FileError::IoError; }
 }

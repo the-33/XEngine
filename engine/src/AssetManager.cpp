@@ -61,7 +61,7 @@ bool AssetManager::Init(const std::string& assetsFolderPath) noexcept
     if (!IsDir(assetsFolderPath))
     {
         std::string wd = std::filesystem::current_path().string();
-        LogError("AssetManager warning", "Init(): Assets folder path does not exist or is not accessible.\nXEngine is running in: '" + wd + "'");
+        LogWarning("AssetManager", "Init(): Assets folder path does not exist or is not accessible.\nXEngine is running in: '" + wd + "'");
         return false;
     }
 
@@ -162,7 +162,7 @@ Texture* AssetManager::LoadTexture(const std::string& path, float pixelsPerUnit)
 {
     if (pixelsPerUnit <= 0)
     {
-        LogError("AssetManager warning", 
+        LogWarning("AssetManager", 
             "LoadTexture(): Pixels per unit (PPP) can not be set to less than 1. Setting PPP to default value (100.0)");
         pixelsPerUnit = 100.f;
     }
@@ -174,7 +174,7 @@ Texture* AssetManager::LoadTexture(const std::string& path, float pixelsPerUnit)
         return it->second.get();
 
     if (!IsFileValid(fullPath)) {
-        LogError("AssetManager warning", "LoadTexture(): Texture path does not exist or is not accessible.");
+        LogWarning("AssetManager", "LoadTexture(): Texture path does not exist or is not accessible.");
         return nullptr;
     }
 
@@ -183,7 +183,7 @@ Texture* AssetManager::LoadTexture(const std::string& path, float pixelsPerUnit)
         : nullptr;
 
     if (!renderer) {
-        LogError("AssetManager warning", "LoadTexture(): Renderer not avaliable to load '" + fullPath + "'.");
+        LogWarning("AssetManager", "LoadTexture(): Renderer not avaliable to load '" + fullPath + "'.");
         return nullptr;
     }
 
@@ -258,7 +258,7 @@ Font* AssetManager::LoadFont(const std::string& path, int ptSize) noexcept
 {
     if (ptSize <= 0)
     {
-        LogError("AssetManager warning", "LoadFont(): ptSize can not be set to less than 1.");
+        LogWarning("AssetManager", "LoadFont(): ptSize can not be set to less than 1.");
         return nullptr;
     }
 
@@ -270,7 +270,7 @@ Font* AssetManager::LoadFont(const std::string& path, int ptSize) noexcept
         return it->second.get();
 
     if (!IsFileValid(fullPath)) {
-        LogError("AssetManager warning", "LoadFont(): Font path does not exist or is not accessible.");
+        LogWarning("AssetManager", "LoadFont(): Font path does not exist or is not accessible.");
         return nullptr;
     }
 
@@ -340,7 +340,7 @@ SoundEffect* AssetManager::LoadSFX(const std::string& path) noexcept
         return it->second.get();
 
     if (!IsFileValid(fullPath)) {
-        LogError("AssetManager warning", "LoadSFX(): SFX path does not exist or is not accessible.");
+        LogWarning("AssetManager", "LoadSFX(): SFX path does not exist or is not accessible.");
         return nullptr;
     }
 
@@ -409,7 +409,7 @@ Music* AssetManager::LoadMusic(const std::string& path) noexcept
         return it->second.get();
 
     if (!IsFileValid(fullPath)) {
-        LogError("AssetManager warning", "LoadMusic(): Music path does not exist or is not accessible.");
+        LogWarning("AssetManager", "LoadMusic(): Music path does not exist or is not accessible.");
         return nullptr;
     }
 

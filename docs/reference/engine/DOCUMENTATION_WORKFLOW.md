@@ -13,14 +13,13 @@ automatic deployment workflow and optional local pre-commit checks.
 GitHub Pages rebuilds from `main` on the server without depending on a local
 hook. The versioned `.githooks/pre-commit` is opt-in: developers activate it
 once in each clone with `git config --local core.hooksPath .githooks`; the
-engine build does not install Git hooks. Engine rebuilds may refresh Doxygen
-locally, but failed regeneration is a warning rather than a failed build.
-Developers who do not want locally generated documentation can pass
-`--no-doc` to `tools/build.py engine` or `tools/build.py game`: this suppresses
-Doxygen during the build and selects online-only lookups in the optional VS
-Code Doxygen Hover extension. The preference lasts until the next successful
-build without `--no-doc` and does not disable the separate pre-commit hook
-or the GitHub Pages publication workflow. The full onboarding instructions
+engine build does not install Git hooks. Normal builds skip Doxygen and
+select online-only lookups in the optional VS Code hover extension. Pass
+`--generate-doc` to `tools/build.py engine` or `tools/build.py game` to refresh
+local HTML and select local-first lookups, including when the engine is cached.
+Failed generation is a build warning, not a compile error. The optional
+pre-commit hook and GitHub Pages publication workflow remain independent.
+The full onboarding instructions
 are in the [Developer Guide](../../DEVELOPER_GUIDE.md#first-checkout-optional-contributor-tools).
 
 ## Choose the correct audience
@@ -245,11 +244,10 @@ bottom-right logo is never tinted. Check the generated site with Doxygen 1.18
 as well as older supported versions when available.
 Generated outputs under `build/docs/` are ignored and are not source files.
 
-The build pipeline already invokes `tools/build_doxygen.py --doxygen ...`
-after a **successful actual engine-library rebuild**, not on a cache hit or
-game-only rebuild. Doxygen is optional: if absent, the build prints a warning
-and succeeds without new documentation. A documentation-only change does not
-recompile the engine, so run the Python command above manually. Running
+The build pipeline invokes `tools/build_doxygen.py` **only when** an engine
+or game build explicitly requests `--generate-doc`, including on a cache hit.
+Doxygen is optional: if absent, the build prints a warning and succeeds.
+Running
 `doxygen Doxyfile_Games` or `doxygen Doxyfile_Engine` directly bypasses the
 two-profile organizer, page branding, Markdown-logo resolution, duplicate
 Markdown search cleanup and sidebar post-processing; **do not use a raw

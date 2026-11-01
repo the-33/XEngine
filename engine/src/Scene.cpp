@@ -18,7 +18,7 @@ Scene::Scene() noexcept
     mSound = SoundManager::GetInstancePtr();
     mCollision = CollisionManager::GetInstancePtr();
 
-    auto fb = WindowManager::GetInstance().GetDrawableSize(); // px
+    auto fb = mRender ? mRender->GetRenderResolution() : WindowManager::GetInstance().GetDrawableSize();
     float aspect = (fb.y > 0 ? (float)fb.x / (float)fb.y : 16.f / 9.f);
 
     const float baseWorldWidth = 20.f;          // visible width along X at zoom 1

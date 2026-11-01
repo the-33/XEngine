@@ -73,7 +73,11 @@ class APISafetyRegressions(unittest.TestCase):
         for function in (pos, delta):
             self.assertIn("win->GetSize()", function)
             self.assertIn("win->GetDrawableSize()", function)
-        self.assertIn("ScreenToWorld(0.f, 0.f", delta)
+        # Virtual world rendering can be letterboxed. Convert both endpoints
+        # through the display-to-render mapping before subtracting so the
+        # letterbox offset cancels and the scale stays correct on HiDPI.
+        self.assertIn("DisplayToRender({0.f, 0.f})", delta)
+        self.assertIn("DisplayToRender({dx, dy})", delta)
         self.assertIn("moved.x - origin.x", delta)
         self.assertIn("moved.y - origin.y", delta)
 

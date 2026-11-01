@@ -60,12 +60,11 @@ If the local XML knows a symbol but its HTML page is missing, the extension
 also falls back to the published reference. The hover indicates
 *Local Doxygen reference* when it has selected a local page.
 
-If you build with `python tools/build.py engine --no-doc` (or pass `--no-doc`
-to `game`), XEngine skips Doxygen generation and automatically selects **online
-only** for that checkout even if old local docs remain. The mode is recorded
-only under the Git-ignored `build/ide/`. The next successful build **without**
-`--no-doc` restores the normal local-first behavior. This does not change VS
-Code settings or affect the independent Git pre-commit hook.
+Normal engine and game builds skip Doxygen generation and automatically select
+**online-only** for that checkout even if old local docs remain. The mode is
+recorded under the Git-ignored `build/ide/`. Pass `--generate-doc` to request
+local documentation and restore local-first behavior. This does not change
+VS Code settings or affect the independent Git pre-commit hook.
 
 For symbol resolution, continue using the official VS Code **C/C++**
 extension and XEngine's existing optional `python tools/vscode.py setup`

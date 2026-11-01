@@ -16,7 +16,7 @@
 struct SDL_Window;
 union  SDL_Event;
 
-/** @brief Controls title, logical window resolution, framebuffer and desktop fullscreen.
+/** @brief Controls title, window resolution, framebuffer and fullscreen modes.
  * @ingroup xengine_render
  */
 class WindowManager : public Singleton<WindowManager>
@@ -57,6 +57,7 @@ private:
     int width = 0, height = 0;
     int windowedWidth = 0, windowedHeight = 0;
     bool fullscreen = false;
+    bool exclusiveFullscreen = false; ///< True if the last active fullscreen mode changed the display resolution.
     std::uint64_t sizeRevision_ = 0;
 
     void SetSizeProperty(Vec2I newSize) noexcept { (void)SetSize(newSize.x, newSize.y); }
@@ -80,6 +81,12 @@ public:
     /** @brief Returns drawable pixel dimensions; may differ from logical window size on HiDPI displays.
      */
     Vec2I GetDrawableSize() const noexcept; // framebuffer (pixels)
+    /** @brief Returns the desktop video-mode resolution of this window's monitor.
+     * Unlike GetDrawableSize(), this does not change when the game window is
+     * resized. Useful for choosing an aspect ratio for internal rendering.
+     * @return Desktop width/height in pixels; (0, 0) if unavailable.
+     */
+    Vec2I GetDesktopResolution() const noexcept;
     /** @brief Sets the window caption when the window and title pointer are valid.
      * @param title Text used as the window title.
      */
@@ -90,6 +97,23 @@ public:
      * @note If SDL rejects the transition, the cached fullscreen state is unchanged.
      */
     void SetFullscreen(bool enabled) noexcept; // change at runtime if the backend supports it
+    /** @brief Enters exclusive fullscreen at an actual display video mode.
+     * Unlike SetFullscreen(true), which keeps the desktop display resolution,
+     * this method requests a physical display mode change. Unsupported modes
+     * are rejected rather than silently substituting a different resolution.
+     * The windowed dimensions are preserved for when fullscreen is exited.
+     * @param newWidth Requested fullscreen video-mode width in pixels.
+     * @param newHeight Requested fullscreen video-mode height in pixels.
+     * @return True if SDL accepts the exact mode and fullscreen transition;
+     *         false if invalid, unsupported or rejected by the display driver.
+     * @note Available modes depend on the monitor, operating system and
+     *       SDL video backend. Call on the main engine thread.
+     */
+    bool SetExclusiveFullscreen(int newWidth, int newHeight) noexcept;
+    /** @brief Whether the last successful fullscreen request was exclusive.
+     * @return True only while exclusive fullscreen is active.
+     */
+    bool IsExclusiveFullscreen() const noexcept { return fullscreen && exclusiveFullscreen; }
     /** @brief Reports the cached fullscreen state after the last successful transition.
      */
     bool IsFullscreen() const noexcept;        // return cached state

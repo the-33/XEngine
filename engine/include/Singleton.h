@@ -65,7 +65,7 @@ template<class T> inline bool Singleton<T>::CreateSingleton() {
         return true;
     }
     else {
-        LogError("Singleton warning", "CreateSingleton(): Singleton already created. FIX IMMEDIATELY.");
+        LogWarning("Singleton", "CreateSingleton(): Singleton already created. FIX IMMEDIATELY.");
         return false;
     }
 }
@@ -77,7 +77,7 @@ template<class T> inline bool Singleton<T>::DestroySingleton() {
         return true;
     }
     else {
-        LogError("Singleton warning", "DestroySingleton(): Singleton already destroyed or never created. FIX IMMEDIATELY.");
+        LogWarning("Singleton", "DestroySingleton(): Singleton already destroyed or never created. FIX IMMEDIATELY.");
         return false;
     }
 }
@@ -87,7 +87,7 @@ template<class T> inline T& Singleton<T>::GetInstance() {
         return *mSingleton;
     }
     else {
-        LogError("Singleton warning", "GetInstance(): Singleton not created, Call CreateSingleton().");
+        LogWarning("Singleton", "GetInstance(): Singleton not created, Call CreateSingleton().");
         static T* dummy = nullptr;
         return *dummy;
     }
@@ -98,7 +98,7 @@ template<class T> inline T* Singleton<T>::GetInstancePtr() {
         return mSingleton;
     }
     else {
-        LogError("Singleton warning", "GetInstancePtr(): Singleton not created, Call CreateSingleton().");
+        LogWarning("Singleton", "GetInstancePtr(): Singleton not created, Call CreateSingleton().");
         return nullptr;
     }
 }

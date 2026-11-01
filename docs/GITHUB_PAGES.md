@@ -147,10 +147,9 @@ game content. Developers working offline can still navigate local Doxygen
 pages after running `python tools/build_doxygen.py`. The setting
 `xengineDoxygen.preferLocal` can disable the local preference, particularly
 if a remote editor cannot open local `file://` HTML in the system browser.
-You can also run `python tools/build.py engine --no-doc` (or use `--no-doc`
-on a `game` build) to skip local Doxygen regeneration and select the **online
-reference** for the last successful build in that checkout, without changing
-VS Code settings. A subsequent successful build without the flag restores
+Normal engine and game builds skip local Doxygen regeneration and select the
+**online reference** in that checkout, without changing VS Code settings.
+Passing `--generate-doc` to a build requests local generation and restores
 local-first lookup. This build option does not alter GitHub Actions or the
 opt-in pre-commit hook, which remain independent.
 

@@ -1,6 +1,18 @@
 #include "Camera2D.h"
 
 #include "WindowManager.h"
+#include "RenderManager.h"
+
+// Standalone camera calculations may run before the renderer singleton exists.
+// Prefer the virtual render texture when available, otherwise physical pixels.
+static Vec2I CameraRenderSize_() noexcept
+{
+    if (auto* render = RenderManager::GetInstancePtr_NO_ERROR_MSG())
+        return render->GetRenderResolution();
+    if (auto* window = WindowManager::GetInstancePtr_NO_ERROR_MSG())
+        return window->GetDrawableSize();
+    return {0, 0};
+}
 
 static inline float clampf(float v, float lo, float hi)
 {
@@ -47,7 +59,7 @@ Vec2 Camera2D::GetViewBase() const noexcept
 	// Preserve vertical world units while the window aspect changes.
 	float viewWidth = mBaseViewWidth;
 	if (mMatchWindowAspect) {
-		const Vec2I size = WindowManager::GetInstancePtr()->GetSize();
+		const Vec2I size = CameraRenderSize_();
 		if (size.x > 0 && size.y > 0)
 			viewWidth = mBaseViewHeight * static_cast<float>(size.x) / static_cast<float>(size.y);
 	}
@@ -162,7 +174,7 @@ void Camera2D::ClampToWorld(const Rect& worldBounds) noexcept
 
 Vec2 Camera2D::WorldToScreen(const Vec2& worldPos) const noexcept
 {
-	Vec2I drawableSize = WindowManager::GetInstancePtr()->GetDrawableSize();
+	Vec2I drawableSize = CameraRenderSize_();
 
 	return WorldToScreen(worldPos.x, worldPos.y,
 		drawableSize.x,
@@ -171,7 +183,7 @@ Vec2 Camera2D::WorldToScreen(const Vec2& worldPos) const noexcept
 
 Vec2 Camera2D::ScreenToWorld(const Vec2& screenPos) const noexcept
 {
-	Vec2I drawableSize = WindowManager::GetInstancePtr()->GetDrawableSize();
+	Vec2I drawableSize = CameraRenderSize_();
 
 	return ScreenToWorld(screenPos.x, screenPos.y,
 		drawableSize.x,

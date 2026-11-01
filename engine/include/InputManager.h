@@ -11,6 +11,7 @@
 #include <set>
 #include <vector>
 
+
 #include "Singleton.h"
 #include "BaseTypes.h"
 #include "Engine.h"
@@ -56,6 +57,8 @@ private:
 
 	const uint8_t* mCurrKeys = nullptr;
 	uint8_t* mPrevKeys = nullptr;
+	// SDL2 reserva 512 posiciones para el estado de sus scancodes.
+	std::array<uint8_t, 512> mRepeatedKeys{};
 
 	uint32_t mCurrMouseButtons = 0, mPrevMouseButtons = 0;
 	int mMouseX = 0, mMouseY = 0, mPrevMouseX = 0, mPrevMouseY = 0;
@@ -78,6 +81,7 @@ private:
 	std::set<GamepadId> mJoinedThisFrame;
 	std::map<GamepadId, PlayerId> mLastPadOwner;
 	std::map<PlayerId, PlayerInputSettings> mPlayers;
+	bool mProfileLoadInProgress = false;
 	std::map<std::string, InputControlScheme> mSchemes;
 	std::map<PlayerId, InputDevice> mLastActive;
 	std::vector<GamepadEvent> mPadEvents;
@@ -120,6 +124,11 @@ public:
 	 * @param key Physical key identity (`Key`, based on SDL scancodes).
 	 */
 	bool KeyPressed(Key key) const noexcept;
+	/** @brief Indica si la tecla se ha pulsado o ha generado repetición SDL este frame.
+	 * @param key Tecla física cuyo evento de repetición se consulta.
+	 * @note Los caracteres escritos se reciben por GetTextInput(), no por esta función.
+	 */
+	bool KeyPressedOrRepeated(Key key) const noexcept;
 	/** @brief Reports the key-up edge: released now after being held last frame.
 	 * @param key Physical key identity (`Key`, based on SDL scancodes).
 	 */

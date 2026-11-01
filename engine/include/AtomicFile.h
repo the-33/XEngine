@@ -104,8 +104,9 @@ public:
                                  std::uint64_t maxBytes = FileSystem::DefaultMaxReadBytes) noexcept;
 
     /**
-     * Write and durable-sync .tmp before publishing it. If a primary exists, keep its first
-     * .bak; an existing .bak is NEVER overwritten. Returns RecoveryRequired if .tmp exists.
+     * Write and durable-sync .tmp before publishing it. If a primary exists, preserve its
+     * contents as .bak; each successful write updates .bak to the previous saved version.
+     * Returns RecoveryRequired if .tmp exists.
      * A failed operation may leave candidates; inspect and validate before the next write.
      * Only a single cooperative writer per path is supported.
      */

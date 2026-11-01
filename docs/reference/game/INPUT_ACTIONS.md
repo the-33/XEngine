@@ -150,8 +150,10 @@ Four policies govern assignment:
 | `Prefer` | Prefers the ideal device and permits configured fallbacks |
 | `Any` | Accepts any device permitted by the scheme; chooses eligible slots by priority |
 
-An **unassigned** SDL gamepad presses **Start** to join a configured
-`autoJoin` slot. Slots with no free gamepad capacity are skipped unless
+An **unassigned** SDL gamepad joins a configured `autoJoin` slot when it is
+connected, or when its player profile is loaded after the device was already
+connected. **Start** can also request joining an available slot. Slots with no
+free gamepad capacity are skipped unless
 `allowMultipleGamepads` is true. Higher-priority preferred slots are tried
 first. A successful Start join is consumed so that it does not trigger
 Pause in the same frame. Auto-join never silently creates new players.

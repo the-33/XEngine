@@ -6,6 +6,7 @@
 #include <algorithm>   // std::clamp
 #include <cmath>
 #include <string_view>
+#include <utility>
 
 #include "RenderManager.h"
 #include "InputManager.h"
@@ -92,7 +93,7 @@ bool UIManager::Init(const UIStyle& defaultStyle) noexcept
 
     mDefaultFont = AssetManager::GetInstancePtr()->GetFontByKey(defaultStyle.defaultFontKey);
     if (!mDefaultFont && !defaultStyle.defaultFontKey.empty()) {
-        LogError("UIManager warning",
+        LogWarning("UIManager",
             std::string("Init(): Could not find font asset '") + defaultStyle.defaultFontKey +
             "'. Labels/Buttons without explicit font will not show text.");
     }
@@ -111,6 +112,10 @@ bool UIManager::Init(const UIStyle& defaultStyle) noexcept
     mNavigationPlayer = 0;
     mLastNavigationDirection = 0;
     mSliderNavigationStep = 0;
+    mOpenDropdownId.clear();
+    mDropdownOverlayCmds.clear();
+    mDropdownPressedRow = -1;
+    mDropdownSubmitPressed = false;
     mNextNavigationTick = 0;
     mNavigationInitialDelayMs = 300;
     mNavigationRepeatDelayMs = 110;
@@ -125,6 +130,9 @@ void UIManager::Shutdown() noexcept
     mFocusablePrevious.clear();
     mFocusedId.clear();
     mSliderNavigationStep = 0;
+    mOpenDropdownId.clear();
+    mDropdownOverlayCmds.clear();
+    mDropdownPressedRow = -1;
     mCmds.clear();
     mDefaultFont = nullptr;
 
@@ -144,6 +152,14 @@ void UIManager::Begin() noexcept
     mSubmitPressed = false;
     mCancelPressed = false;
     mSliderNavigationStep = 0;
+    mDropdownOverlayCmds.clear();
+    mDropdownNavigationStep = 0;
+    mDropdownSubmitPressed = false;
+    mDropdownCancelledThisFrame = false;
+    mDropdownSuppressMouse = false;
+    if (!mOpenDropdownId.empty() && !mDropdownSeenLastFrame)
+        mOpenDropdownId.clear(); // The panel containing the popup disappeared.
+    mDropdownSeenLastFrame = false;
 
     if (auto* input = InputManager::GetInstancePtr()) {
         gMousePos = input->GetMousePos();
@@ -181,8 +197,17 @@ void UIManager::Begin() noexcept
             mCancelPressed = (cancel && cancel->WasPressedThisFrame(mNavigationPlayer)) ||
                 (mNavigationPlayer == 0 && input->KeyPressed(Key::ESCAPE));
 
+            if (!mOpenDropdownId.empty() && mCancelPressed) {
+                // A single Escape closes only the popup, not its parent menu.
+                mOpenDropdownId.clear();
+                mDropdownPressedRow = -1;
+                mDropdownCancelledThisFrame = true;
+                mCancelPressed = false;
+                mSubmitPressed = false;
+            }
+
             const bool tab = mNavigationPlayer == 0 && input->KeyPressed(Key::TAB);
-            if (tab) {
+            if (tab && mOpenDropdownId.empty()) {
                 StopEditing_();
                 const int step = (SDL_GetModState() & KMOD_SHIFT) ? -1 : 1;
                 MoveFocus_(step, false);
@@ -218,7 +243,9 @@ void UIManager::Begin() noexcept
                         mFocusablePrevious.end(), [this](const Focusable& widget) {
                             return widget.id == mFocusedId;
                         });
-                    if (std::abs(step) == 1 && focused != mFocusablePrevious.end() &&
+                    if (!mOpenDropdownId.empty())
+                        mDropdownNavigationStep = step > 0 ? 1 : -1;
+                    else if (std::abs(step) == 1 && focused != mFocusablePrevious.end() &&
                         focused->horizontalAdjust)
                         mSliderNavigationStep = step;
                     else
@@ -227,6 +254,10 @@ void UIManager::Begin() noexcept
                         mNavigationRepeatDelayMs : mNavigationInitialDelayMs);
                 }
                 mLastNavigationDirection = step;
+            }
+            if (!mOpenDropdownId.empty() && mSubmitPressed) {
+                mDropdownSubmitPressed = true;
+                mSubmitPressed = false; // Don't also activate a button behind the popup.
             }
         }
     }
@@ -375,6 +406,14 @@ bool UIManager::TextInput(const char* id, const UIRectTransform& layout,
     return TextInput(id, Resolve(layout, parent), value, placeholder, maxCharacters);
 }
 
+bool UIManager::Dropdown(const char* id, const UIRectTransform& layout,
+                         int* selectedIndex, const std::vector<std::string>& options,
+                         int maxVisibleItems, const Rect* parent) noexcept
+{
+    const ScopedCanvasTextScale scale(mTextScale, CanvasScale());
+    return Dropdown(id, Resolve(layout, parent), selectedIndex, options, maxVisibleItems);
+}
+
 void UIManager::ProgressBar(float value01, const UIRectTransform& layout,
                             Color back, Color fill, Color outline,
                             const Rect* parent) noexcept
@@ -409,6 +448,8 @@ void UIManager::ClearFocus() noexcept
 {
     StopEditing_();
     mFocusedId.clear();
+    mOpenDropdownId.clear();
+    mDropdownPressedRow = -1;
 }
 
 bool UIManager::IsFocused(const char* id) const noexcept
@@ -469,7 +510,9 @@ void UIManager::StartEditing_(const char* id) noexcept
     if (!id || !*id) return;
     Focus(id);
     if (!SDL_IsTextInputActive()) {
-        SDL_StartTextInput();
+        if (auto* input = InputManager::GetInstancePtr_NO_ERROR_MSG())
+            input->SetTextInput(true);
+        else SDL_StartTextInput();
         mTextInputStarted = true;
     }
     mEditingId = id;
@@ -477,10 +520,16 @@ void UIManager::StartEditing_(const char* id) noexcept
 
 void UIManager::StopEditing_() noexcept
 {
-    if (mTextInputStarted) SDL_StopTextInput();
+    if (mTextInputStarted) {
+        if (auto* input = InputManager::GetInstancePtr_NO_ERROR_MSG())
+            input->SetTextInput(false);
+        else SDL_StopTextInput();
+    }
     mTextInputStarted = false;
     mEditingId.clear();
     mTextCursorByte = 0;
+    mTextSelectionAnchorByte = 0;
+    mTextMouseSelecting = false;
 }
 
 UIManager::ButtonState UIManager::ButtonBehavior_(const char* id, const Rect& r) noexcept
@@ -489,6 +538,11 @@ UIManager::ButtonState UIManager::ButtonBehavior_(const char* id, const Rect& r)
     if (!id) return st;
 
     RegisterFocusable_(id, r);
+
+    // An expanded dropdown is modal for pointer/submit input. An outside click
+    // dismisses it first; the same press must not activate a covered button.
+    if ((!mOpenDropdownId.empty() && mOpenDropdownId != id) || mDropdownSuppressMouse)
+        return st;
 
     st.hovered = PointInRect_(gMousePos, r);
     if (st.hovered) gHotID = id;
@@ -941,93 +995,312 @@ bool UIManager::Toggle(const char* id, const Rect& r, bool* value,
     return state.pressed;
 }
 
+bool UIManager::Dropdown(const char* id, const Rect& r, int* selectedIndex,
+                         const std::vector<std::string>& options, int maxVisibleItems) noexcept
+{
+    if (!id || !*id || !selectedIndex || options.empty() ||
+        r.w <= 24.f || r.h <= 12.f) return false;
+
+    const int count = static_cast<int>(options.size());
+    const ButtonState state = ButtonBehavior_(id, r);
+    bool opened = mOpenDropdownId == id;
+    if (state.pressed) {
+        if (opened) {
+            mOpenDropdownId.clear();
+            mDropdownPressedRow = -1;
+            opened = false;
+        } else {
+            StopEditing_();
+            Focus(id);
+            mOpenDropdownId = id;
+            mDropdownHighlighted = std::clamp(*selectedIndex, 0, count - 1);
+            mDropdownFirstVisible = 0;
+            mDropdownPressedRow = -1;
+            opened = true;
+        }
+    }
+
+    // Always render the closed field; the popup is collected separately and
+    // drawn last by End(), above the controls following this widget.
+    PushPanel_(r, state.held ? mBtnActiveDefaultColor :
+                  (state.hovered ? mBtnHotDefaultColor : mBtnDefaultColor),
+               IsFocused(id) ? mFocusColor : mBtnOutlineDefaultColor);
+    const int current = *selectedIndex;
+    const std::string display = current >= 0 && current < count ? options[current] : "Select...";
+    const Rect textRect{r.x + 8.f, r.y, std::max(0.f, r.w - 45.f), r.h};
+    Label(display, textRect, AlignH::Left, AlignV::Middle);
+    Label(opened ? "^" : "v", Rect{r.x + r.w - 32.f, r.y, 28.f, r.h},
+          AlignH::Center, AlignV::Middle);
+    if (!opened) return false;
+    mDropdownSeenLastFrame = true;
+
+    const int maximum = std::clamp(maxVisibleItems, 1, 12);
+    const float rowHeight = std::clamp(r.h, 24.f, 48.f);
+    const Rect canvas = CanvasRect();
+    const int below = std::max(0, static_cast<int>((canvas.y + canvas.h - (r.y + r.h)) / rowHeight));
+    const int above = std::max(0, static_cast<int>((r.y - canvas.y) / rowHeight));
+    const bool upward = below < std::min(count, maximum) && above > below;
+    const int visible = std::max(1, std::min({count, maximum, upward ? above : below}));
+    const Rect popup{r.x, upward ? r.y - rowHeight * visible : r.y + r.h,
+                     r.w, rowHeight * visible};
+
+    if (mDropdownNavigationStep != 0)
+        mDropdownHighlighted = std::clamp(mDropdownHighlighted + mDropdownNavigationStep,
+                                          0, count - 1);
+    mDropdownFirstVisible = std::clamp(mDropdownFirstVisible, 0, count - visible);
+    if (mDropdownHighlighted < mDropdownFirstVisible)
+        mDropdownFirstVisible = mDropdownHighlighted;
+    if (mDropdownHighlighted >= mDropdownFirstVisible + visible)
+        mDropdownFirstVisible = mDropdownHighlighted - visible + 1;
+
+    if (PointInRect_(gMousePos, popup)) {
+        if (auto* input = InputManager::GetInstancePtr_NO_ERROR_MSG()) {
+            const int scroll = input->GetMouseWheel().y;
+            if (scroll != 0) {
+                mDropdownFirstVisible = std::clamp(mDropdownFirstVisible - scroll,
+                                                   0, count - visible);
+                // Conservar el desplazamiento al pasar al siguiente frame.
+                mDropdownHighlighted = std::clamp(mDropdownHighlighted,
+                    mDropdownFirstVisible, mDropdownFirstVisible + visible - 1);
+            }
+        }
+    }
+
+    bool changed = false;
+    if (mDropdownSubmitPressed) {
+        changed = *selectedIndex != mDropdownHighlighted;
+        *selectedIndex = mDropdownHighlighted;
+        mOpenDropdownId.clear();
+        mDropdownPressedRow = -1;
+        return changed;
+    }
+
+    const bool inPopup = PointInRect_(gMousePos, popup);
+    const int hovered = inPopup ? std::clamp(
+        static_cast<int>((gMousePos.y - popup.y) / rowHeight), 0, visible - 1) : -1;
+    if (inPopup && gMousePressed) {
+        mDropdownPressedRow = mDropdownFirstVisible + hovered;
+        mDropdownSuppressMouse = true;
+    }
+    if (gMouseReleased && mDropdownPressedRow >= 0) {
+        const int row = mDropdownFirstVisible + hovered;
+        if (inPopup && row == mDropdownPressedRow) {
+            changed = *selectedIndex != row;
+            *selectedIndex = row;
+            mOpenDropdownId.clear();
+        }
+        mDropdownPressedRow = -1;
+        mDropdownSuppressMouse = true;
+    }
+    if (gMousePressed && !inPopup && !PointInRect_(gMousePos, r)) {
+        mOpenDropdownId.clear();
+        mDropdownPressedRow = -1;
+        mDropdownSuppressMouse = true;
+    }
+    if (mOpenDropdownId != id) return changed;
+
+    const std::size_t firstCommand = mCmds.size();
+    PushPanel_(popup, Color{22, 30, 42, 250}, mFocusColor);
+    for (int visibleRow = 0; visibleRow < visible; ++visibleRow) {
+        const int item = mDropdownFirstVisible + visibleRow;
+        const Rect row{popup.x + 2.f, popup.y + visibleRow * rowHeight,
+                       popup.w - 4.f, rowHeight};
+        if (item == mDropdownHighlighted || visibleRow == hovered)
+            Panel(row, item == mDropdownHighlighted ? Color{59, 105, 130, 255}
+                                                   : Color{60, 72, 87, 255});
+        Label(options[item], {row.x + 8.f, row.y, row.w - 16.f, row.h},
+              AlignH::Left, AlignV::Middle);
+    }
+    // Defer popup commands until End(), after all other widgets in this frame.
+    for (std::size_t index = firstCommand; index < mCmds.size(); ++index)
+        mDropdownOverlayCmds.push_back(std::move(mCmds[index]));
+    mCmds.resize(firstCommand);
+    return changed;
+}
+
 bool UIManager::TextInput(const char* id, const Rect& r, std::string* value,
                           const std::string& placeholder, size_t maxCharacters) noexcept
 {
     if (!id || !*id || !value || !RenderManager::GetInstancePtr()) return false;
     const ButtonState state = ButtonBehavior_(id, r);
     const bool hitByMouse = state.hovered && gMousePressed;
+    const bool wasEditing = mEditingId == id;
     if (hitByMouse || (mNavigationEnabled && mSubmitPressed && IsFocused(id) &&
                        mEditingId.empty())) {
         StartEditing_(id);
-        mTextCursorByte = value->size();
+        if (!wasEditing) {
+            mTextCursorByte = value->size();
+            mTextSelectionAnchorByte = mTextCursorByte;
+        }
     }
 
     bool changed = false;
     const bool editing = mEditingId == id;
+    const float drawScale = std::max(0.001f, mTextScale);
+    const float pad = std::max(3.f, mBtnDefaultPadding * drawScale);
+    TTF_Font* ttf = mDefaultFont ? mDefaultFont->GetSDL() : nullptr;
+    const float available = std::max(0.f, r.w - pad * 2.f);
+
+    // La ventana visible sigue al cursor, pero los índices siempre pertenecen
+    // a la cadena UTF-8 completa.
+    const auto visibleRange = [&]() {
+        size_t from = 0;
+        size_t to = value->size();
+        if (ttf && !value->empty() && TextWidth_(ttf, *value) * drawScale > available) {
+            from = std::min(mTextCursorByte, value->size());
+            to = from;
+            while (from > 0) {
+                const size_t previous = PrevUtf8_(*value, from);
+                if (TextWidth_(ttf, std::string_view(*value).substr(previous, to - previous)) *
+                    drawScale > available) break;
+                from = previous;
+            }
+            while (to < value->size()) {
+                const size_t next = NextUtf8_(*value, to);
+                if (TextWidth_(ttf, std::string_view(*value).substr(from, next - from)) *
+                    drawScale > available) break;
+                to = next;
+            }
+        }
+        return std::pair<size_t, size_t>{from, to};
+    };
+    const auto mouseCaret = [&]() {
+        const auto [from, to] = visibleRange();
+        const float x = std::clamp(static_cast<float>(gMousePos.x) - r.x - pad,
+                                   0.f, available);
+        size_t nearest = from;
+        for (size_t at = from; at < to;) {
+            const size_t next = NextUtf8_(*value, at);
+            const float left = ttf ? TextWidth_(ttf, std::string_view(*value).substr(from, at - from)) * drawScale :
+                static_cast<float>(Utf8Count_(std::string_view(*value).substr(from, at - from))) * 8.f;
+            const float right = ttf ? TextWidth_(ttf, std::string_view(*value).substr(from, next - from)) * drawScale :
+                left + 8.f;
+            if (x < (left + right) * 0.5f) return nearest;
+            nearest = next;
+            at = next;
+        }
+        return nearest;
+    };
+
     if (editing) {
         auto* input = InputManager::GetInstancePtr();
         mTextCursorByte = std::min(mTextCursorByte, value->size());
+        mTextSelectionAnchorByte = std::min(mTextSelectionAnchorByte, value->size());
         // The caller may replace the value between frames; restore a UTF-8 boundary.
         while (mTextCursorByte > 0 && mTextCursorByte < value->size() &&
                (static_cast<unsigned char>((*value)[mTextCursorByte]) & 0xc0u) == 0x80u)
             --mTextCursorByte;
+        while (mTextSelectionAnchorByte > 0 && mTextSelectionAnchorByte < value->size() &&
+               (static_cast<unsigned char>((*value)[mTextSelectionAnchorByte]) & 0xc0u) == 0x80u)
+            --mTextSelectionAnchorByte;
+
+        if (hitByMouse) {
+            mTextCursorByte = mouseCaret();
+            mTextSelectionAnchorByte = mTextCursorByte;
+            mTextMouseSelecting = true;
+        } else if (mTextMouseSelecting && gMouseDown) {
+            mTextCursorByte = mouseCaret();
+        }
+        if (!gMouseDown) mTextMouseSelecting = false;
+
+        const auto selection = [&]() {
+            return std::pair<size_t, size_t>{std::min(mTextCursorByte, mTextSelectionAnchorByte),
+                                             std::max(mTextCursorByte, mTextSelectionAnchorByte)};
+        };
+        const auto eraseSelection = [&]() {
+            const auto [begin, end] = selection();
+            if (begin == end) return false;
+            value->erase(begin, end - begin);
+            mTextCursorByte = mTextSelectionAnchorByte = begin;
+            return true;
+        };
 
         if (input) {
             const SDL_Keymod modifiers = SDL_GetModState();
             const bool ctrl = (modifiers & KMOD_CTRL) != 0;
+            const bool shift = (modifiers & KMOD_SHIFT) != 0;
 
-            if (input->KeyPressed(Key::HOME)) mTextCursorByte = 0;
-            if (input->KeyPressed(Key::END)) mTextCursorByte = value->size();
-            if (input->KeyPressed(Key::LEFT))
-                mTextCursorByte = PrevUtf8_(*value, mTextCursorByte);
-            if (input->KeyPressed(Key::RIGHT))
-                mTextCursorByte = NextUtf8_(*value, mTextCursorByte);
-
-            if (input->KeyPressed(Key::BACKSPACE) && mTextCursorByte > 0) {
-                const size_t from = PrevUtf8_(*value, mTextCursorByte);
-                value->erase(from, mTextCursorByte - from);
-                mTextCursorByte = from;
-                changed = true;
+            if (ctrl && input->KeyPressed(Key::A)) {
+                mTextSelectionAnchorByte = 0;
+                mTextCursorByte = value->size();
             }
-            if (input->KeyPressed(Key::DEL) && mTextCursorByte < value->size()) {
-                const size_t to = NextUtf8_(*value, mTextCursorByte);
-                value->erase(mTextCursorByte, to - mTextCursorByte);
-                changed = true;
+            const auto [selectionStart, selectionEnd] = selection();
+            if (ctrl && (input->KeyPressed(Key::C) || input->KeyPressed(Key::X)) &&
+                selectionStart != selectionEnd) {
+                SDL_SetClipboardText(value->substr(selectionStart,
+                                                  selectionEnd - selectionStart).c_str());
+                if (input->KeyPressed(Key::X)) changed |= eraseSelection();
+            }
+
+            const auto moveCaret = [&](size_t target) {
+                if (!shift) mTextSelectionAnchorByte = target;
+                mTextCursorByte = target;
+            };
+            if (input->KeyPressedOrRepeated(Key::HOME)) moveCaret(0);
+            if (input->KeyPressedOrRepeated(Key::END)) moveCaret(value->size());
+            if (input->KeyPressedOrRepeated(Key::LEFT)) {
+                const auto [a, b] = selection();
+                moveCaret(!shift && a != b ? a : PrevUtf8_(*value, mTextCursorByte));
+            }
+            if (input->KeyPressedOrRepeated(Key::RIGHT)) {
+                const auto [a, b] = selection();
+                moveCaret(!shift && a != b ? b : NextUtf8_(*value, mTextCursorByte));
+            }
+
+            if (input->KeyPressedOrRepeated(Key::BACKSPACE)) {
+                if (eraseSelection()) changed = true;
+                else if (mTextCursorByte > 0) {
+                    const size_t from = PrevUtf8_(*value, mTextCursorByte);
+                    value->erase(from, mTextCursorByte - from);
+                    mTextCursorByte = mTextSelectionAnchorByte = from;
+                    changed = true;
+                }
+            }
+            if (input->KeyPressedOrRepeated(Key::DEL)) {
+                if (eraseSelection()) changed = true;
+                else if (mTextCursorByte < value->size()) {
+                    const size_t to = NextUtf8_(*value, mTextCursorByte);
+                    value->erase(mTextCursorByte, to - mTextCursorByte);
+                    changed = true;
+                }
             }
 
             if (ctrl && input->KeyPressed(Key::V)) {
                 char* clipboard = SDL_GetClipboardText();
                 if (clipboard) {
+                    changed |= eraseSelection();
                     changed |= InsertUtf8_(*value, mTextCursorByte, clipboard, maxCharacters);
+                    mTextSelectionAnchorByte = mTextCursorByte;
                     SDL_free(clipboard);
                 }
             }
             // Do not treat Ctrl+V as a literal 'v'; AltGr must still type normally.
-            if (!ctrl || (modifiers & KMOD_ALT))
+            if ((!ctrl || (modifiers & KMOD_ALT)) && !input->GetTextInput().empty()) {
+                changed |= eraseSelection();
                 changed |= InsertUtf8_(*value, mTextCursorByte,
                                        input->GetTextInput(), maxCharacters);
+                mTextSelectionAnchorByte = mTextCursorByte;
+            }
         }
     }
 
-    const float drawScale = std::max(0.001f, mTextScale);
-    const float pad = std::max(3.f, mBtnDefaultPadding * drawScale);
     const Color outline = IsFocused(id) ? mFocusColor : mBtnOutlineDefaultColor;
     PushPanel_(r, mBtnDefaultColor, outline, true);
 
     const bool empty = value->empty();
     const bool showPlaceholder = empty && !editing;
     const std::string& full = showPlaceholder ? placeholder : *value;
-    size_t from = 0;
-    size_t to = full.size();
-    TTF_Font* ttf = mDefaultFont ? mDefaultFont->GetSDL() : nullptr;
-    const float available = std::max(0.f, r.w - pad * 2.f);
-    if (ttf && !showPlaceholder && !empty &&
-        TextWidth_(ttf, full) * drawScale > available) {
-        // Keep the caret in view without changing the caller's actual text.
-        from = editing ? std::min(mTextCursorByte, full.size()) : full.size();
-        to = from;
-        while (from > 0) {
-            const size_t previous = PrevUtf8_(full, from);
-            if (TextWidth_(ttf, std::string_view(full).substr(previous, to - previous)) *
-                drawScale > available) break;
-            from = previous;
-        }
-        while (to < full.size()) {
-            const size_t next = NextUtf8_(full, to);
-            if (TextWidth_(ttf, std::string_view(full).substr(from, next - from)) *
-                drawScale > available) break;
-            to = next;
+    const auto [valueFrom, valueTo] = visibleRange();
+    const size_t from = showPlaceholder ? 0 : valueFrom;
+    const size_t to = showPlaceholder ? full.size() : valueTo;
+    if (editing && mTextCursorByte != mTextSelectionAnchorByte && ttf) {
+        const size_t begin = std::max(from, std::min(mTextCursorByte, mTextSelectionAnchorByte));
+        const size_t end = std::min(to, std::max(mTextCursorByte, mTextSelectionAnchorByte));
+        if (begin < end) {
+            const float left = TextWidth_(ttf, std::string_view(full).substr(from, begin - from)) * drawScale;
+            const float right = TextWidth_(ttf, std::string_view(full).substr(from, end - from)) * drawScale;
+            Panel({r.x + pad + left, r.y + pad, right - left,
+                   std::max(2.f, r.h - 2.f * pad)}, Color{66, 125, 185, 255});
         }
     }
     if (mDefaultFont && !full.empty()) {
@@ -1068,7 +1341,11 @@ void UIManager::End() noexcept
     RenderManager* render = RenderManager::GetInstancePtr();
     if (!render) { mCmds.clear(); return; }
 
-    if (gMousePressed && !mMouseHitSelectable) ClearFocus();
+    if (gMousePressed && !mMouseHitSelectable && !mDropdownSuppressMouse) ClearFocus();
+
+    for (auto& command : mDropdownOverlayCmds)
+        mCmds.push_back(std::move(command));
+    mDropdownOverlayCmds.clear();
 
     for (const auto& c : mCmds) {
         switch (c.type) {

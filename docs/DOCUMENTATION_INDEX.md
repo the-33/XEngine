@@ -9,8 +9,8 @@ The published references are regenerated automatically when changes reach
 **New to XEngine?** Start with [Your first game](GETTING_STARTED.md), then
 the [Developer Guide's optional first-checkout setup](DEVELOPER_GUIDE.md#first-checkout-optional-contributor-tools).
 It explains the optional Git hooks, per-game VS Code IntelliSense, Doxygen
-Hover extension, and `--no-doc` build flag for developers who prefer the
-online API instead of generating HTML locally. None of these integrations
+Hover extension, and optional `--generate-doc` build flag for developers who
+want local HTML instead of the default online API. None of these integrations
 is required to make a game.
 
 Choose the guide that matches what you want to accomplish. These documents

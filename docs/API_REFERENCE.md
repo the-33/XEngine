@@ -122,14 +122,12 @@ themes. Generation also produces machine-readable XML under the corresponding
 and are intentionally excluded from source packages. Doxygen is an **optional
 developer documentation tool**, not a compiler/runtime dependency of XEngine.
 
-The normal XEngine build automatically runs Doxygen **only after the engine
-library is rebuilt**. If Doxygen is not installed, the build issues a helpful
-warning and continues. When you change only game code or reuse the cached
-engine library, no documentation rebuild is needed.
-If you do not need local documentation, pass `--no-doc` to either the engine
-or game build (e.g. `python tools/build.py engine --no-doc`). That skips
-Doxygen generation even on a rebuild and makes the optional VS Code hover
-extension prefer the online API until a successful build without the flag.
+The normal XEngine build skips Doxygen, even when the engine library is
+rebuilt. To regenerate the local references, add `--generate-doc` to an engine
+or game build (e.g. `python tools/build.py engine --generate-doc`). The flag
+also works with a cached engine. If Doxygen is not installed, the build issues
+a warning and continues. Normal builds make the VS Code hover extension prefer
+the online API; an explicit documentation build restores local-first lookup.
 See [one-time contributor setup](DEVELOPER_GUIDE.md#first-checkout-optional-contributor-tools)
 for Git hooks and editor integration; neither is required for builds.
 

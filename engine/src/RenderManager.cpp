@@ -293,6 +293,126 @@ bool RenderManager::Init(const Config& cfg) noexcept
     return true;
 }
 
+void RenderManager::CommitRenderTarget_(SDL_Texture* target, int width, int height) noexcept
+{
+    // A texture may still be the active target of SDL. Unbind before destroying it.
+    if (mRenderer && mRenderTarget && SDL_GetRenderTarget(mRenderer) == mRenderTarget)
+        (void)SDL_SetRenderTarget(mRenderer, nullptr);
+    if (mRenderTarget) SDL_DestroyTexture(mRenderTarget);
+    mRenderTarget = target;
+    mRenderWidth = target ? width : 0;
+    mRenderHeight = target ? height : 0;
+    mWorldTargetActive = false;
+}
+
+void RenderManager::ApplyPendingRenderTarget_() noexcept
+{
+    if (!mHasPendingRenderTarget) return;
+    CommitRenderTarget_(mPendingRenderTarget, mPendingWidth, mPendingHeight);
+    mPendingRenderTarget = nullptr;
+    mPendingWidth = mPendingHeight = 0;
+    mHasPendingRenderTarget = false;
+}
+
+bool RenderManager::SetRenderResolution(int width, int height) noexcept
+{
+    // (0, 0) disables the offscreen target; a single zero dimension is invalid.
+    if (!mRenderer || ((width == 0) != (height == 0)) ||
+        width < 0 || height < 0 || width > 8192 || height > 8192) return false;
+
+    SDL_Texture* target = nullptr;
+    if (width != 0) {
+        target = SDL_CreateTexture(mRenderer, SDL_PIXELFORMAT_RGBA8888,
+                                   SDL_TEXTUREACCESS_TARGET, width, height);
+        if (!target) {
+            LogError("RenderManager::SetRenderResolution()",
+                     "Could not allocate an SDL render-target texture.", SDL_GetError());
+            return false;
+        }
+        // Enlarging the finished low-resolution image must retain its pixels.
+        if (SDL_SetTextureScaleMode(target, SDL_ScaleModeNearest) != 0) {
+            LogError("RenderManager::SetRenderResolution()",
+                     "Could not configure nearest-neighbour upscaling.", SDL_GetError());
+            SDL_DestroyTexture(target);
+            return false;
+        }
+        SDL_SetTextureBlendMode(target, SDL_BLENDMODE_NONE);
+    }
+
+    // Options can be saved from a button callback while this very frame is
+    // being recorded/drawn. Keep its old target until the frame is presented.
+    if (mFrameOpen) {
+        if (mPendingRenderTarget) SDL_DestroyTexture(mPendingRenderTarget);
+        mPendingRenderTarget = target;
+        mPendingWidth = width;
+        mPendingHeight = height;
+        mHasPendingRenderTarget = true;
+    } else {
+        if (mPendingRenderTarget) SDL_DestroyTexture(mPendingRenderTarget);
+        mPendingRenderTarget = nullptr;
+        mHasPendingRenderTarget = false;
+        CommitRenderTarget_(target, width, height);
+    }
+    return true;
+}
+
+Vec2I RenderManager::GetRenderResolution() const noexcept
+{
+    if (mRenderTarget) return {mRenderWidth, mRenderHeight};
+    return mWindow ? mWindow->GetDrawableSize() : Vec2I{0, 0};
+}
+
+RectI RenderManager::PresentationRect_() const noexcept
+{
+    if (!mRenderer) return {0, 0, 0, 0};
+    int outputWidth = 0, outputHeight = 0;
+    if (SDL_GetRendererOutputSize(mRenderer, &outputWidth, &outputHeight) != 0 ||
+        outputWidth <= 0 || outputHeight <= 0) return {0, 0, 0, 0};
+    if (!mRenderTarget) return {0, 0, outputWidth, outputHeight};
+
+    // Fit without stretching the game when the monitor aspect ratio differs.
+    const double scale = std::min(static_cast<double>(outputWidth) / mRenderWidth,
+                                  static_cast<double>(outputHeight) / mRenderHeight);
+    const int scaledWidth = std::max(1, static_cast<int>(std::lround(mRenderWidth * scale)));
+    const int scaledHeight = std::max(1, static_cast<int>(std::lround(mRenderHeight * scale)));
+    return {(outputWidth - scaledWidth) / 2, (outputHeight - scaledHeight) / 2,
+            scaledWidth, scaledHeight};
+}
+
+Vec2 RenderManager::DisplayToRender(Vec2 displayPoint) const noexcept
+{
+    if (!mRenderTarget) return displayPoint;
+    const RectI fit = PresentationRect_();
+    if (fit.w <= 0 || fit.h <= 0) return displayPoint;
+    return {(displayPoint.x - fit.x) * mRenderWidth / fit.w,
+            (displayPoint.y - fit.y) * mRenderHeight / fit.h};
+}
+
+void RenderManager::BeginScreenPass_() noexcept
+{
+    if (!mRenderer || !mWorldTargetActive || !mRenderTarget) return;
+    mWorldTargetActive = false;
+    if (SDL_SetRenderTarget(mRenderer, nullptr) != 0) {
+        LogError("RenderManager::BeginScreenPass_()",
+                 "Could not restore the window render target.", SDL_GetError());
+        return;
+    }
+    SDL_SetRenderDrawColor(mRenderer, 0, 0, 0, 255);
+    SDL_RenderClear(mRenderer); // Black letterbox bars if aspect ratios differ.
+    const RectI fit = PresentationRect_();
+    const SDL_Rect dst{fit.x, fit.y, fit.w, fit.h};
+    if (dst.w > 0 && dst.h > 0) (void)SDL_RenderCopy(mRenderer, mRenderTarget, nullptr, &dst);
+
+    // El mundo usa la resolución interna; la UI se dibuja sobre la ventana real.
+    int outputWidth = 0;
+    int outputHeight = 0;
+    if (SDL_GetRendererOutputSize(mRenderer, &outputWidth, &outputHeight) == 0 &&
+        outputWidth > 0 && outputHeight > 0) {
+        mWinW = outputWidth;
+        mWinH = outputHeight;
+    }
+}
+
 void RenderManager::CreateWhiteTexture_() noexcept
 {
     // 1x1 white texture is tied to the SDL_Renderer lifetime.
@@ -373,6 +493,11 @@ void RenderManager::Shutdown() noexcept
 {
     ClearTextCache_();
     mTextureTintCache.clear();
+    if (mPendingRenderTarget) SDL_DestroyTexture(mPendingRenderTarget);
+    mPendingRenderTarget = nullptr;
+    mHasPendingRenderTarget = false;
+    CommitRenderTarget_(nullptr, 0, 0);
+    mFrameOpen = false;
     if (mWhite) { SDL_DestroyTexture(mWhite); mWhite = nullptr; }
     if (mRenderer) { SDL_DestroyRenderer(mRenderer); mRenderer = nullptr; }
     mActiveCam = nullptr;
@@ -382,6 +507,7 @@ void RenderManager::Shutdown() noexcept
 
 void RenderManager::Begin(const Camera2D& cam) noexcept
 {
+    mFrameOpen = true;
     const auto phaseStart = std::chrono::steady_clock::now();
     mDrawPhase = DrawPhase::Background;
     mTextureTintCache.clear();
@@ -394,12 +520,16 @@ void RenderManager::Begin(const Camera2D& cam) noexcept
         mSelectorViewBounds = RenderDiagnostics::MakeViewBounds(
             {center.x, center.y, view.x / zoom, view.y / zoom});
 
-    if (mWindow) {
-        const Vec2I drawable = mWindow->GetDrawableSize();
-        mWinW = drawable.x; mWinH = drawable.y;
-    }
+    const Vec2I renderSize = GetRenderResolution();
+    mWinW = renderSize.x; mWinH = renderSize.y;
 
     if (mRenderer) {
+        mWorldTargetActive = mRenderTarget &&
+            SDL_SetRenderTarget(mRenderer, mRenderTarget) == 0;
+        if (mRenderTarget && !mWorldTargetActive) {
+            LogError("RenderManager::Begin()", "Could not bind world render target.", SDL_GetError());
+            (void)SDL_SetRenderTarget(mRenderer, nullptr);
+        }
         SDL_SetRenderDrawColor(mRenderer, mClearColor.r, mClearColor.g, mClearColor.b, mClearColor.a);
         SDL_RenderClear(mRenderer);
     }
@@ -414,6 +544,7 @@ void RenderManager::End() noexcept
 {
     mLastSdlPresentMs = 0.f;
     if (!mRenderer) return;
+    BeginScreenPass_();
 
     // Measure only the SDL presentation call, not the cleanup below. Keep the
     // two clock reads out of ordinary frames when CSV profiling is disabled.
@@ -443,6 +574,8 @@ void RenderManager::End() noexcept
 	mTempTextSurfaces.clear();
 
     mActiveCam = nullptr;
+    mFrameOpen = false;
+    ApplyPendingRenderTarget_();
     // Frame phase profiling is owned by Engine (steady_clock).
 }
 
@@ -455,6 +588,13 @@ void RenderManager::SetVSync(bool enabled) noexcept
     // Robust option: recreate the renderer with the requested acceleration and VSYNC settings (shutdown and reinitialize)
     if (!mWindow || !mRenderer) return;
 
+    // Render targets belong to the renderer that created them. Reallocate the
+    // low-resolution world target after recreating the renderer for VSync.
+    const int renderWidth = mRenderWidth, renderHeight = mRenderHeight;
+    if (mPendingRenderTarget) SDL_DestroyTexture(mPendingRenderTarget);
+    mPendingRenderTarget = nullptr;
+    mHasPendingRenderTarget = false;
+    CommitRenderTarget_(nullptr, 0, 0);
     ClearTextCache_();
     mTextureTintCache.clear();
     if (mWhite) { SDL_DestroyTexture(mWhite); mWhite = nullptr; }
@@ -473,6 +613,8 @@ void RenderManager::SetVSync(bool enabled) noexcept
     }
     SDL_SetRenderDrawBlendMode(mRenderer, SDL_BLENDMODE_BLEND);
     CreateWhiteTexture_();
+    if (renderWidth > 0 && !SetRenderResolution(renderWidth, renderHeight))
+        LogError("RenderManager::SetVSync()", "World render resolution could not be restored.");
     SDL_RendererInfo info{};
     if (SDL_GetRendererInfo(mRenderer, &info) == 0 && info.name)
     {
@@ -564,7 +706,7 @@ void RenderManager::DrawTextureImmediate_(const Texture& tex,
 {
     if ((tint.r < 0 || tint.r > 255) || (tint.g < 0 || tint.g > 255) || (tint.b < 0 || tint.b > 255) || (tint.a < 0 || tint.a > 255))
     {
-        LogError("RenderManager warning", "DrawTexture(): Tint color not valid.");
+        LogWarning("RenderManager", "DrawTexture(): Tint color not valid.");
         return;
     }
 
@@ -726,8 +868,13 @@ void RenderManager::RenderSnapshot(const Snapshot& snap) noexcept
 
     Begin(camTmp);
 
-    for (const auto& c : snap.cmds)
+    for (std::size_t index = 0; index < snap.cmds.size(); ++index)
     {
+        // The engine records an explicit boundary between world and UI.
+        // Do not infer it from ScreenRect: a scene may submit screen effects.
+        if (index == snap.uiStartIndex)
+            BeginScreenPass_();
+        const auto& c = snap.cmds[index];
         mDrawPhase = c.debugDraw ? DrawPhase::Debug :
             (c.type == DrawCmd::Type::ScreenRect ||
              c.type == DrawCmd::Type::ScreenImage ||
@@ -776,13 +923,15 @@ void RenderManager::RenderSnapshot(const Snapshot& snap) noexcept
 
 void RenderManager::BeginRecord(const Camera2D* cam, Snapshot& out) noexcept
 {
+    mFrameOpen = true;
     out.valid = false;
     out.cmds.clear();
+    out.uiStartIndex = 0;
     out.spritePoses.clear();
 
     if (mWindow)
     {
-        Vec2I d = mWindow->GetDrawableSize();
+        Vec2I d = GetRenderResolution();
         out.winW = d.x;
         out.winH = d.y;
         mWinW = d.x;
@@ -1064,7 +1213,7 @@ void RenderManager::DrawTextScreenImmediate_(const Font& font, const std::string
                                               float x, float y, Color color, float scale) noexcept
 {
     if (!mRenderer || !mWindow || !font.GetSDL() || text.empty()) return;
-    const Vec2I size = mWindow->GetDrawableSize();
+    const Vec2I size = mWindow->GetDrawableSize(); // UI stays at native output resolution.
     if (size.x <= 0 || size.y <= 0) return;
     const auto scaledExtent = [scale](int pixels) -> int {
         return std::max(1, static_cast<int>(std::lround(static_cast<double>(pixels) * scale)));
@@ -1130,7 +1279,7 @@ void RenderManager::DrawRectImmediate_(const Rect& worldRect,
 
     if ((color.r < 0 || color.r > 255) || (color.g < 0 || color.g > 255) || (color.b < 0 || color.b > 255) || (color.a < 0 || color.a > 255))
     {
-        LogError("RenderManager warning", "DrawRect(): Color not valid.");
+        LogWarning("RenderManager", "DrawRect(): Color not valid.");
         return;
     }
 
@@ -1184,7 +1333,7 @@ void RenderManager::DrawLineImmediate_(float x1, float y1, float x2, float y2, C
 {
     if ((color.r < 0 || color.r > 255) || (color.g < 0 || color.g > 255) || (color.b < 0 || color.b > 255) || (color.a < 0 || color.a > 255))
     {
-        LogError("RenderManager warning", "DrawLine(): Color not valid.");
+        LogWarning("RenderManager", "DrawLine(): Color not valid.");
         return;
     }
 
@@ -1208,7 +1357,7 @@ void RenderManager::DrawRectScreenImmediate_(const Rect& r, Color color, bool fi
 {
     if ((color.r < 0 || color.r > 255) || (color.g < 0 || color.g > 255) || (color.b < 0 || color.b > 255) || (color.a < 0 || color.a > 255))
     {
-        LogError("RenderManager warning", "DrawRectScreen(): Color not valid.");
+        LogWarning("RenderManager", "DrawRectScreen(): Color not valid.");
         return;
     }
 
@@ -1238,7 +1387,7 @@ void RenderManager::DrawImageScreenImmediate_(const Texture& tex, const Rect& ds
 {
     if ((tint.r < 0 || tint.r > 255) || (tint.g < 0 || tint.g > 255) || (tint.b < 0 || tint.b > 255) || (tint.a < 0 || tint.a > 255))
     {
-        LogError("RenderManager warning", "DrawImageScreen(): Tint not valid.");
+        LogWarning("RenderManager", "DrawImageScreen(): Tint not valid.");
         return;
     }
 

@@ -69,6 +69,17 @@ private:
                                  bool allowFallback, bool strictHint) noexcept;
     bool CreateInitialRenderer_(std::uint32_t flags) noexcept;
     void CreateWhiteTexture_() noexcept;
+    SDL_Texture* mRenderTarget = nullptr; ///< Optional low-resolution world render target.
+    SDL_Texture* mPendingRenderTarget = nullptr; ///< Validated target waiting for frame completion.
+    int mRenderWidth = 0, mRenderHeight = 0;
+    int mPendingWidth = 0, mPendingHeight = 0;
+    bool mHasPendingRenderTarget = false;
+    bool mFrameOpen = false;
+    bool mWorldTargetActive = false;
+    void CommitRenderTarget_(SDL_Texture* target, int width, int height) noexcept;
+    void ApplyPendingRenderTarget_() noexcept;
+    RectI PresentationRect_() const noexcept;
+    void BeginScreenPass_() noexcept;
 
 	float renderBeginTime = 0.f;
     float renderTime = 0.f;
@@ -178,6 +189,33 @@ private:
     void EndRecord() noexcept;
 
 public:
+    /** @brief Changes the resolution used to draw the world, independently of the monitor.
+     * The world is rendered to an offscreen texture and enlarged with nearest-neighbour
+     * sampling to fit the real display, preserving aspect ratio with black bars.
+     * UIManager controls are then rendered at the display's native resolution.
+     * Unlike changing an exclusive fullscreen video mode, this works with any
+     * valid render-target size supported by the current SDL renderer.
+     * @param width Internal world-render width in pixels, or zero to disable.
+     * @param height Internal world-render height in pixels, or zero to disable.
+     * @return True if the request was accepted and the texture allocated;
+     *         false if dimensions are invalid or the renderer cannot create it.
+     * @note Pass (0, 0) to draw directly to the display again. Requests made
+     *       during a frame take effect after its presentation, not mid-frame.
+     */
+    bool SetRenderResolution(int width, int height) noexcept;
+
+    /** @brief Returns the world render size, or the display pixel size when unset.
+     * @return Width and height in pixels used for world-space projection.
+     */
+    Vec2I GetRenderResolution() const noexcept;
+
+    /** @brief Converts a display pixel into internal world-render coordinates.
+     * Coordinates outside the letterboxed picture remain outside the render area.
+     * @param displayPoint Pixel position in the SDL renderer's output.
+     * @return The corresponding pixel position in the world render target.
+     */
+    Vec2 DisplayToRender(Vec2 displayPoint) const noexcept;
+
     // One-shot read-only diagnostics for benchmarks. These are the SDL objects
     // actually created (including any fallback), not the requested JSON flags.
     /** @brief Read-only snapshot of the actual SDL renderer, window and driver.

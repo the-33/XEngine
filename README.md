@@ -111,10 +111,9 @@ IntelliSense and `python tools/vscode.py hover-install` for clickable API links
 in hovers. All are opt-in. See the
 [complete first-checkout setup](docs/DEVELOPER_GUIDE.md#first-checkout-optional-contributor-tools)
 and [your first game](docs/GETTING_STARTED.md#optional-setup-for-contributors-and-vs-code-users).
-To build without generating Doxygen, add `--no-doc` to the engine/game build;
-the hover extension will then prefer the
-[online reference](https://the-33.github.io/XEngine/) until the next successful
-build without the flag.
+Engine and game builds do **not** generate Doxygen by default. Add
+`--generate-doc` when you want to refresh the local reference; otherwise the
+hover extension prefers the [online reference](https://the-33.github.io/XEngine/).
 
 **Testing engine changes:** run the Python regression suite, then compile and
 launch the **real SDL2 engine** in Debug and Release:
@@ -129,7 +128,7 @@ The [testing guide](docs/TESTING.md) explains the native SDL2 requirements,
 headless mode, `--frames` soak option and limits of automated checks. The new
 `Test XEngine` GitHub Actions workflow runs on Windows and Linux in both
 configurations; the Doxygen publishing workflow remains independent. The
-test runner passes `--no-doc` internally, so running tests never requires
+test runner does not request `--generate-doc`, so running tests never requires
 generating local HTML.
 
 ## Project structure
@@ -372,24 +371,25 @@ fallback. The source and installable VSIX ship in
 `python tools/vscode.py hover-install` to opt in (and `hover-uninstall` to
 remove it). It reads local or online Doxygen symbol indexes and does not replace
 normal IntelliSense, require Node.js or install anything during builds.
-To skip local Doxygen generation on a build and make the extension use only
-the online reference, add `--no-doc` to `python tools/build.py engine` or
-`python tools/build.py game --project "My Game"`. A later successful build
-without that flag restores the local-first preference.
+Builds use the online reference by default and do not regenerate Doxygen.
+To refresh both local references and switch the hover extension to local-first,
+pass `--generate-doc` to `python tools/build.py engine` or
+`python tools/build.py game --project "My Game"`. This also works when the
+engine library is already cached. A subsequent normal build selects the
+online reference again.
 See the [VS Code setup and hover guide](docs/VSCODE_INTEGRATION.md).
 For local contributors, the optional [pre-commit hook](docs/GAME_GIT_TRACKING.md)
 regenerates and checks Doxygen when the staged files change documentation or
 engine sources; unlike the publishing workflow it requires explicit activation
 with `git config --local core.hooksPath .githooks` in each Git clone.
-Doxygen is not required to build or run games. Whenever XEngine's library is
-actually recompiled, the build updates the reference if the **documented
-source contents** have changed and Doxygen is installed. A shared SHA-256
-fingerprint avoids regenerating the same documentation twice (for example,
-pre-commit followed by a game build, or the reverse). Debug/Release and
-Windows/Linux builds in one checkout reuse that output; pre-commit still checks
-the public API. The numeric `VERSION` alone is not used as the cache key.
+Doxygen is not required to build or run games. When `--generate-doc` is used,
+the build refreshes the reference only if the documented inputs have changed.
+A shared SHA-256 fingerprint avoids repeating generation across builds and the
+opt-in pre-commit hook; pre-commit still checks the public API. The numeric
+`VERSION` alone is not used as the cache key.
 Use `python tools/build_doxygen.py --force` for an intentional clean refresh.
-If Doxygen is unavailable, the build prints a recommendation and continues.
+If Doxygen is unavailable during an explicit documentation request, the build
+prints a recommendation and continues.
 The gameplay profile deliberately excludes private implementation and internal
 property-adapter aliases. Only current-use manuals are included in generated
 documentation; older performance investigations remain in the repository.

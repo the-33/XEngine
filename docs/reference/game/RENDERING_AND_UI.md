@@ -24,6 +24,58 @@ Vec2I logicalSize = Window->size.get();
 Vec2I drawablePixels = Window->drawableSize.get();
 ```
 
+`Window->SetFullscreen(true)` uses **desktop fullscreen** (borderless) and
+does not alter the monitor's resolution. If the game needs the screen to
+switch to a particular video mode, request **exclusive fullscreen** instead:
+
+```cpp
+// Returns false if this exact display mode is unavailable or SDL rejects it.
+if (!Window->SetExclusiveFullscreen(1280, 720)) {
+    // Show an unsupported-resolution warning and restore previous settings.
+}
+// Returns to the previously configured windowed size and desktop video mode.
+Window->SetFullscreen(false);
+```
+
+`SetSize(width, height)` only controls the client-area size while windowed;
+in fullscreen it remembers the dimensions for returning to windowed mode.
+`SetExclusiveFullscreen` is opt-in so other games using borderless desktop
+fullscreen keep their existing behavior. Only exact monitor-supported modes
+are accepted, and the available video modes depend on the operating system
+and active monitor. **Do not use exclusive fullscreen if your goal is to
+render the game at lower quality and upscale it on the same monitor mode.**
+
+### Internal world rendering resolution (pixelated fullscreen or windowed)
+
+`RenderManager::SetRenderResolution(width, height)` changes the **world's
+render texture**, independent of the physical screen size. The renderer
+composites the low-resolution world image into a window or borderless fullscreen
+using nearest-neighbour filtering, with letterbox bars if aspect ratios differ.
+`UIManager` buttons, labels, menus and text remain crisp at native display
+resolution. The monitor's actual video mode does not change:
+
+```cpp
+Window->SetFullscreen(true); // Borderless, desktop resolution stays the same.
+if (Window->IsFullscreen() && !Renderer->SetRenderResolution(640, 360)) {
+    // Renderer may not support target textures: show an error/restore settings.
+}
+Vec2I native = Window->GetDrawableSize();       // Physical output pixels.
+Vec2I world = Renderer->GetRenderResolution();    // Now 640 x 360 on success.
+Vec2I desktop = Window->GetDesktopResolution(); // Desktop video mode of this monitor.
+
+// Restore direct-to-window world drawing (available in either window mode):
+Renderer->SetRenderResolution(0, 0);
+```
+
+Calls made from an in-frame button/option callback are committed **after**
+that frame, preventing the currently bound texture from being destroyed during
+rendering. If the chosen video driver lacks texture-target support, the method
+returns `false` and the previous target remains intact. The rendering API
+handles immediate and recorded/parallel command modes, camera projection,
+world-space mouse mapping and display-to-render scaling. Use
+`Renderer->DisplayToRender(pixel)` to map output pixels into the letterboxed world
+image manually; pixels in the black bars map outside the game render area.
+
 Screen-space rendering and `UIManager` use drawable pixel coordinates, which
 can differ from logical window dimensions on HiDPI displays. Mouse hit testing
 is scaled automatically inside `UIManager`. `Window->resizeRevision` changes
@@ -100,6 +152,32 @@ between controls. Toggle changes the bool on mouse click/release or Submit.
 Both show the configured focus outline. Values are not saved implicitly:
 the game decides whether to store options in `PlayerPrefs` or elsewhere.
 
+### Native Dropdown
+
+`UIManager::Dropdown` is a reusable single-selection list. Pass a stable ID,
+rectangle, caller-owned selected index and a vector of option labels. It returns
+`true` only when the chosen index changes. Click or UI Submit opens the list;
+Up/Down or controller `UI/Navigate` changes the highlighted option; Submit
+chooses; Escape/UI Cancel closes without changing the selection. Mouse wheel
+scrolls longer lists. The popup draws above other controls and opens upward
+when there is more space above it.
+
+```cpp
+// Persistent Behaviour fields, not temporary locals recreated each frame:
+std::vector<std::string> sizes{"1920 x 1080", "1280 x 720", "640 x 360"};
+int selected = 1;
+
+// Inside Behaviour::Render():
+if (UI->Dropdown("options.resolution", Rect{100.f, 140.f, 240.f, 42.f},
+                 &selected, sizes, 6)) {
+    // The caller decides whether to apply or save this change.
+}
+```
+
+An anchored `UIRectTransform` overload also exists. If a parent menu handles
+Escape itself, check `UI->DropdownConsumedCancel()` during Update and ignore
+that Cancel event: it was already used to dismiss the open dropdown.
+
 ### Navigation, focus and text fields
 
 Every interactive widget participates in automatic focus navigation by
@@ -134,7 +212,9 @@ if (UI->Button("save", Rect{32.f, 126.f, 160.f, 40.f}, "Save")) {
 
 Clicking a field or pressing Submit while it has focus enters text editing.
 Enter confirms, Escape stops editing while preserving text, and Tab exits to
-the next control. Backspace, Delete, Left/Right, Home/End and Ctrl+V work;
+the next control. Click to place the caret and drag to select text; Shift+arrows,
+Shift+Home/End, Ctrl+A, Ctrl+C, Ctrl+X and Ctrl+V work, as does SDL key repeat;
+Backspace, Delete, Left/Right and Home/End are supported;
 text entry uses SDL's UTF-8 text input events, not scancode-to-character
 conversion. `TextInput` returns true when its supplied string changes, and
 accepts either `Rect` or responsive `UIRectTransform`. Each widget ID must

@@ -114,7 +114,8 @@ int main(int argc, char** argv) {
     assert(inspection.situation == AtomicReadSituation::PrimaryAndBackup);
     assert(AtomicFile::Read(path, AtomicFileSource::Backup).data == binary);
     assert(AtomicFile::Write(path, binary) == FileError::None);
-    assert(AtomicFile::Read(path, AtomicFileSource::Backup).data == binary);
+    assert(AtomicFile::Read(path, AtomicFileSource::Backup).data ==
+           std::vector<std::byte>(writer.Data().begin(), writer.Data().end()));
     const auto temp = AtomicFile::TemporaryPath(path);
     assert(FileSystem::WriteAllText(temp, "interrupted") == FileError::None);
     assert(AtomicFile::Inspect(path).situation == AtomicReadSituation::AllPresent);

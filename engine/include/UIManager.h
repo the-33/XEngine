@@ -130,10 +130,24 @@ private:
     bool mMouseHitSelectable = false;
     int mLastNavigationDirection = 0;
     int mSliderNavigationStep = 0;
+    // Only one dropdown popup is open at a time; options and selection are
+    // caller-owned, as with other immediate-mode controls.
+    std::string mOpenDropdownId;
+    std::vector<DrawCmd> mDropdownOverlayCmds;
+    int mDropdownHighlighted = 0;
+    int mDropdownFirstVisible = 0;
+    int mDropdownPressedRow = -1;
+    int mDropdownNavigationStep = 0;
+    bool mDropdownSubmitPressed = false;
+    bool mDropdownCancelledThisFrame = false;
+    bool mDropdownSeenLastFrame = false;
+    bool mDropdownSuppressMouse = false;
     uint32_t mNextNavigationTick = 0;
     uint32_t mNavigationInitialDelayMs = 300;
     uint32_t mNavigationRepeatDelayMs = 110;
     size_t mTextCursorByte = 0;
+    size_t mTextSelectionAnchorByte = 0;
+    bool mTextMouseSelecting = false;
 
     void RegisterFocusable_(const char* id, const Rect& r, bool horizontalAdjust = false) noexcept;
     void MoveFocus_(int direction, bool spatial) noexcept;
@@ -201,10 +215,45 @@ public:
     /** @brief Whether a UI text field currently consumes text input. */
     bool IsEditingText() const noexcept { return !mEditingId.empty(); }
 
+    /** @brief Whether Escape/UI Cancel was used to dismiss an open dropdown
+     * during the current input frame. Parent menus should not close too.
+     * @return True only on the frame when the dropdown consumed Cancel.
+     */
+    bool DropdownConsumedCancel() const noexcept { return mDropdownCancelledThisFrame; }
+
+    /** @brief One-choice dropdown with mouse, keyboard and gamepad navigation.
+     * The closed field opens on click/UI Submit; while open, up/down chooses
+     * an item, Submit commits and Cancel dismisses without changing the value.
+     * Mouse wheel scrolls long lists. The popup is overlaid above later widgets
+     * and constrained to the drawable canvas. The caller owns the option list.
+     * @param id Stable identifier unique to this UI panel.
+     * @param r Closed field rectangle in drawable-pixel coordinates.
+     * @param selectedIndex Pointer to caller-owned selected option index.
+     * @param options Display labels; must remain available throughout this call.
+     * @param maxVisibleItems Maximum number of popup rows, clamped to 1..12.
+     * @return True only when the selected index changes.
+     */
+    bool Dropdown(const char* id, const Rect& r, int* selectedIndex,
+                  const std::vector<std::string>& options, int maxVisibleItems = 6) noexcept;
+
+    /** @brief Anchored dropdown with the same interaction and ownership rules.
+     * @param id Stable identifier unique to this UI panel.
+     * @param layout Responsive rectangle of the closed field.
+     * @param selectedIndex Pointer to caller-owned selected option index.
+     * @param options Display labels for each available choice.
+     * @param maxVisibleItems Maximum number of visible popup rows.
+     * @param parent Optional parent rectangle for anchored layout.
+     * @return True only when selection changes.
+     */
+    bool Dropdown(const char* id, const UIRectTransform& layout, int* selectedIndex,
+                  const std::vector<std::string>& options, int maxVisibleItems = 6,
+                  const Rect* parent = nullptr) noexcept;
+
     /** @brief Editable single-line UTF-8 field, using caller-owned text.
      * Mouse click or UI/Submit begins editing; Enter confirms and Escape cancels
-     * editing without discarding existing text. Backspace, Delete, arrows,
-     * Home/End and Ctrl+V are supported. Returns true if the text changes.
+     * editing without discarding existing text. Permite colocar el cursor con
+     * el ratón, seleccionar arrastrando o con Mayús+flechas y usar Ctrl+A/C/X/V.
+     * Las teclas de edición admiten repetición. Returns true if the text changes.
      * @param id Unique stable widget identifier.
      * @param r Field rectangle in drawable screen pixels.
      * @param value Non-null string owned by the game.

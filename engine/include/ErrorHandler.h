@@ -4,6 +4,7 @@
  */
 
 #include <string>
+#include <string_view>
 
 #ifdef _WIN32
 // Avoid including unnecessary parts of Windows.h
@@ -19,9 +20,9 @@
 #include <windows.h>
 #endif
 
-/** @brief Dialog response values, or `Error` when no response was returned.
- * @note On Linux, the current implementation shows an SDL error dialog when
- *       video is initialized, logs through SDL and returns `Error`.
+/** @brief Valores de compatibilidad de la antigua API de cuadros de diálogo.
+ * @note El registro actual no abre ventanas: solo devuelve OK cuando la
+ *       opción Engine::logErrors está desactivada o Error en otro caso.
  */
 enum class ErrorLogResult
 {
@@ -39,16 +40,11 @@ enum class ErrorLogResult
     Error = -1   ///< No dialog result is available or the operation failed.
 };
 
-// Cross-platform error logging
-/** @brief Reports an engine error in a platform dialog and/or SDL log.
- * @details On Windows, MessageBoxA is used first; otherwise SDL displays a
- * message box if video is initialized. The message is also sent to SDL_Log
- * unless the Windows dialog returned a result first. When `Engine::logErrors`
- * is false, the call is suppressed and returns `OK`.
- * @param caption Title of the error dialog and prefix of the log entry.
- * @param error Error condition to report.
- * @return A Windows dialog selection, or `Error` if no response is available;
- *         `OK` if engine error logging has been disabled.
+/** @brief Registra un error con origen y sin mostrar cuadros de diálogo.
+ * @param caption Subsistema o función que ha detectado el fallo.
+ * @param error Descripción del fallo.
+ * @return Error si se ha registrado; OK si Engine::logErrors está desactivado.
+ * @note El argumento opcional de Windows se ignora por compatibilidad.
  */
 ErrorLogResult LogError(const std::string& caption,
     const std::string& error
@@ -57,12 +53,11 @@ ErrorLogResult LogError(const std::string& caption,
 #endif
 );
 
-/** @brief As LogError(caption, error), appending an SDL error string.
- * @param caption Title of the error dialog and prefix of the log entry.
- * @param error Error condition to report.
- * @param sdlError Non-null, null-terminated SDL error message; pass SDL_GetError()
- *                 when reporting an SDL failure.
- * @return A Windows dialog selection, `Error`, or suppressed-logging `OK`.
+/** @brief Registra un error con el texto adicional de SDL.
+ * @param caption Subsistema o función que ha detectado el fallo.
+ * @param error Descripción principal.
+ * @param sdlError Texto opcional devuelto por SDL_GetError(), puede ser nullptr.
+ * @return Error si se ha registrado; OK si Engine::logErrors está desactivado.
  */
 ErrorLogResult LogError(const std::string& caption,
     const std::string& error,
@@ -71,3 +66,80 @@ ErrorLogResult LogError(const std::string& caption,
     , UINT msgBoxType = MB_OK | MB_ICONSTOP | MB_SETFOREGROUND
 #endif
 );
+
+/** @brief Registro de consola con niveles y colores, similar a Unity.
+ * Los mensajes incluyen iconos. Los colores se omiten al redirigir la salida
+ * a archivos o procesos que no son terminales.
+ * @ingroup xengine_services
+ */
+namespace Debug {
+    /** @brief Escribe un mensaje informativo.
+     * @param message Mensaje UTF-8 del juego o del motor.
+     * @param title Título que identifica el origen del mensaje.
+     */
+    void Log(std::string_view message, std::string_view title = "Game") noexcept;
+    /** @brief Escribe una advertencia sin bloquear la ejecución.
+     * @param message Mensaje UTF-8 de advertencia.
+     * @param title Título que identifica el origen de la advertencia.
+     */
+    void LogWarning(std::string_view message, std::string_view title = "Game") noexcept;
+    /** @brief Escribe un error respetando Engine::logErrors.
+     * @param message Mensaje UTF-8 del error.
+     * @param title Título que identifica el origen del error.
+     */
+    void LogError(std::string_view message, std::string_view title = "Game") noexcept;
+}
+
+/** @brief Acceso directo al registro de consola desde los scripts del juego.
+ * @code{.cpp}
+ * console.log("Jugador creado");
+ * console.warning("Quedan pocas vidas");
+ * console.error("No se pudo cargar la textura");
+ * @endcode
+ * @ingroup xengine_services
+ */
+struct ConsoleLogger {
+    /** @brief Escribe una línea LOG en la consola.
+     * @param message Mensaje UTF-8 que se quiere registrar.
+     * @param title Título opcional del registro.
+     */
+    void log(std::string_view message, std::string_view title = "Game") const noexcept {
+        Debug::Log(message, title);
+    }
+    /** @brief Escribe una línea WARNING en la consola.
+     * @param message Mensaje UTF-8 de advertencia.
+     * @param title Título opcional del registro.
+     */
+    void warning(std::string_view message, std::string_view title = "Game") const noexcept {
+        Debug::LogWarning(message, title);
+    }
+    /** @brief Escribe una línea ERROR en la consola.
+     * @param message Mensaje UTF-8 del error.
+     * @param title Título opcional del registro.
+     */
+    void error(std::string_view message, std::string_view title = "Game") const noexcept {
+        Debug::LogError(message, title);
+    }
+};
+
+/** @brief Instancia global del registro, sin necesidad de inicializarla. */
+inline constexpr ConsoleLogger console{};
+
+/** @brief Registra una advertencia con la función de origen.
+ * @param caption Subsistema que detectó la condición.
+ * @param warning Descripción de la advertencia.
+ */
+void LogWarning(const std::string& caption, const std::string& warning) noexcept;
+
+/** @brief Captura stdout durante la ejecución del motor.
+ * Las llamadas del juego a printf, puts o std::cout pasan a Debug::Log.
+ * @ingroup xengine_services
+ */
+namespace XEngineConsole {
+    /** @brief Inicia la captura; si falla, stdout conserva su comportamiento.
+     * @return True cuando stdout queda redirigido al registro.
+     */
+    bool BeginStdoutCapture() noexcept;
+    /** @brief Vacía el búfer y restaura el descriptor de stdout original. */
+    void EndStdoutCapture() noexcept;
+}

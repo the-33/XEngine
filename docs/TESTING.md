@@ -80,11 +80,11 @@ interactive mouse/UI behavior, long-term memory growth, real audio playback,
 or behavior across different hardware. Use the benchmark game and manual
 testing on actual machines for those areas.
 
-Both native test commands use `--no-doc` internally: **they do not regenerate
-local Doxygen HTML**. The published reference remains available at
-<https://the-33.github.io/XEngine/>. A normal engine build with `--no-doc`
-also tells the optional VS Code Doxygen Hover extension to prefer online
-documentation; see [VS Code integration](VSCODE_INTEGRATION.md).
+The native test commands do not request `--generate-doc`: **they do not
+regenerate local Doxygen HTML**. The published reference remains available at
+<https://the-33.github.io/XEngine/>. Normal engine builds also tell the
+optional VS Code hover extension to prefer online documentation; see
+[VS Code integration](VSCODE_INTEGRATION.md).
 
 ## Memory and undefined-behavior sanitizers
 

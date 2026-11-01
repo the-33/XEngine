@@ -3,6 +3,10 @@
 #include "SDL.h"
 #include "ErrorHandler.h"
 
+#if defined(_WIN32)
+#include "SDL_syswm.h"
+#endif
+
 static inline SDL_Window* AsSDL(void* p) noexcept {
     return static_cast<SDL_Window*>(p);
 }
@@ -23,6 +27,8 @@ bool WindowManager::Init(const Config& conf) noexcept
     height = conf.height > 0 && conf.height <= 16384 ? conf.height : 720;
     windowedWidth = width;
     windowedHeight = height;
+    fullscreen = false;
+    exclusiveFullscreen = false;
     sizeRevision_ = 0;
 
     SDL_Window* win = SDL_CreateWindow(
@@ -88,6 +94,39 @@ Vec2I WindowManager::GetDrawableSize() const noexcept
     else return Vector2::Zero;
 }
 
+Vec2I WindowManager::GetDesktopResolution() const noexcept
+{
+    if (!windowHandle) return {0, 0};
+
+#if defined(_WIN32)
+    // EnumDisplaySettings devuelve píxeles físicos, sin virtualización por DPI.
+    // Se consulta el monitor de la ventana para respetar configuraciones multimonitor.
+    SDL_SysWMinfo wmInfo{};
+    SDL_VERSION(&wmInfo.version);
+    if (SDL_GetWindowWMInfo(AsSDL(windowHandle), &wmInfo) == SDL_TRUE &&
+        wmInfo.subsystem == SDL_SYSWM_WINDOWS) {
+        const HMONITOR monitor = MonitorFromWindow(
+            wmInfo.info.win.window, MONITOR_DEFAULTTONEAREST);
+        MONITORINFOEXW monitorInfo{};
+        monitorInfo.cbSize = sizeof(monitorInfo);
+        DEVMODEW displayMode{};
+        displayMode.dmSize = sizeof(displayMode);
+        if (monitor && GetMonitorInfoW(monitor, &monitorInfo) &&
+            EnumDisplaySettingsW(monitorInfo.szDevice, ENUM_CURRENT_SETTINGS, &displayMode) &&
+            displayMode.dmPelsWidth > 0 && displayMode.dmPelsHeight > 0) {
+            return {static_cast<int>(displayMode.dmPelsWidth),
+                    static_cast<int>(displayMode.dmPelsHeight)};
+        }
+    }
+#endif
+
+    const int displayIndex = SDL_GetWindowDisplayIndex(AsSDL(windowHandle));
+    if (displayIndex < 0) return {0, 0};
+    SDL_DisplayMode mode{};
+    if (SDL_GetDesktopDisplayMode(displayIndex, &mode) != 0) return {0, 0};
+    return {mode.w, mode.h};
+}
+
 void WindowManager::SetTitle(const char* title) noexcept
 {
     if (windowHandle && title) {
@@ -121,7 +160,9 @@ bool WindowManager::SetSize(int newWidth, int newHeight) noexcept
 
 void WindowManager::SetFullscreen(bool enabled) noexcept
 {
-    if (fullscreen == enabled) return;
+    // An explicit desktop-fullscreen request replaces exclusive fullscreen;
+    // do not silently retain an old exclusive video mode.
+    if (fullscreen == enabled && (!enabled || !exclusiveFullscreen)) return;
     if (!windowHandle) return;
 
     Uint32 mode = enabled ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0;
@@ -131,12 +172,51 @@ void WindowManager::SetFullscreen(bool enabled) noexcept
     }
     else {
         fullscreen = enabled;
+        exclusiveFullscreen = false;
         ++sizeRevision_;
         if (!enabled) {
             // SDL may restore the pre-fullscreen size; apply the most recent requested size.
             (void)SetSize(windowedWidth, windowedHeight);
         }
     }
+}
+
+bool WindowManager::SetExclusiveFullscreen(int newWidth, int newHeight) noexcept
+{
+    if (!windowHandle || newWidth <= 0 || newHeight <= 0 ||
+        newWidth > 16384 || newHeight > 16384) return false;
+
+    SDL_Window* win = AsSDL(windowHandle);
+    const int display = SDL_GetWindowDisplayIndex(win);
+    if (display < 0) return false;
+
+    SDL_DisplayMode requested{};
+    requested.w = newWidth;
+    requested.h = newHeight;
+    SDL_DisplayMode supported{};
+    if (!SDL_GetClosestDisplayMode(display, &requested, &supported) ||
+        supported.w != newWidth || supported.h != newHeight)
+        return false; // Never pretend a different physical resolution was applied.
+
+    SDL_DisplayMode previous{};
+    const bool hadPrevious = SDL_GetWindowDisplayMode(win, &previous) == 0;
+    if (SDL_SetWindowDisplayMode(win, &supported) != 0) {
+        LogError("WindowManager::SetExclusiveFullscreen()",
+                 "SDL_SetWindowDisplayMode failed.", SDL_GetError());
+        return false;
+    }
+
+    if (SDL_SetWindowFullscreen(win, SDL_WINDOW_FULLSCREEN) != 0) {
+        LogError("WindowManager::SetExclusiveFullscreen()",
+                 "SDL_SetWindowFullscreen failed.", SDL_GetError());
+        if (hadPrevious) (void)SDL_SetWindowDisplayMode(win, &previous);
+        return false;
+    }
+
+    fullscreen = true;
+    exclusiveFullscreen = true;
+    ++sizeRevision_;
+    return true;
 }
 
 bool WindowManager::IsFullscreen() const noexcept

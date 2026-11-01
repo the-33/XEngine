@@ -7,6 +7,7 @@
 #include "WindowManager.h"
 #include "SceneManager.h"
 #include "Camera2D.h"
+#include "RenderManager.h"
 #include "Scene.h"
 #include "SDL.h"
 
@@ -38,6 +39,7 @@ bool InputManager::Init(const Config& cfg) noexcept
         SDL_StopTextInput();
 
     mTextInputBuffer.clear();
+    mRepeatedKeys.fill(0);
     mPads.clear();
     mPadOwners.clear();
     mLastPadOwner.clear();
@@ -99,6 +101,7 @@ void InputManager::Update() noexcept
     mMouseDeltaX = mMouseDeltaY = 0;
     mWheelX = mWheelY = 0;
     mTextInputBuffer.clear();
+    mRepeatedKeys.fill(0);
     mPadEvents.clear();
     mJoinedThisFrame.clear();
     for (auto& [id, pad] : mPads)
@@ -126,6 +129,9 @@ void InputManager::Update() noexcept
             if (win) win->ProcessEvent(e);
             break;
         case SDL_KEYDOWN:
+            if (mFocused && e.key.repeat &&
+                static_cast<unsigned>(e.key.keysym.scancode) < mRepeatedKeys.size())
+                mRepeatedKeys[static_cast<unsigned>(e.key.keysym.scancode)] = 1;
             if (mFocused && !e.key.repeat) {
                 MarkActive({InputDeviceKind::Keyboard, -1});
                 HandleRebindPath(std::string("Keyboard/") + SDL_GetScancodeName(e.key.keysym.scancode));
@@ -238,6 +244,13 @@ bool InputManager::KeyReleased(Key key) const noexcept
     return mFocused && scan < SDL_NUM_SCANCODES && mCurrKeys && mPrevKeys && !mCurrKeys[scan] && mPrevKeys[scan];
 }
 
+bool InputManager::KeyPressedOrRepeated(Key key) const noexcept
+{
+    const auto scan = static_cast<unsigned>(ToSDL(key));
+    return mFocused && scan < mRepeatedKeys.size() &&
+        (KeyPressed(key) || mRepeatedKeys[scan] != 0);
+}
+
 bool InputManager::MouseDown(MouseButton button) const noexcept
 {
     return mFocused && (mCurrMouseButtons & SDL_BUTTON(ToSDL(button))) != 0;
@@ -304,9 +317,12 @@ Vec2 InputManager::GetMousePosWorld() const noexcept
 
     // SDL motion positions are in logical window units. Camera2D uses the
     // renderer's drawable pixel dimensions, which can differ on HiDPI.
-    const float x = static_cast<float>(mMouseX) * drawable.x / logical.x;
-    const float y = static_cast<float>(mMouseY) * drawable.y / logical.y;
-    return cam->ScreenToWorld(x, y, drawable.x, drawable.y);
+    const Vec2 pixel{static_cast<float>(mMouseX) * drawable.x / logical.x,
+                     static_cast<float>(mMouseY) * drawable.y / logical.y};
+    const auto* render = RenderManager::GetInstancePtr_NO_ERROR_MSG();
+    const Vec2 renderPixel = render ? render->DisplayToRender(pixel) : pixel;
+    const Vec2I size = render ? render->GetRenderResolution() : drawable;
+    return cam->ScreenToWorld(renderPixel.x, renderPixel.y, size.x, size.y);
 }
 
 Vec2 InputManager::GetMouseDeltaWorld() const noexcept
@@ -325,7 +341,11 @@ Vec2 InputManager::GetMouseDeltaWorld() const noexcept
 
     const float dx = static_cast<float>(mMouseDeltaX) * drawable.x / logical.x;
     const float dy = static_cast<float>(mMouseDeltaY) * drawable.y / logical.y;
-    const Vec2 origin = cam->ScreenToWorld(0.f, 0.f, drawable.x, drawable.y);
-    const Vec2 moved = cam->ScreenToWorld(dx, dy, drawable.x, drawable.y);
+    const auto* render = RenderManager::GetInstancePtr_NO_ERROR_MSG();
+    const Vec2 originPixel = render ? render->DisplayToRender({0.f, 0.f}) : Vec2{0.f, 0.f};
+    const Vec2 movedPixel = render ? render->DisplayToRender({dx, dy}) : Vec2{dx, dy};
+    const Vec2I size = render ? render->GetRenderResolution() : drawable;
+    const Vec2 origin = cam->ScreenToWorld(originPixel.x, originPixel.y, size.x, size.y);
+    const Vec2 moved = cam->ScreenToWorld(movedPixel.x, movedPixel.y, size.x, size.y);
     return {moved.x - origin.x, moved.y - origin.y};
 }

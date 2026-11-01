@@ -80,12 +80,12 @@ The hook runs the equivalent of `python tools/sync_game_gitignore.py --stage`
 before the commit. If staged files change engine code or Doxygen inputs, it
 also regenerates and checks the local Doxygen documentation **when Doxygen is
 installed**. The online GitHub Pages site is rebuilt independently on pushes
-to `main`; see [GitHub Pages](GITHUB_PAGES.md). Building the engine can also
-refresh local Doxygen without enabling Git hooks, but a documentation error
-there is a build warning rather than a commit failure.
-Passing `--no-doc` to `tools/build.py` skips generation **during that build**
-and selects the online reference in the optional VS Code hover extension; it
-does **not** bypass documentation checks in an enabled pre-commit hook.
+to `main`; see [GitHub Pages](GITHUB_PAGES.md). Building the engine with
+`--generate-doc` can also refresh local Doxygen without enabling Git hooks;
+a documentation error there is a build warning rather than a commit failure.
+Normal `tools/build.py` commands skip generation and select the online
+reference in the optional VS Code hover extension. This does **not** bypass
+documentation checks in an enabled pre-commit hook.
 For the complete beginner setup (Git, VS Code and documentation choices),
 see [First checkout](DEVELOPER_GUIDE.md#first-checkout-optional-contributor-tools).
 

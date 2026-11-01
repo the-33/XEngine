@@ -144,13 +144,14 @@ Engine::~Engine()
     if (RandomManager::GetInstancePtr())    RandomManager::DestroySingleton();
     if (TimeManager::GetInstancePtr())      TimeManager::DestroySingleton();
     if (WindowManager::GetInstancePtr())    WindowManager::DestroySingleton();
+    XEngineConsole::EndStdoutCapture();
 }
 
 bool Engine::StartImpl(const std::string configPath, bool inlineJson) noexcept
 {
     if (mStarted)
     {
-        LogError("Engine Warning", "Start(): Engine was already started.");
+        LogWarning("Engine", "Start(): Engine was already started.");
         return false;
     }
 
@@ -176,7 +177,7 @@ bool Engine::StartImpl(const std::string configPath, bool inlineJson) noexcept
                      resolvedPath + ". Refusing to silently load defaults.");
             return false;
         }
-        LogError("Engine warning", "Start(): Could not read config file, loading default values.");
+        LogWarning("Engine", "Start(): Could not read config file, loading default values.");
     }
     // Contract: cwd is the assets root in editor/debug and in shipping.
     cfg.assets.assetsFolderPath = "./";
@@ -428,6 +429,9 @@ bool Engine::StartImpl(const std::string configPath, bool inlineJson) noexcept
 
     SafeToQuit = true;
     mStarted = true;
+    // Los prints del juego pasan al registro, sin alterar stderr.
+    if (!XEngineConsole::BeginStdoutCapture())
+        LogWarning("Engine::Start()", "No se pudo capturar stdout; se mantiene la salida original.");
     printf("\nXEngine started successfully.\n\n");
 
     return true;
@@ -793,6 +797,7 @@ void Engine::StopImpl() noexcept
 
     mStarted = false;
     mShuttingDown = false;
+    XEngineConsole::EndStdoutCapture();
 }
 
 bool Engine::ApplyStartingScene() const noexcept
@@ -830,7 +835,7 @@ inline float Engine::GetFPS() noexcept
 inline float Engine::GetAspectRatio() noexcept
 {
     if (!IsRunning()) return 0.f;
-    Vec2I res = WindowManager::GetInstancePtr()->GetDrawableSize();
+    Vec2I res = RenderManager::GetInstancePtr()->GetRenderResolution();
     float aspect = (float)res.x / (float)res.y;
 
     GetInstancePtr()->mAspectRatio = aspect;
@@ -851,7 +856,7 @@ int gcd(int a, int b) {
 inline Vec2I Engine::GetAspectRatioAsFraction() noexcept
 {
     if (!IsRunning()) return Vec2I::Zero();
-    Vec2I res = WindowManager::GetInstancePtr()->GetDrawableSize();
+    Vec2I res = RenderManager::GetInstancePtr()->GetRenderResolution();
     float aspect = (float)res.x / (float)res.y;
 
     if (aspect == GetInstancePtr()->aspectRatio) return GetInstancePtr()->mAspectRatioAsFraction;
@@ -1319,6 +1324,9 @@ void Engine::PollInput_() noexcept
 {
 	if (!mRunning) return;
 
+    // Vacía los printf del frame anterior para que el registro los procese en directo.
+    std::fflush(stdout);
+
     const auto pollStart = ProfileClock::now();
 
     auto* input = InputManager::GetInstancePtr();
@@ -1468,6 +1476,7 @@ void Engine::DoRender_() noexcept
         const auto worldStart = ProfileClock::now();
         scenes->Render();
         mRenderWorldTime = ProfileElapsed_(worldStart);
+        render->mReusableSnapshot.uiStartIndex = render->mReusableSnapshot.cmds.size();
         const auto uiStart = ProfileClock::now();
         render->mDrawPhase = RenderManager::DrawPhase::UI;
         ui->End();
@@ -1505,6 +1514,8 @@ void Engine::DoRender_() noexcept
         const auto worldStart = ProfileClock::now();
         scenes->Render();
         mRenderWorldTime = ProfileElapsed_(worldStart);
+        // World is now complete: upscale it before the full-resolution UI.
+        render->BeginScreenPass_();
         const auto uiStart = ProfileClock::now();
         render->mDrawPhase = RenderManager::DrawPhase::UI;
         ui->End();

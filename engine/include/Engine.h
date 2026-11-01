@@ -204,6 +204,11 @@ struct Snapshot
     /** @brief Ordered CPU-side draw commands.
      */
     std::vector<DrawCmd> cmds;
+    /** @brief First command belonging to the native-resolution UI overlay.
+     * World commands before this index render at the internal resolution;
+     * commands from here onward render after world upscaling.
+     */
+    std::size_t uiStartIndex = 0;
     // Compact sidecar: avoids inflating every command (UI, world rect, etc).
     /** @brief Compact per-sprite projection metadata referenced by draw commands.
      */

@@ -323,6 +323,33 @@ class FrameProbe final : public Behaviour {
                "typed manager shortcuts resolve current singleton instances");
         if (!input || !ui || !window || !owner) return;
 
+        if (updates == 1) {
+            expect(!window->SetExclusiveFullscreen(0, 720),
+                   "exclusive fullscreen rejects zero width without switching modes");
+            expect(!window->SetExclusiveFullscreen(1280, -1),
+                   "exclusive fullscreen rejects negative height without switching modes");
+            auto* render = RenderManager::GetInstancePtr();
+            expect(render && !render->SetRenderResolution(320, 0),
+                   "internal resolution rejects a partially disabled size");
+            if (render) {
+                const auto diagnostic = render->QueryBackendDiagnostics();
+                if (diagnostic.targetTexture) {
+                    const bool created = render->SetRenderResolution(640, 360);
+                    expect(created, "target-capable renderer creates an internal resolution");
+                    if (created) {
+                        const Vec2I internal = render->GetRenderResolution();
+                        expect(internal.x == 640 && internal.y == 360,
+                               "world uses the allocated internal resolution");
+                        expect(render->SetRenderResolution(0, 0),
+                               "internal render resolution can be disabled");
+                    }
+                }
+            }
+            const Vec2I desktop = window->GetDesktopResolution();
+            expect(desktop.x >= 0 && desktop.y >= 0,
+                   "desktop monitor query is safe on the SDL backend");
+        }
+
         const Vec2I logicalSize = window->GetSize();
         const Vec2I drawableSize = window->GetDrawableSize();
         const float scaleX = logicalSize.x > 0 ?
@@ -420,6 +447,12 @@ class FrameProbe final : public Behaviour {
             expect(almostEqual(sliderValue, 0.25f), "native slider uses supplied value");
             expect(!ui->Toggle("integration-toggle", Rect{360.f, 80.f, 152.f, 44.f},
                                &toggleValue), "native toggle preserves bool without input");
+            int resolutionChoice = 1;
+            const std::vector<std::string> resolutions{"640 x 360", "1280 x 720"};
+            expect(!ui->Dropdown("integration-resolution", Rect{360.f, 145.f, 190.f, 40.f},
+                                 &resolutionChoice, resolutions),
+                   "native dropdown keeps a caller-owned selection without interaction");
+            expect(resolutionChoice == 1, "native dropdown preserves its selected index");
             expect(!toggleValue, "native toggle uses supplied bool");
             expect(ui->Focus("integration-slider"), "native slider accepts UI focus");
             SDL_Event move{};

@@ -27,6 +27,8 @@ void InputManager::AddGamepad(int index) noexcept
         state.handle = handle;
         mPads.emplace(id, std::move(state));
         NotifyGamepad({GamepadEventType::Connected, id, -1});
+        // Los perfiles AutoJoin pueden tomar el mando sin pulsar Start.
+        HandleJoin(id);
     } catch (...) { SDL_GameControllerClose(handle); }
 }
 
@@ -146,6 +148,10 @@ bool InputManager::ConfigurePlayer(PlayerInputSettings settings)
         }
     }
     mPlayers[player] = std::move(settings);
+    // Un mando presente antes de leer Players.json debe quedar asignado también.
+    if (!mProfileLoadInProgress)
+        for (const auto& [id, pad] : mPads)
+            if (!mPadOwners.contains(id)) HandleJoin(id);
     mLastError.clear();
     return true;
 }

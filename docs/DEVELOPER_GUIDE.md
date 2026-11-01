@@ -49,20 +49,20 @@ run `python tools/vscode.py hover-status`. Read the detailed
 **No local Doxygen required:** browse the
 [online API reference](https://the-33.github.io/XEngine/) at any time. To
 compile **without generating documentation** even when engine code changes,
-add `--no-doc` to the build command:
+use the normal build command:
 
 ```bash
-python tools/build.py engine --no-doc
-python tools/build.py game --project "My Game" --run --no-doc
+python tools/build.py engine
+python tools/build.py game --project "My Game" --run
 ```
 
 Your VS Code Doxygen Hover extension will then use the published reference,
 even if old local HTML files remain. This preference is recorded under the
-ignored `build/ide/` directory for that checkout. A successful build without
-`--no-doc` restores the default local-first lookup. If you actively maintain
-XEngine's documentation, run `python tools/build_doxygen.py` whenever you
-want fresh local HTML instead. The optional Git hook and the GitHub Pages
-workflow run their own checks independently of `--no-doc`.
+ignored `build/ide/` directory for that checkout. To generate local HTML and
+restore local-first lookup, add `--generate-doc` to an engine or game build,
+or run `python tools/build_doxygen.py` independently. A normal build selects
+online-only again. The optional Git hook and the GitHub Pages workflow run
+their own checks independently of `--generate-doc`.
 
 ## Validate an engine change before sharing it
 
@@ -422,18 +422,15 @@ Or use the root-level build dispatcher:
 
 The engine is rebuilt when required by modified source files, headers or compiler flags. Each game links the `libXEngine.a` built for the **same platform, architecture and build profile**. The incremental build cache conservatively invalidates compilation units when headers change and emits compiler dependency `.d` files.
 
-### Doxygen API generation during engine builds
+### Optional Doxygen API generation
 
-If XEngine's static library is **actually rebuilt**, `tools/build.py` checks
-whether its API documentation needs updating and, only if so, regenerates both
-C++ references using the host's Doxygen executable.
+`tools/build.py` does not generate documentation by default. Use
+`--generate-doc` with `engine` or `game` to request both C++ references using
+the host's Doxygen executable.
 Documentation is generated under `build/docs/game/` and `build/docs/engine/`.
-This applies to both the dedicated `engine` action and game builds that have
-to rebuild their engine library.
 
-- If the engine library comes from the build cache, Doxygen is not called.
-- If you change **only game code**, the unchanged engine library stays cached;
-  Doxygen is not called.
+- Without `--generate-doc`, Doxygen is never called, even on a full rebuild.
+- With `--generate-doc`, regeneration works even if the engine library is cached.
 - If the pre-commit hook or a previous build already generated documentation
   for the **same input file contents**, rebuilding the engine for another
   platform/configuration does not regenerate Doxygen. The shared SHA-256
@@ -449,10 +446,9 @@ to rebuild their engine library.
   warning recommending its installation for XEngine development and continues.
 - A documentation-generation error is also reported as a warning: a successful
   C++ build is not turned into a failed game build by this optional tool.
-- Add `--no-doc` to an `engine` or `game` build to skip this step entirely;
-  successful builds with that flag also select the online-only reference in
-  the optional VS Code Doxygen Hover extension. The mode lasts until another
-  successful build without the flag, and never modifies VS Code settings.
+- Normal builds select the online-only reference in the optional VS Code
+  Doxygen Hover extension. A successful build with `--generate-doc` restores
+  local-first lookup without modifying VS Code settings.
 
 To generate docs independently of engine compilation, run from the repository
 root:

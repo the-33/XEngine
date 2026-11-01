@@ -44,6 +44,10 @@ SDL text input session while editing a caller-owned `std::string`, supports
 UTF-8 backspace/delete and keyboard/controller focus traversal, and avoids
 manually consuming the frame text buffer in game code. Explicit
 `InputManager::SetTextInput` remains useful for custom text editors.
+`TextInput` supports placing the caret with a mouse click, dragging to select,
+Shift+Arrow/Home/End selection, Ctrl+A/C/X/V and held-key repeat for editing
+keys. `InputManager::KeyPressedOrRepeated(key)` exposes SDL repeat keydowns to
+custom editors; ordinary `KeyPressed(key)` remains an edge-only query.
 
 ## Frame time and simulation time
 

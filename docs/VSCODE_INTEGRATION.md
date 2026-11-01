@@ -116,14 +116,13 @@ ambiguous results are omitted instead of linking to an unrelated symbol.
   settings. This can be useful with Remote - WSL if the default browser cannot
   access a Linux `file://` URL. Opening a local link uses the system's default
   handler, with a best-effort online fallback if that fails.
-- **Build without Doxygen:** `python tools/build.py engine --no-doc` (or
-  `python tools/build.py game --project "My Game" --no-doc`) skips Doxygen
-  generation even if the engine must be recompiled. After a successful build,
-  the extension uses the **online reference only**, even when older local HTML
-  remains. The choice is kept in ignored `build/ide/` state. Your next
-  successful build **without** `--no-doc` restores local-first behavior.
-  `--no-doc` does not disable the separately opt-in Git pre-commit check or
-  the GitHub Pages publishing workflow.
+- **Build documentation on demand:** a normal engine or game build skips
+  Doxygen and selects the **online reference only**, even when older HTML
+  remains. Use `python tools/build.py engine --generate-doc` (or add the flag
+  to a game build) to generate the local reference and prefer local links.
+  The choice is kept in ignored `build/ide/` state. A subsequent normal build
+  selects online-only again. The optional pre-commit hook and GitHub Pages
+  publishing workflow are independent of this option.
 - Online symbol lookup uses the network; matching local references work
   offline. If neither source is available, native C/C++ hover is unaffected. Some
   overloaded or ambiguous symbols cannot be mapped reliably; those links

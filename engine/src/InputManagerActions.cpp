@@ -630,16 +630,28 @@ bool InputManager::LoadPlayerProfiles(const std::string& path) noexcept
             if (!unique.insert(profile.player).second)
                 throw std::invalid_argument("Duplicate player ID");
         auto previous = mPlayers;
+        // Se configuran primero todos los jugadores para respetar prioridades
+        // y no emitir asignaciones parciales si un perfil resulta inválido.
+        mProfileLoadInProgress = true;
         for (const auto& profile : profiles)
             if (!ConfigurePlayer(profile)) {
                 const std::string error = mLastError;
                 mPlayers = std::move(previous);
                 throw std::invalid_argument(error);
             }
+        mProfileLoadInProgress = false;
+        for (const auto& [id, pad] : mPads)
+            if (!mPadOwners.contains(id)) HandleJoin(id);
         mLastError.clear();
         return true;
-    } catch (const std::exception& e) { mLastError = e.what(); return false; }
-    catch (...) { mLastError = "Could not read player profiles"; return false; }
+    } catch (const std::exception& e) {
+        mProfileLoadInProgress = false;
+        mLastError = e.what(); return false;
+    }
+    catch (...) {
+        mProfileLoadInProgress = false;
+        mLastError = "Could not read player profiles"; return false;
+    }
 }
 
 bool InputManager::LoadInputSchemes(const std::string& path) noexcept

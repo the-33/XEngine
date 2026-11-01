@@ -24,8 +24,8 @@ explains how to activate the per-clone Git pre-commit hook for tracked games
 and Doxygen checks, configure VS Code IntelliSense for your games and install
 the optional Doxygen Hover extension. You do not need any of these tools to
 build or run a game. You can browse this **published reference** without
-installing Doxygen; to skip regeneration on engine builds, use `--no-doc` (for
-example `./build.sh --run --no-doc` inside your game on Linux).
+installing Doxygen; normal engine and game builds do not regenerate it. To
+generate local API references, add `--generate-doc` to the build command.
 
 When contributing engine code, follow the
 [testing guide](../../TESTING.md) to compile and execute real SDL2 smoke
@@ -43,6 +43,7 @@ the optional Git hooks and from Doxygen generation.
 | Movement, bodies and triggers | [Physics and collisions](PHYSICS_AND_COLLISIONS.md) | @ref RigidBody2D, @ref Collider2D, @ref PhysicsManager |
 | Load images, fonts and audio | [Assets and sound](ASSETS_AND_AUDIO.md) | @ref AssetManager, @ref SoundManager |
 | Save progress, preferences, JSON and binary | [Data and persistence](DATA_AND_PERSISTENCE.md) | @ref FileSystem, @ref AtomicFile, @ref JsonSerializer, @ref BinaryWriter |
+| Write console diagnostics | [Console logging](CONSOLE_LOGGING.md) | @ref ConsoleLogger, @ref Debug |
 | Build, includes, profiles and shipping | [Projects and includes](PROJECTS_AND_INCLUDES.md) | @ref Engine and public headers |
 | Platform-specific code and Debug/Release switches | [Platforms and conditional compilation](PLATFORMS_AND_BUILD_MODES.md) | `XENGINE_PLATFORM_*`, `XENGINE_DEBUG`, `XENGINE_RELEASE`, `XEngineBuild::IsDebug` |
 | Coordinates and useful data types | [Math and utilities](MATH_AND_UTILITIES.md) | @ref TVec2, @ref TVec3, @ref TRect, @ref Property, @ref PropertyRO |

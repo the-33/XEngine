@@ -9,7 +9,7 @@ If you have not created a project yet, start with
 You can work with these headers without VS Code or locally generated Doxygen.
 If you prefer editor completion and clickable API links, the one-time setup
 is covered in [VS Code integration](VSCODE_INTEGRATION.md); for Git hooks and
-online-only builds (`--no-doc`), follow the
+online-only builds (the default), follow the
 [first-checkout guide](DEVELOPER_GUIDE.md#first-checkout-optional-contributor-tools).
 
 ## Which engine headers should I include?

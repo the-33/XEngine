@@ -56,7 +56,7 @@ struct PlayerInputSettings {
     bool mouse = false; ///< Mouse capability or direct ownership.
     bool gamepad = true; ///< Permit gamepad assignment.
     bool touch = false; ///< Reserved for platform touch adapters.
-    bool autoJoin = false; ///< Allow an unassigned gamepad to join via Start.
+    bool autoJoin = false; ///< Permite asignar mandos al conectar, cargar el perfil o pulsar Start.
     bool shareDevices = false; ///< Opt in to shared ownership.
     bool replaceOnIdeal = true; ///< Allow ideal pad to join after fallback keyboard use.
     bool allowMultipleGamepads = false; ///< Multiple pads may feed this one player.

@@ -1,4 +1,4 @@
-"""Doxygen generation is optional and only follows a real engine rebuild."""
+"""Doxygen generation is opt-in, including for cached engine builds."""
 from __future__ import annotations
 
 import importlib.util
@@ -33,7 +33,7 @@ class DoxygenBuildTests(unittest.TestCase):
                 run.assert_not_called()
                 message = '\n'.join(call.args[0] for call in log.call_args_list)
                 self.assertIn('[WARN] Doxygen is not installed', message)
-                self.assertIn('whenever the engine recompiles', message)
+                self.assertIn('--generate-doc', message)
 
     def test_installed_doxygen_runs_from_engine_root(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -86,7 +86,7 @@ class DoxygenBuildTests(unittest.TestCase):
                 run.assert_not_called()
                 self.assertTrue(any('skipping Doxygen' in c.args[0] for c in log.call_args_list))
 
-    def test_rebuilt_engine_triggers_doxygen_but_cache_hit_does_not(self):
+    def test_only_generate_doc_requests_doxygen_even_when_engine_is_cached(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             src = root / 'engine' / 'src' / 'Example.cpp'
@@ -110,7 +110,7 @@ class DoxygenBuildTests(unittest.TestCase):
                 with mock.patch.object(build, 'compile_sources', return_value=([], True)):
                     self.assertEqual(build.create_engine(target='linux', profile='debug',
                                                          arch='x86_64', tooling=tooling), lib)
-                    docs.assert_called_once_with()
+                    docs.assert_not_called()
                     self.assertEqual(command.call_count, 1)
                 docs.reset_mock()
                 command.reset_mock()
@@ -121,26 +121,26 @@ class DoxygenBuildTests(unittest.TestCase):
                     docs.assert_not_called()
                     command.assert_not_called()
 
-                # --no-doc suppresses documentation even on a real rebuild.
-                with mock.patch.object(build, 'compile_sources', return_value=([], True)):
+                # --generate-doc debe funcionar incluso con la biblioteca en caché.
+                with mock.patch.object(build, 'compile_sources', return_value=([], False)):
                     build.create_engine(target='linux', profile='debug',
-                                        arch='x86_64', tooling=tooling, no_doc=True)
-                    docs.assert_not_called()
+                                        arch='x86_64', tooling=tooling, generate_doc=True)
+                    docs.assert_called_once_with()
 
-    def test_no_doc_cli_controls_the_local_online_only_marker(self):
+    def test_generate_doc_cli_controls_the_local_online_only_marker(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             with mock.patch.object(build, 'ROOT', root), \
                  mock.patch.object(build, 'prepare_tools', return_value=object()), \
                  mock.patch.object(build, 'create_engine', return_value=root / 'lib.a') as engine:
-                with mock.patch.object(build.sys, 'argv', ['build.py', 'engine', '--no-doc']):
+                with mock.patch.object(build.sys, 'argv', ['build.py', 'engine']):
                     self.assertEqual(build.main(), 0)
                 engine.assert_called_with(target=mock.ANY, profile='debug',
-                                          arch=mock.ANY, tooling=mock.ANY, no_doc=True)
+                                          arch=mock.ANY, tooling=mock.ANY, generate_doc=False)
                 marker = root / 'build' / 'ide' / 'doxygen_online_only'
                 self.assertEqual(marker.read_text(encoding='ascii'), 'online\n')
 
-                with mock.patch.object(build.sys, 'argv', ['build.py', 'engine']):
+                with mock.patch.object(build.sys, 'argv', ['build.py', 'engine', '--generate-doc']):
                     self.assertEqual(build.main(), 0)
                 self.assertFalse(marker.exists())
 

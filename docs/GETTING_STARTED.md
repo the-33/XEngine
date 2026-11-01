@@ -60,13 +60,12 @@ always review the staged files before committing. See the
 
 **Prefer using the online documentation?** You can always read
 [the published XEngine API](https://the-33.github.io/XEngine/) without
-installing Doxygen. Add `--no-doc` to a build, for example
-`python tools/build.py engine --no-doc` from the root or `./build.sh --run --no-doc`
-from a Linux game directory (`build.bat --run --no-doc` on Windows). That build
-will skip local Doxygen generation, and the optional hover extension will use
-online documentation even when old generated HTML exists. A successful build
-without `--no-doc` restores local-first lookup. Doxygen remains useful if
-you actively edit the engine and want to inspect new or unpublished APIs.
+installing Doxygen. Normal builds, such as `python tools/build.py engine` or
+`./build.sh --run` from a Linux game directory (`build.bat --run` on Windows),
+skip local Doxygen generation. The optional hover extension uses online
+documentation even when old generated HTML exists. Add `--generate-doc` to
+request local generation and restore local-first lookup. Doxygen remains
+useful if you edit the engine and want to inspect unpublished APIs.
 
 ## 2. Create and run a game
 
