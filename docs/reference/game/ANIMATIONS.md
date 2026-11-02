@@ -40,6 +40,20 @@ The Animator runs in `LateUpdate(dt)`: all normal gameplay `Update` calls run
 first, then the animation writes component properties, then rendering begins.
 The engine uses scaled `dt`, so game time-scale changes affect animation.
 
+## Animation and Animator file versions
+
+Both `.animation.json` clips and `.animator.json` controllers require
+`"version": 1`. **Version 1 is the current format version for both asset
+types.** These are two independent JSON schema versions: changing the
+Animator controller format does not require changing the Animation clip format.
+They are also independent of the XEngine release number in `VERSION` and
+of the game's save-file version.
+
+At present, the loaders accept **only format version 1**. Missing version
+fields and other version numbers are rejected with a format error. There is
+no animation/controller asset migration mechanism yet; a future format 2
+would require explicit reader compatibility or migration support.
+
 ## Clip: keyframes and interpolation
 
 Complete example, `assets/animations/Pulse.animation.json`:
@@ -283,11 +297,58 @@ the wrong type. `OnEvent` returns a listener token, removable with
 
 ## Animate your own C++ Component properties
 
-Only registered properties can be animated. XEngine provides registered
-properties for `Transform` (`localPosition`, `localScale`, `localRotation`),
-`SpriteRenderer` (`tint`, `source`, `texturePath`, `offset`, `flipX`, `flipY`)
-and `Behaviour` (`enabled`). For custom components, **choose** which fields
-are safe to expose, once during game initialization:
+XEngine automatically registers the animatable properties of its built-in
+components. Use these exact `component` and `property` names in a clip:
+
+| Component | Properties (`type`) |
+|---|---|
+| `Transform` | `localPosition` (Vec3), `localScale` (Vec2), `localRotation` (Vec3) |
+| `SpriteRenderer` | `tint` (Color), `source` (RectI), `texturePath` (String), `offset` (Vec2), `flipX`, `flipY`, `enabled` (Bool) |
+| `Collider2D` | `shape`, `layer`, `mask` (Int); `isTrigger`, `showGizmo`, `inheritRotation`, `enabled` (Bool); `gizmoColor` (Color); `localOffset`, `size` (Vec2); `rotationOffset`, `radius` (Float) |
+| `RigidBody2D` | `bodyType`, `collisionDetection`, `constraints` (Int); `mass`, `inertia`, `gravityScale`, `linearDamping`, `angularDamping`, `restitution`, `angularVelocity` (Float); `velocity` (Vec2); `enabled` (Bool) |
+| `Animator` | `speed` (Float), `playing`, `enabled` (Bool) |
+| `PlayerInput` | `enabled` (Bool) |
+| `Behaviour` | `enabled` (Bool), for a generic Behaviour component selection |
+
+For `Collider2D.shape`, use `0` = Box, `1` = Circle and `2` = Capsule.
+For `RigidBody2D.bodyType`, use `0` = Static, `1` = Dynamic and
+`2` = Kinematic; `collisionDetection` uses `0` = Discrete,
+`1` = Continuous. `constraints` is a combined bit mask:
+`1` freezes X, `2` freezes Y, `4` freezes rotation.
+Collider `layer` and `mask` use the signed 32-bit representation of
+their underlying bit fields (`-1` means all bits set).
+Use **Step** keyframes for enums, masks and other discrete settings.
+Invalid enum values are ignored; regular component setters retain their
+own validation and clamping behavior.
+
+For example, a clip can pulse the size of a Collider2D:
+
+```json
+{
+  "version": 1,
+  "name": "ColliderPulse",
+  "loop": "PingPong",
+  "tracks": [{
+    "target": "Self",
+    "component": "Collider2D",
+    "property": "size",
+    "type": "Vec2",
+    "keyframes": [
+      {"time": 0.0, "value": [1.0, 1.0]},
+      {"time": 0.5, "value": [1.5, 1.5]}
+    ]
+  }]
+}
+```
+
+Animated colliders and rigid bodies are updated during `LateUpdate`, after
+the fixed-step physics calculations for that frame. Physics uses the updated
+settings on subsequent steps. Animating `Animator.playing` or `enabled`
+on the same Animator may stop its own playback.
+
+For custom components, **choose** which fields are safe to expose once
+during game initialization; C++ does not provide automatic reflection of
+arbitrary user-defined members:
 
 ```cpp
 class Door : public Behaviour {
@@ -304,6 +365,10 @@ AnimationPropertyRegistry::Register<Door, float>("Door", "openness",
     [](Door& door, float value) { door.openness = std::clamp(value, 0.f, 1.f); });
 ```
 
+The `XENGINE_ANIMATABLE` shorthand also accepts a writable XEngine
+`Property<>` wrapper, using its getter and setter rather than writing raw
+memory. It does not support read-only `PropertyRO<>` wrappers.
+
 Pick **one** of these approaches for the same component/property pair;
 registering a duplicate returns `false`. Register before your Animator
 starts; registration is main-thread only. The registry never writes raw
@@ -315,9 +380,9 @@ Scene. To select a second component of the same type on a GameObject, set
 `"componentIndex": 1`. Built-in property bindings are installed
 automatically the first time a clip needs one.
 
-The shorthand macro accepts an ordinary member, not an XEngine `Property`
-wrapper or a private field; use the explicit getter/setter form for those.
-Custom components work with `Bool`, `Int`, `Float`, `Vec2`, `Vec3`, `Color`,
+The shorthand macro cannot access private fields; use the explicit
+getter/setter form for those. Custom components work with
+`Bool`, `Int`, `Float`, `Vec2`, `Vec3`, `Color`,
 `RectI` and `String` (`std::string`).
 
 ## Layers and property ownership: current limits

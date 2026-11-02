@@ -34,7 +34,7 @@ your own clone (from the XEngine repository root):
 
 | Optional tool | One-time setup | What it does |
 |---|---|---|
-| Git pre-commit hooks | `git config --local core.hooksPath .githooks` | Synchronizes opted-in game files with Git and checks staged engine/documentation changes using Doxygen when available. |
+| Git pre-commit hooks | `git config --local core.hooksPath .githooks` | Synchronizes opted-in game files with Git, updates the README release label when `VERSION` is staged, and checks staged documentation changes using Doxygen when available. |
 | VS Code C++ IntelliSense | `python tools/vscode.py setup` | Creates Git-ignored compiler commands and per-folder editor configurations for the engine and games. |
 | XEngine Doxygen Hover | `python tools/vscode.py hover-install` | Adds clickable symbol links to local Doxygen HTML (when generated) or the published API pages. |
 

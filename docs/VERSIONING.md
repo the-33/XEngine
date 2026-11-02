@@ -2,7 +2,7 @@
 
 XEngine uses **Semantic Versioning 2.0.0** for engine releases. Its single
 official version is the plain UTF-8 string in the repository-root **`VERSION`**
-file, currently **`0.1.5`**. Do not prefix the value with `v`, put a release
+file, currently **`2.0.1`**. Do not prefix the value with `v`, put a release
 number directly into Doxygen configuration, or increment it for every commit
 or conversation.
 
@@ -21,13 +21,13 @@ the code state that followed that last iteration.
 | **PATCH** | A backwards-compatible fix or documentation-only release, with no new required migration. | `1.4.2` → `1.4.3` |
 
 Reset lower-order numbers to zero when incrementing MAJOR or MINOR.
-Version `1.0.0` will define the first stable public XEngine API and begin
-the strict post-1.0 compatibility guarantee. Until then, XEngine is still
-in **0.x.y initial development**, and the API may change.
+Version `1.0.0` marked the start of the post-1.0 compatibility policy;
+the current engine version is `2.0.1`. The normal MAJOR/MINOR/PATCH rules
+apply to all current releases.
 
-## How XEngine uses 0.x.y until API stabilization
+## Historical 0.x.y development policy
 
-XEngine adopts the following *project policy* while major version is zero:
+XEngine used the following *project policy* while its major version was zero:
 
 - `0.1.0`: first officially numbered development release.
 - `0.1.1`: backwards-compatible corrections (including published
@@ -48,9 +48,8 @@ XEngine adopts the following *project policy* while major version is zero:
   incompatible API adjustment. Explicitly describe any migration.
 - `1.0.0`: declare a documented, tested, supported gameplay API stable.
 
-The 0.x.y policy is intentionally simpler than promising that minor-version
-upgrades are compatible before 1.0. An incompatible 0.x release must still
-explain migration in release documentation.
+This list records the historical development series; it does not redefine
+the post-1.0 compatibility rules for current releases.
 
 ## When to make a release
 
@@ -83,8 +82,8 @@ Before a release:
    prove that all hardware and gameplay paths are stable. Review `README.md`,
    `docs/` and Doxygen source comments for current API behavior.
 4. Distribute engine source with a filename derived from `VERSION`, e.g.
-   `XEngine-0.1.5-source.zip`, and use the corresponding immutable Git tag
-   `v0.1.5` when releasing through Git. The `v` is a *tag convention*;
+   `XEngine-2.0.1-source.zip`, and use the corresponding immutable Git tag
+   `v2.0.1` when releasing through Git. The `v` is a *tag convention*;
    it is not part of the canonical `VERSION` content.
 
 Optional pre-releases follow normal SemVer notation, e.g.
@@ -96,11 +95,11 @@ From the XEngine repository root:
 
 ```sh
 python tools/engine_version.py
-# 0.1.5
+# 2.0.1
 python tools/engine_version.py --archive-name source
-# XEngine-0.1.5-source.zip
+# XEngine-2.0.1-source.zip
 python tools/engine_version.py --archive-name patch
-# XEngine-0.1.5-patch.zip
+# XEngine-2.0.1-patch.zip
 python tools/build_doxygen.py
 ```
 
@@ -109,6 +108,16 @@ python tools/build_doxygen.py
 render that exact value through `PROJECT_NUMBER = "$(XENGINE_VERSION)"`.
 Running raw `doxygen Doxyfile_Games` does not perform the mandatory generator
 post-processing or supply the version environment variable.
+
+The optional `.githooks/pre-commit` calls
+`tools/build_doxygen_if_staged.py`. **When `VERSION` is staged**, this script
+reads the staged SemVer value, updates only the `Engine release` label in
+the root `README.md`, and automatically stages that README update before
+checking or generating Doxygen. This works even if Doxygen is not installed.
+If `README.md` contains other unstaged edits, the hook stops with a clear
+error so it never commits those edits without your approval. Stage or stash
+them first, then retry the commit. Without the optional hook, update the
+README label yourself when changing `VERSION`.
 
 The engine build keeps its normal `libXEngine.a` archive name so existing
 link commands work. The *distributed engine source archive* and its tag
@@ -122,7 +131,7 @@ Each game sets its own `project.version` in
 package and is preserved by the project's configuration synchronization.
 It must not read or overwrite XEngine's root `VERSION`.
 
-For example, a game may be `2.3.4` while using XEngine `0.1.5`; upgrading
+For example, a game may be `2.3.4` while using XEngine `2.0.1`; upgrading
 the engine does not implicitly publish a new game version. The game developer
 decides when to version the game itself.
 

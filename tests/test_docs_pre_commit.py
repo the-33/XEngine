@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
+import shutil
 import subprocess
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -50,6 +52,48 @@ class DocsPreCommitTests(unittest.TestCase):
              patch.object(MODULE.shutil, "which") as which:
             self.assertEqual(MODULE.main(), 0)
             which.assert_not_called()
+
+    def test_staged_version_sync_runs_even_without_doxygen(self) -> None:
+        with patch.object(MODULE, "staged_paths", return_value=["VERSION"]), \
+             patch.object(MODULE, "sync_readme_release", return_value=True) as sync, \
+             patch.object(MODULE, "docs_current", return_value=False), \
+             patch.object(MODULE.shutil, "which", return_value=None):
+            self.assertEqual(MODULE.main(), 0)
+            sync.assert_called_once_with(MODULE.ROOT)
+
+    def test_readme_badge_is_staged_from_index_version_without_overwriting_edits(self) -> None:
+        if not shutil.which("git"):
+            self.skipTest("git unavailable")
+        with tempfile.TemporaryDirectory(prefix="xengine-readme-version-") as directory:
+            root = Path(directory)
+            subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+            subprocess.run(["git", "config", "--local", "core.autocrlf", "false"],
+                           cwd=root, check=True)
+            readme = root / "README.md"
+            readme.write_bytes(b"Intro\r\nEngine release: <strong>2.0.0</strong>\r\nOther\r\n")
+            version_file = root / "VERSION"
+            version_file.write_text("2.0.0\n", encoding="ascii")
+            subprocess.run(["git", "add", "README.md", "VERSION"], cwd=root, check=True)
+
+            version_file.write_text("2.0.1\n", encoding="ascii")
+            subprocess.run(["git", "add", "VERSION"], cwd=root, check=True)
+            self.assertTrue(MODULE.sync_readme_release(root))
+            expected = b"Intro\r\nEngine release: <strong>2.0.1</strong>\r\nOther\r\n"
+            self.assertEqual(readme.read_bytes(), expected)
+            self.assertEqual(MODULE._staged_file(root, "README.md"), expected)
+            self.assertFalse(MODULE.sync_readme_release(root))
+
+            # Only the INDEX version counts: do not use an unstaged value.
+            version_file.write_text("9.9.9\n", encoding="ascii")
+            self.assertFalse(MODULE.sync_readme_release(root))
+
+            version_file.write_text("2.0.2\n", encoding="ascii")
+            subprocess.run(["git", "add", "VERSION"], cwd=root, check=True)
+            readme.write_bytes(expected + b"Unstaged personal README edits\r\n")
+            with self.assertRaisesRegex(ValueError, "unstaged edits"):
+                MODULE.sync_readme_release(root)
+            self.assertEqual(MODULE._staged_file(root, "README.md"), expected)
+            self.assertIn(b"Unstaged personal", readme.read_bytes())
 
     def test_missing_optional_doxygen_warns_but_allows_commit(self) -> None:
         with patch.object(MODULE, "staged_paths", return_value=["engine/src/A.cpp"]), \

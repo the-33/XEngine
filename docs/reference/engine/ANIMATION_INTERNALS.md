@@ -30,18 +30,30 @@ is priority order. Asset parsing never touches live scene objects.
 | `engine/include/SpriteRenderer.h`, `engine/src/SpriteRenderer.cpp` | Optional two-sprite opacity crossfade when transition mode requests it |
 | `engine/include/AssetManager.h`, `engine/src/AssetManager.cpp` | Bounded asset reads, JSON parse, cache lifetime and diagnostic warning |
 
-Assets are **versioned independently** of XEngine's `VERSION` and game
-save files. Both JSON schemas currently accept `"version": 1` only.
-The parser rejects future/malformed schema versions; it does not attempt to
-migrate animation assets.
+AnimationClip (`.animation.json`) and AnimatorController (`.animator.json`)
+have **independent schema version counters**, each currently at
+**`"version": 1`**. Neither follows XEngine's release `VERSION` or the
+game-save version. Both parsers currently require exactly 1: missing,
+older or future schema numbers are rejected, and no migration exists yet.
+Increment these counters only for a deliberate, documented format change.
 
 ## Universal properties: safety invariants
 
 Registration uses `AnimationPropertyRegistry::Register<T,V>` with callable
-getter and setter or a direct `V T::*` member. `V` must be an alternative
-of `AnimationValue`. The runtime registry indexes a component name and
-property name, and stores a resolver for the component type. The shorthand
-`XENGINE_ANIMATABLE(Type, Member)` expands to direct-member registration.
+getter and setter, a direct `V T::*` member or an owner-bound writable
+`Property<>` wrapper. The underlying value type must be an alternative of
+`AnimationValue`; `PropertyRO<>` is not writable. The runtime registry
+indexes a component name and property name, and stores a resolver for the
+component type. `XENGINE_ANIMATABLE(Type, Member)` works with both plain
+public members and writable `Property<>` wrappers.
+
+`RegisterBuiltins` covers the built-in component classes `Transform`,
+`SpriteRenderer`, `Behaviour`, `Collider2D`, `RigidBody2D`, `Animator`
+and `PlayerInput`. Values are assigned through public component setters:
+physical values retain the existing validation/clamping behavior, and
+enum/bit-mask properties use `Int` tracks. The signed bit representation
+preserves all 32 layer/mask bits. `Camera2D` is scene-owned rather than a
+`Component`; the UI service is also outside the Component registry.
 
 At bind time, slash-separated target names are resolved relative to the
 Animator's owner. A binding captures a Scene pointer and target `EntityID`;
@@ -97,8 +109,9 @@ and may differ slightly from a shader blending two images directly.
   invalid condition types, negative times and malformed sprite ranges.
 - Playback: Once, Loop, PingPong, thresholds across a loop boundary,
   `Normalized`/`Seconds` duration, triggers and interruption priority.
-- Properties: register custom members and accessors, bind child path,
-  invalidate an entity binding after destruction, verify getters/setters.
+- Properties: register custom members, `Property<>` wrappers and accessors;
+  verify built-in collider/rigid-body values, enum validation, bit masks and
+  enabled state; bind child path and invalidate after entity destruction.
 - Rendering: crossfade on both SDL render backends and distinct sprite sizes.
 - Game integration: no regression to `InputAction` context navigation,
   serialization, physics, or window/framebuffer scaling.

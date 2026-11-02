@@ -1,12 +1,18 @@
 #include "AnimationPropertyRegistry.h"
 
 #include "AssetManager.h"
+#include "Animator.h"
 #include "Behaviour.h"
+#include "Collider2D.h"
 #include "GameObject.h"
+#include "PlayerInput.h"
+#include "RigidBody2D.h"
 #include "Scene.h"
 #include "SpriteRenderer.h"
 #include "Transform.h"
 
+#include <bit>
+#include <cstdint>
 #include <unordered_map>
 
 namespace {
@@ -23,6 +29,14 @@ std::unordered_map<std::string, ComponentEntry>& Registry()
 {
     static std::unordered_map<std::string, ComponentEntry> registrations;
     return registrations;
+}
+
+template<class T>
+void RegisterEnabled(const char* componentName)
+{
+    AnimationPropertyRegistry::Register<T, bool>(componentName, "enabled",
+        [](const T& component) { return static_cast<bool>(component.enabled); },
+        [](T& component, bool value) { component.enabled = value; });
 }
 
 GameObject* ResolveTarget(GameObject& owner, std::string_view target)
@@ -129,9 +143,80 @@ void AnimationPropertyRegistry::RegisterBuiltins()
         Register<SpriteRenderer, bool>("SpriteRenderer", "flipY",
             [](const SpriteRenderer& r) { return static_cast<bool>(r.flipY); },
             [](SpriteRenderer& r, bool value) { r.flipY = value; });
+        RegisterEnabled<SpriteRenderer>("SpriteRenderer");
         Register<Behaviour, bool>("Behaviour", "enabled",
             [](const Behaviour& b) { return static_cast<bool>(b.enabled); },
             [](Behaviour& b, bool value) { b.enabled = value; });
+
+        // All public Collider2D configuration properties are available to
+        // animation. Integer enums and layer masks use stepped Int tracks.
+        Register<Collider2D, int>("Collider2D", "shape",
+            [](const Collider2D& c) { return static_cast<int>(c.shape.get()); },
+            [](Collider2D& c, int value) {
+                if (value >= 0 && value <= static_cast<int>(Collider2D::Shape::Capsule))
+                    c.shape = static_cast<Collider2D::Shape>(value);
+            });
+        Register<Collider2D>("Collider2D", "isTrigger", &Collider2D::isTrigger);
+        Register<Collider2D, int>("Collider2D", "layer",
+            [](const Collider2D& c) {
+                return static_cast<int>(std::bit_cast<std::int32_t>(c.layer.get()));
+            },
+            [](Collider2D& c, int value) {
+                c.layer = std::bit_cast<LayerBits>(static_cast<std::int32_t>(value));
+            });
+        Register<Collider2D, int>("Collider2D", "mask",
+            [](const Collider2D& c) {
+                return static_cast<int>(std::bit_cast<std::int32_t>(c.mask.get()));
+            },
+            [](Collider2D& c, int value) {
+                c.mask = std::bit_cast<LayerBits>(static_cast<std::int32_t>(value));
+            });
+        Register<Collider2D>("Collider2D", "showGizmo", &Collider2D::showGizmo);
+        Register<Collider2D>("Collider2D", "gizmoColor", &Collider2D::gizmoColor);
+        Register<Collider2D>("Collider2D", "localOffset", &Collider2D::localOffset);
+        Register<Collider2D>("Collider2D", "inheritRotation", &Collider2D::inheritRotation);
+        Register<Collider2D>("Collider2D", "rotationOffset", &Collider2D::rotationOffset);
+        Register<Collider2D>("Collider2D", "size", &Collider2D::size);
+        Register<Collider2D>("Collider2D", "radius", &Collider2D::radius);
+        RegisterEnabled<Collider2D>("Collider2D");
+
+        Register<RigidBody2D, int>("RigidBody2D", "bodyType",
+            [](const RigidBody2D& r) { return static_cast<int>(r.bodyType.get()); },
+            [](RigidBody2D& r, int value) {
+                if (value >= 0 && value <= static_cast<int>(RigidBody2D::BodyType::Kinematic))
+                    r.bodyType = static_cast<RigidBody2D::BodyType>(value);
+            });
+        Register<RigidBody2D, int>("RigidBody2D", "collisionDetection",
+            [](const RigidBody2D& r) { return static_cast<int>(r.collisionDetection.get()); },
+            [](RigidBody2D& r, int value) {
+                if (value >= 0 &&
+                    value <= static_cast<int>(RigidBody2D::CollisionDetection::Continuous))
+                    r.collisionDetection = static_cast<RigidBody2D::CollisionDetection>(value);
+            });
+        Register<RigidBody2D>("RigidBody2D", "mass", &RigidBody2D::mass);
+        Register<RigidBody2D>("RigidBody2D", "inertia", &RigidBody2D::inertia);
+        Register<RigidBody2D>("RigidBody2D", "gravityScale", &RigidBody2D::gravityScale);
+        Register<RigidBody2D>("RigidBody2D", "linearDamping", &RigidBody2D::linearDamping);
+        Register<RigidBody2D>("RigidBody2D", "angularDamping", &RigidBody2D::angularDamping);
+        Register<RigidBody2D>("RigidBody2D", "restitution", &RigidBody2D::restitution);
+        Register<RigidBody2D, int>("RigidBody2D", "constraints",
+            [](const RigidBody2D& r) { return static_cast<int>(r.constraints.get()); },
+            [](RigidBody2D& r, int value) {
+                if (value >= 0 && value <= 7)
+                    r.constraints = static_cast<RigidBody2D::Constraints>(value);
+            });
+        Register<RigidBody2D>("RigidBody2D", "velocity", &RigidBody2D::velocity);
+        Register<RigidBody2D>("RigidBody2D", "angularVelocity", &RigidBody2D::angularVelocity);
+        RegisterEnabled<RigidBody2D>("RigidBody2D");
+
+        Register<Animator, float>("Animator", "speed",
+            [](const Animator& a) { return a.GetSpeed(); },
+            [](Animator& a, float value) { (void)a.SetSpeed(value); });
+        Register<Animator, bool>("Animator", "playing",
+            [](const Animator& a) { return a.IsPlaying(); },
+            [](Animator& a, bool value) { if (value) a.Resume(); else a.Stop(); });
+        RegisterEnabled<Animator>("Animator");
+        RegisterEnabled<PlayerInput>("PlayerInput");
         return true;
     }();
     (void)registered;

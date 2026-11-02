@@ -62,20 +62,29 @@ public:
                            resolver, read, write);
     }
 
-    /** @brief Shorthand for a directly writable member of a user component.
+    /** @brief Shorthand for a writable member or XEngine Property of a Component.
      * @tparam T Concrete Component subclass.
-     * @tparam V One alternative of AnimationValue.
+     * @tparam V One alternative of AnimationValue or an owner-bound Property of one.
      * @param componentName Stable JSON component type name.
      * @param propertyName Stable JSON property name.
-     * @param member Public, writable data member pointer.
+     * @param member Public writable data member or Property wrapper.
      * @return False when the registration already exists.
      */
     template<class T, class V>
     static bool Register(std::string componentName, std::string propertyName, V T::*member)
     {
-        return Register<T, V>(std::move(componentName), std::move(propertyName),
-            [member](const T& object) -> V { return object.*member; },
-            [member](T& object, V value) { object.*member = std::move(value); });
+        if constexpr (requires(const V& property) { property.get(); }) {
+            using Value = std::remove_cvref_t<decltype(std::declval<const V&>().get())>;
+            static_assert(requires(V& property, Value value) { property = value; },
+                          "Read-only properties cannot be animated");
+            return Register<T, Value>(std::move(componentName), std::move(propertyName),
+                [member](const T& object) -> Value { return (object.*member).get(); },
+                [member](T& object, Value value) { (object.*member) = std::move(value); });
+        } else {
+            return Register<T, V>(std::move(componentName), std::move(propertyName),
+                [member](const T& object) -> V { return object.*member; },
+                [member](T& object, V value) { object.*member = std::move(value); });
+        }
     }
 
     /** @brief Resolve a target, component and property into checked accessors.
@@ -90,7 +99,7 @@ public:
         std::string_view componentName, std::string_view propertyName,
         unsigned componentIndex = 0);
 
-    /** @brief Install built-in Transform, Behaviour and SpriteRenderer properties once. */
+    /** @brief Install supported properties of all built-in Component types once. */
     static void RegisterBuiltins();
 
 private:
@@ -101,8 +110,9 @@ private:
                             Resolver resolve, Reader read, Writer write);
 };
 
-/** @brief Register a public member without writing getters or setters.
+/** @brief Register a public writable member or Property without boilerplate.
  * Call during game initialization (before constructing Animators).
+ * Read-only PropertyRO values cannot be animated.
  * @param Type Concrete component class.
  * @param Member Public member to register.
  */

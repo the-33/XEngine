@@ -69,6 +69,43 @@ class AnimationAssetsTests(unittest.TestCase):
                       "WasPressedThisFrame", "Default.players.json"):
             self.assertIn(field, input_guide)
 
+    def test_all_builtin_component_animation_properties_and_versions_documented(self):
+        registry = (ROOT / "engine/src/AnimationPropertyRegistry.cpp").read_text(encoding="utf-8")
+        guide = (ROOT / "docs/reference/game/ANIMATIONS.md").read_text(encoding="utf-8")
+        internals = (ROOT / "docs/reference/engine/ANIMATION_INTERNALS.md").read_text(encoding="utf-8")
+
+        expected = {
+            "Transform": ("localPosition", "localScale", "localRotation"),
+            "SpriteRenderer": ("tint", "source", "texturePath", "offset",
+                               "flipX", "flipY", "enabled"),
+            "Behaviour": ("enabled",),
+            "Collider2D": ("shape", "isTrigger", "layer", "mask", "showGizmo",
+                           "gizmoColor", "localOffset", "inheritRotation",
+                           "rotationOffset", "size", "radius", "enabled"),
+            "RigidBody2D": ("bodyType", "collisionDetection", "mass", "inertia",
+                            "gravityScale", "linearDamping", "angularDamping",
+                            "restitution", "constraints", "velocity",
+                            "angularVelocity", "enabled"),
+            "Animator": ("speed", "playing", "enabled"),
+            "PlayerInput": ("enabled",),
+        }
+        for component, properties in expected.items():
+            self.assertIn(f"`{component}`", guide)
+            for property_name in properties:
+                with self.subTest(component=component, property=property_name):
+                    direct = rf'Register<{component}(?:,\s*[^>]+)?>\("{component}",\s*"{property_name}"'
+                    member = rf'RegisterEnabled<{component}>\("{component}"\)'
+                    self.assertTrue(re.search(direct, registry) or
+                                    (property_name == "enabled" and re.search(member, registry)),
+                                    f"Unregistered {component}.{property_name}")
+                    self.assertIn(f"`{property_name}`", guide)
+
+        for document in (guide, internals):
+            self.assertIn('`"version": 1`', document)
+            self.assertIn("independent", document)
+        loader = (ROOT / "engine/src/Animation.cpp").read_text(encoding="utf-8")
+        self.assertGreaterEqual(loader.count('value("version", 0) != 1'), 2)
+
     def test_animator_nested_records_and_clip_fields_are_documented(self):
         """Doxygen also visits public members of private nested structs."""
         animator = (ROOT / "engine/include/Animator.h").read_text(encoding="utf-8")
@@ -115,6 +152,42 @@ int main() { AnimatorTransition edge; return edge.hasExitTime ? 1 : 0; }
              "-I", str(ROOT / "engine/include")],
             input=source, text=True, capture_output=True, check=False,
         )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_custom_writable_property_macro_compiles(self):
+        """A custom Property<> should be registered through its public setter."""
+        compiler = shutil.which("g++")
+        if not compiler:
+            self.skipTest("g++ unavailable")
+        source = '''#include "AnimationPropertyRegistry.h"
+#include "Behaviour.h"
+#include "Property.h"
+class CustomDoor : public Behaviour {
+    float openness_ = 0.f;
+public:
+    float GetOpenness() const noexcept { return openness_; }
+    void SetOpenness(float value) noexcept { openness_ = value; }
+    Property<CustomDoor, float, &CustomDoor::GetOpenness, &CustomDoor::SetOpenness> openness{this};
+};
+bool registerDoor() { return XENGINE_ANIMATABLE(CustomDoor, openness); }
+'''
+        stub_spec = importlib.util.spec_from_file_location(
+            "sdl_stub_fixture", ROOT / "tests/test_camera_benchmark_gcc_compile.py")
+        assert stub_spec is not None and stub_spec.loader is not None
+        fixture = importlib.util.module_from_spec(stub_spec)
+        stub_spec.loader.exec_module(fixture)
+        with tempfile.TemporaryDirectory(prefix="xengine-property-cpp-") as directory:
+            stub = Path(directory)
+            for name, content in fixture.STUBS.items():
+                location = stub / name
+                location.parent.mkdir(parents=True, exist_ok=True)
+                location.write_text(content, encoding="utf-8")
+            result = subprocess.run(
+                [compiler, "-std=c++20", "-fsyntax-only", "-DXENGINE_DEBUG",
+                 "-x", "c++", "-",
+                 "-I", str(stub), "-I", str(ROOT / "engine/include")],
+                input=source, text=True, capture_output=True, check=False,
+            )
         self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_animator_and_scene_lifecycle_cpp20_sdl_stub_syntax(self):

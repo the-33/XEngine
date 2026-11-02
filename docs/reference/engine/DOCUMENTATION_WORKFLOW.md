@@ -109,10 +109,18 @@ files, not just that list.
 
 XEngine has exactly one official engine version: the root `VERSION` file.
 The last legacy development iteration was **v16.37**; the official initial
-development release was **0.1.0** (current release: **0.1.5**). `tools/engine_version.py` validates the
+development release was **0.1.0** (current release: **2.0.1**). `tools/engine_version.py` validates the
 SemVer string and derives the engine distribution archive filenames;
 `tools/build_doxygen.py` injects it into both Doxygen profiles. The build
 must not maintain a second numeric version in either Doxyfile.
+
+The opt-in pre-commit documentation script also keeps the README's
+`Engine release` label in sync. When `VERSION` is staged,
+`tools/build_doxygen_if_staged.py` reads that staged value, updates only
+the root `README.md` release label, and stages the correction. It runs
+before Doxygen checks and does not require Doxygen to be installed. If
+the README has other unstaged changes, the hook refuses to overwrite or
+implicitly stage them; stage or stash them and retry.
 
 ## One theme for the whole documentation site
 

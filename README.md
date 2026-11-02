@@ -4,7 +4,7 @@
   <h1>XEngine</h1>
   <p><strong>A lightweight, cross-platform 2D game engine built with C++20 and SDL2.</strong></p>
   <p><em>Build 2D games in C++. Understand the engine. Own your code.</em></p>
-  <p><small>Engine release: <strong>0.1.5</strong> · <a href="docs/VERSIONING.md">Version policy</a></small></p>
+  <p><small>Engine release: <strong>2.0.1</strong> · <a href="docs/VERSIONING.md">Version policy</a></small></p>
   <p><small>Modern successor to <a href="https://github.com/the-33/XEngine-Legacy">XEngine-Legacy</a> (Visual Studio / MSVC)</small></p>
   <p>
     <a href="https://en.cppreference.com/w/cpp/20"><img alt="C++20" src="https://img.shields.io/badge/C%2B%2B-20-00599C?logo=cplusplus&amp;logoColor=white" /></a>
@@ -66,6 +66,11 @@ The official engine release number comes from the single root [`VERSION`](VERSIO
 file. Engine documentation and downloadable source archives use that version;
 each game's `config.json` keeps its own independent project version. The
 [versioning policy](docs/VERSIONING.md) explains compatibility and release bumps.
+
+Animation clips (`.animation.json`) and Animator controllers (`.animator.json`)
+have **separate asset-format versions, both currently 1**. This is not the
+engine release version. See the [animation guide](docs/reference/game/ANIMATIONS.md#animation-and-animator-file-versions)
+for compatibility rules and the built-in component properties that can be animated.
 
 ## Quick start
 
