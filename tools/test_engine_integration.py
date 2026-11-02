@@ -13,11 +13,26 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from typing import TextIO
 import wave
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / 'tools'))
 import build as native_build  # noqa: E402
+
+
+def emit_captured_output(output: str, *, stream: TextIO | None = None) -> None:
+    """Write subprocess logs even when a Windows console uses cp1252.
+
+    Preserve Unicode on UTF-8 streams, but escape characters unsupported by
+    an older console encoding. Do not reconfigure or globally replace stdout.
+    """
+    destination = sys.stdout if stream is None else stream
+    encoding = getattr(destination, 'encoding', None) or 'utf-8'
+    safe = output.encode(encoding, errors='backslashreplace').decode(encoding)
+    destination.write(safe)
+    if not output.endswith('\n'):
+        destination.write('\n')
 
 
 def prepare_fixture_assets(source: Path, destination: Path) -> None:
@@ -138,19 +153,21 @@ def main() -> int:
             completed = subprocess.run(
                 [str(binary), str(opts.frames)], cwd=fixture_assets, env=env,
                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                text=True, errors='replace', timeout=opts.timeout, check=False)
+                text=True, encoding='utf-8', errors='replace',
+                timeout=opts.timeout, check=False)
     except subprocess.TimeoutExpired as exc:
         print(f'[INTEGRATION] FAIL: executable exceeded {opts.timeout}s timeout',
               file=sys.stderr)
         if exc.stdout:
-            print(exc.stdout.decode(errors='replace') if isinstance(exc.stdout, bytes)
-                  else exc.stdout, file=sys.stderr)
+            output = (exc.stdout.decode('utf-8', errors='replace')
+                      if isinstance(exc.stdout, bytes) else exc.stdout)
+            emit_captured_output(output, stream=sys.stderr)
         return 1
     except OSError as exc:
         print(f'[INTEGRATION] FAIL: executable could not run: {exc}', file=sys.stderr)
         return 1
 
-    print(completed.stdout, end='\n' if not completed.stdout.endswith('\n') else '')
+    emit_captured_output(completed.stdout)
     if completed.returncode != 0 or 'XENGINE_INTEGRATION_OK:' not in completed.stdout:
         print(f'[INTEGRATION] FAIL: exit={completed.returncode}, '
               'expected successful native test marker', file=sys.stderr)

@@ -33,6 +33,10 @@ using `tools/build.py`'s production flags, compiles
 as a separate process. No engine services are mocked. Its working directory
 is the BlankGame template's assets folder, containing real PNG and TTF test
 fixtures. An unsuccessful exit, an unmet assertion or a timeout is a failure.
+The runner decodes the executable's output as UTF-8 and safely forwards it
+to the Python console, including MSYS2 terminals configured with cp1252.
+Characters that the console cannot represent are escaped in the printed log;
+they cannot hide a passing or failing integration marker.
 
 The integration test currently exercises:
 
