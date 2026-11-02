@@ -44,11 +44,16 @@ class ConsoleLoggingTests(unittest.TestCase):
                  "-I", str(ROOT / "engine" / "include"),
                  str(ROOT / "engine" / "src" / "ErrorHandler.cpp"),
                  str(folder / "main.cpp"), "-o", str(executable)],
-                capture_output=True, text=True, check=False,
+                capture_output=True, text=True, encoding="utf-8",
+                errors="replace", check=False,
             )
             self.assertEqual(compilation.returncode, 0, compilation.stderr)
+            # The engine emits UTF-8 glyphs (●, ⚠, ✖) on every platform.
+            # MSYS2 Python on Windows may default to cp1252, which cannot
+            # decode their bytes and can leave CompletedProcess.stdout=None.
             result = subprocess.run([str(executable)], capture_output=True,
-                                    text=True, check=False, timeout=10)
+                                    text=True, encoding="utf-8", errors="replace",
+                                    check=False, timeout=10)
             self.assertEqual(result.returncode, 0, result.stderr)
             for marker in ("● [LOG] Game\n    raw-from-game",
                            "● [LOG] Game\n    cout-from-game",
