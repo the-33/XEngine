@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import importlib.util
 import io
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -39,7 +40,9 @@ class EngineIntegrationRunnerTests(unittest.TestCase):
         utf8_console = io.TextIOWrapper(utf8_sink, encoding='utf-8', errors='strict')
         runner.emit_captured_output('● [LOG] Ready\n', stream=utf8_console)
         utf8_console.flush()
-        self.assertEqual(utf8_sink.getvalue(), '● [LOG] Ready\n'.encode('utf-8'))
+        # TextIOWrapper uses the platform's native newline on Windows (CRLF).
+        self.assertEqual(utf8_sink.getvalue(),
+                         ('● [LOG] Ready' + os.linesep).encode('utf-8'))
 
     def test_native_runner_decodes_subprocess_output_as_utf8(self):
         source = (ROOT / 'tools/test_engine_integration.py').read_text(encoding='utf-8')
