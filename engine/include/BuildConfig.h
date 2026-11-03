@@ -18,6 +18,8 @@
 # error "Release builds must define NDEBUG"
 #endif
 
+/** @brief Namespace collecting x engine build functionality for XEngine.
+ */
 namespace XEngineBuild {
 #if defined(XENGINE_DEBUG)
 /// @brief True if the translation unit was compiled in Debug mode.

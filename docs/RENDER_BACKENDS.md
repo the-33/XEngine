@@ -47,7 +47,8 @@ are `auto`. Invalid types or unknown OS keys fail JSON validation.
 - `SDL_RENDER_DRIVER` takes precedence over JSON and **is always strict**,
   regardless of `backendFallback`. This prevents benchmarks from silently
   measuring a substitute renderer. Unset it to use JSON selection.
-- All failed attempts and fallbacks are logged to stderr. XEngine tries every
+- All failed attempts and fallbacks are logged under `Engine - Render` with
+  their `[RENDER-BACKEND]` diagnostic markers. XEngine tries every
   allowed driver with the configured acceleration/VSync flags before retrying
   with reduced flags. The successful `[RENDER-BACKEND] requested=... source=...
   actual=... flags=...` log records the *real* renderer.
@@ -335,7 +336,7 @@ will play the game**, using your normal SDL installation and graphics drivers.
    **window width/height** exactly match the original benchmark. It tries the
    best eligible driver first and moves down the measured list if it fails.
    The Windows compatibility order or SDL default remains available afterward.
-5. Verify stderr or the game log: `[RENDER-BACKEND] benchmark-priority=loaded`
+5. Verify the engine console log (`Engine - Render`): `[RENDER-BACKEND] benchmark-priority=loaded`
    confirms the preference passed validation; the later
    `[RENDER-BACKEND] requested=auto ... actual=...` banner reports the **real**
    renderer. A warning about changed display/window/SDL conditions means the

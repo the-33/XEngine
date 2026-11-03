@@ -69,6 +69,43 @@ class DoxygenDocumentationTests(unittest.TestCase):
             _, _, missing = check_doxygen_docs.inspect(path)
             self.assertFalse(missing)
 
+    def test_contract_checker_requires_brief_arguments_templates_and_returns(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp)
+            (path / "index.xml").write_text(
+                '<doxygenindex><compound kind="class" refid="classWidget"/></doxygenindex>',
+                encoding="utf-8",
+            )
+            xml = '''<doxygen><compounddef kind="class">
+              <compoundname>Widget</compoundname><briefdescription/>
+              <sectiondef><memberdef kind="function" prot="public">
+              <name>Find</name><type>bool</type>
+              <templateparamlist><param><declname>T</declname></param></templateparamlist>
+              <param><type>int</type><declname>index</declname></param>
+              <briefdescription><para>Look up a widget.</para></briefdescription>
+              <detaileddescription/>
+              </memberdef></sectiondef></compounddef></doxygen>'''
+            (path / "classWidget.xml").write_text(xml, encoding="utf-8")
+            _, _, missing = check_doxygen_docs.inspect(path, require_contracts=True)
+            self.assertEqual(missing, [
+                "Widget: @brief (type or namespace)",
+                "Widget::Find: @param index",
+                "Widget::Find: @tparam T",
+                "Widget::Find: @return",
+            ])
+            xml = xml.replace("<briefdescription/>",
+                              "<briefdescription><para>Interactive widget.</para></briefdescription>", 1)
+            xml = xml.replace("<detaileddescription/>", '''<detaileddescription><para>
+              <parameterlist kind="param"><parameteritem><parameternamelist>
+              <parametername>index</parametername></parameternamelist></parameteritem>
+              </parameterlist><parameterlist kind="templateparam"><parameteritem>
+              <parameternamelist><parametername>T</parametername></parameternamelist>
+              </parameteritem></parameterlist><simplesect kind="return">
+              <para>Whether the widget exists.</para></simplesect></para></detaileddescription>''')
+            (path / "classWidget.xml").write_text(xml, encoding="utf-8")
+            _, _, missing = check_doxygen_docs.inspect(path, require_contracts=True)
+            self.assertFalse(missing)
+
     def test_readme_and_guides_crosslink_reference(self):
         for relative in (
             "README.md", "docs/ARCHITECTURE.md", "docs/DEVELOPER_GUIDE.md",

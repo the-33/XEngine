@@ -32,7 +32,10 @@ struct UICanvas {
     Vec2 referenceResolution{1920.f, 1080.f};
     float matchWidthOrHeight = 0.5f; ///< 0 = width, 1 = height; logarithmic blend.
 
-    /** @brief Returns the pixel scale for the current drawable dimensions. */
+    /** @brief Returns the pixel scale for the current drawable dimensions.
+     * @param drawableSize Drawable size used to bound or select the operation.
+     * @return The pixel scale for the current drawable dimensions.
+     */
     float ScaleFor(Vec2 drawableSize) const noexcept
     {
         if (scaleMode == UICanvasScaleMode::ConstantPixelSize ||
@@ -76,7 +79,13 @@ struct UIRectTransform {
     /** @brief Pixel size added to the anchor span; equals the size for fixed anchors. */
     Vec2 sizeDelta{100.f, 100.f};
 
-    /** @brief Keeps a fixed-sized element attached to a normalized parent point. */
+    /** @brief Keeps a fixed-sized element attached to a normalized parent point.
+     * @param anchor Anchor supplied to UIRectTransform.
+     * @param size Number of elements or bytes, as required by the operation.
+     * @param offset Offset supplied to UIRectTransform.
+     * @param elementPivot Element pivot supplied to UIRectTransform.
+     * @return Result of anchored in UIRectTransform.
+     */
     static constexpr UIRectTransform Anchored(Vec2 anchor, Vec2 size,
                                               Vec2 offset = {0.f, 0.f},
                                               Vec2 elementPivot = {0.5f, 0.5f}) noexcept
@@ -84,37 +93,63 @@ struct UIRectTransform {
         return {anchor, anchor, elementPivot, offset, size};
     }
 
-    /** @brief Fixed size at a positive inset from the parent's top-left. */
+    /** @brief Fixed size at a positive inset from the parent's top-left.
+     * @param size Number of elements or bytes, as required by the operation.
+     * @param inset Inset supplied to UIRectTransform.
+     * @return Result of top left in UIRectTransform.
+     */
     static constexpr UIRectTransform TopLeft(Vec2 size, Vec2 inset = {0.f, 0.f}) noexcept
     {
         return Anchored({0.f, 0.f}, size, inset, {0.f, 0.f});
     }
 
-    /** @brief Fixed size at a positive inset from the parent's top-right. */
+    /** @brief Fixed size at a positive inset from the parent's top-right.
+     * @param size Number of elements or bytes, as required by the operation.
+     * @param inset Inset supplied to UIRectTransform.
+     * @return Result of top right in UIRectTransform.
+     */
     static constexpr UIRectTransform TopRight(Vec2 size, Vec2 inset = {0.f, 0.f}) noexcept
     {
         return Anchored({1.f, 0.f}, size, {-inset.x, inset.y}, {1.f, 0.f});
     }
 
-    /** @brief Fixed size at a positive inset from the parent's bottom-left. */
+    /** @brief Fixed size at a positive inset from the parent's bottom-left.
+     * @param size Number of elements or bytes, as required by the operation.
+     * @param inset Inset supplied to UIRectTransform.
+     * @return Result of bottom left in UIRectTransform.
+     */
     static constexpr UIRectTransform BottomLeft(Vec2 size, Vec2 inset = {0.f, 0.f}) noexcept
     {
         return Anchored({0.f, 1.f}, size, {inset.x, -inset.y}, {0.f, 1.f});
     }
 
-    /** @brief Fixed size at a positive inset from the parent's bottom-right. */
+    /** @brief Fixed size at a positive inset from the parent's bottom-right.
+     * @param size Number of elements or bytes, as required by the operation.
+     * @param inset Inset supplied to UIRectTransform.
+     * @return Result of bottom right in UIRectTransform.
+     */
     static constexpr UIRectTransform BottomRight(Vec2 size, Vec2 inset = {0.f, 0.f}) noexcept
     {
         return Anchored({1.f, 1.f}, size, {-inset.x, -inset.y}, {1.f, 1.f});
     }
 
-    /** @brief Fixed-size element centered in its parent. */
+    /** @brief Fixed-size element centered in its parent.
+     * @param size Number of elements or bytes, as required by the operation.
+     * @param offset Offset supplied to UIRectTransform.
+     * @return Result of center in UIRectTransform.
+     */
     static constexpr UIRectTransform Center(Vec2 size, Vec2 offset = {0.f, 0.f}) noexcept
     {
         return Anchored({0.5f, 0.5f}, size, offset);
     }
 
-    /** @brief Stretches to all four parent edges with positive pixel insets. */
+    /** @brief Stretches to all four parent edges with positive pixel insets.
+     * @param left Left supplied to UIRectTransform.
+     * @param top Top supplied to UIRectTransform.
+     * @param right Right supplied to UIRectTransform.
+     * @param bottom Bottom supplied to UIRectTransform.
+     * @return Result of stretch in UIRectTransform.
+     */
     static constexpr UIRectTransform Stretch(float left, float top,
                                               float right, float bottom) noexcept
     {
@@ -126,6 +161,7 @@ struct UIRectTransform {
     /** @brief Resolves a UI rectangle in drawable pixels, relative to a parent rectangle.
      * @param parent Parent bounds in drawable pixels (the canvas for root elements).
      * @param scale Canvas scale for anchoredPosition and sizeDelta.
+     * @return Requested resolve value or reference.
      */
     Rect Resolve(const Rect& parent, float scale = 1.f) const noexcept
     {

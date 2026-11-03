@@ -51,7 +51,9 @@ public:
      * @return False when the pointer is null or its layers are unsupported.
      */
     bool SetController(const AnimatorController* controller);
-    /** @brief Currently installed controller, or nullptr. */
+    /** @brief Currently installed controller, or nullptr.
+     * @return Requested get controller value or reference.
+     */
     const AnimatorController* GetController() const noexcept { return controller_; }
 
     /** @brief Immediately start a named state.
@@ -76,15 +78,25 @@ public:
      * @return False for NaN, infinity or negative values.
      */
     bool SetSpeed(float speed) noexcept;
-    /** @brief Return the nonnegative playback speed multiplier. */
+    /** @brief Return the nonnegative playback speed multiplier.
+     * @return The nonnegative playback speed multiplier.
+     */
     float GetSpeed() const noexcept { return speed_; }
-    /** @brief Whether the Animator is advancing its current clip. */
+    /** @brief Whether the Animator is advancing its current clip.
+     * @return True if the Animator is advancing its current clip; otherwise false.
+     */
     bool IsPlaying() const noexcept { return playing_; }
-    /** @brief Whether a blend between two states is currently active. */
+    /** @brief Whether a blend between two states is currently active.
+     * @return True if a blend between two states is currently active; otherwise false.
+     */
     bool IsInTransition() const noexcept { return blend_.has_value(); }
-    /** @brief Name of the current state, or an empty view without a controller. */
+    /** @brief Name of the current state, or an empty view without a controller.
+     * @return Requested get current state value or reference.
+     */
     std::string_view GetCurrentState() const noexcept;
-    /** @brief Progress of the current state, allowing values over one on loops. */
+    /** @brief Progress of the current state, allowing values over one on loops.
+     * @return Requested get normalized time value or reference.
+     */
     float GetNormalizedTime() const noexcept;
 
     /** @brief Assign a declared Boolean parameter; return false if unavailable.
@@ -127,7 +139,9 @@ public:
     bool RemoveEventListener(unsigned id);
 
 protected:
-    /** @brief Advance the active state, evaluate properties and dispatch events. */
+    /** @brief Advance the active state, evaluate properties and dispatch events.
+     * @param dt Elapsed simulation time for the update, in seconds.
+     */
     void LateUpdate(float dt) override;
     /** @brief Release cached property bindings and animation event listeners. */
     void OnDestroy() override;
@@ -178,35 +192,89 @@ private:
     float speed_ = 1.f; ///< Runtime playback speed multiplier.
     bool playing_ = true; ///< Whether playback advances during LateUpdate().
 
-    /** @brief Resolve a state name into a valid playback cursor. */
+    /** @brief Resolve a state name into a valid playback cursor.
+     * @param name Name of the resource, property or element to access.
+     * @param normalizedTime Normalized time supplied to Animator.
+     * @param output Output supplied to Animator.
+     * @return True if the operation succeeded or its condition holds; otherwise false.
+     */
     bool MakePlayhead(std::string_view name, float normalizedTime, Playhead& output);
-    /** @brief Wrap or clamp elapsed time according to the clip loop mode. */
+    /** @brief Wrap or clamp elapsed time according to the clip loop mode.
+     * @param head Head supplied to Animator.
+     * @return Result of sample time in Animator.
+     */
     static float SampleTime(const Playhead& head) noexcept;
-    /** @brief Effective playback multiplier of a clip and its state. */
+    /** @brief Effective playback multiplier of a clip and its state.
+     * @param head Head supplied to Animator.
+     * @return Result of clip speed in Animator.
+     */
     static float ClipSpeed(const Playhead& head) noexcept;
-    /** @brief Advance a cursor by the scaled time step. */
+    /** @brief Advance a cursor by the scaled time step.
+     * @param head Head supplied to Animator.
+     * @param dt Elapsed simulation time for the update, in seconds.
+     */
     static void Advance(Playhead& head, float dt) noexcept;
-    /** @brief Notify subscribers of all events crossed during a time interval. */
+    /** @brief Notify subscribers of all events crossed during a time interval.
+     * @param head Head supplied to Animator.
+     * @param previous Previous supplied to Animator.
+     * @param current Current supplied to Animator.
+     */
     void DispatchEvents(const Playhead& head, float previous, float current);
-    /** @brief Evaluate all declared conditions of a transition. */
+    /** @brief Evaluate all declared conditions of a transition.
+     * @param edge Edge supplied to Animator.
+     * @return True if the operation succeeded or its condition holds; otherwise false.
+     */
     bool ConditionsPass(const AnimatorTransition& edge) const;
-    /** @brief Whether playback crossed a transition's normalized exit time. */
+    /** @brief Whether playback crossed a transition's normalized exit time.
+     * @param edge Edge supplied to Animator.
+     * @param head Head supplied to Animator.
+     * @param previous Previous supplied to Animator.
+     * @return True if playback crossed a transition's normalized exit time; otherwise false.
+     */
     bool ExitTimeCrossed(const AnimatorTransition& edge,
                          const Playhead& head, float previous) const noexcept;
-    /** @brief Find the highest-priority eligible transition for a state. */
+    /** @brief Find the highest-priority eligible transition for a state.
+     * @param head Head supplied to Animator.
+     * @param previous Previous supplied to Animator.
+     * @param interrupting Interrupting supplied to Animator.
+     * @return Requested find transition value or reference.
+     */
     const AnimatorTransition* FindTransition(const Playhead& head, float previous,
                                             const AnimatorTransition* interrupting = nullptr) const;
-    /** @brief Initialize the outgoing and incoming cursors of a transition. */
+    /** @brief Initialize the outgoing and incoming cursors of a transition.
+     * @param edge Edge supplied to Animator.
+     * @param source Source object or data to read.
+     * @return True if the operation succeeded or its condition holds; otherwise false.
+     */
     bool BeginTransition(const AnimatorTransition& edge, const Playhead& source);
-    /** @brief Sample all property tracks of one state. */
+    /** @brief Sample all property tracks of one state.
+     * @param head Head supplied to Animator.
+     * @return Result of sample pose in Animator.
+     */
     std::unordered_map<std::string, TrackPose> SamplePose(const Playhead& head);
-    /** @brief Blend sampled properties and write them through validated bindings. */
+    /** @brief Blend sampled properties and write them through validated bindings.
+     * @param from From supplied to Animator.
+     * @param to To supplied to Animator.
+     * @param weight Weight supplied to Animator.
+     */
     void ApplyPose(const Playhead& from, const Playhead* to, float weight);
-    /** @brief Select or cross-fade sprites in a SpriteRenderer. */
+    /** @brief Select or cross-fade sprites in a SpriteRenderer.
+     * @param head Head supplied to Animator.
+     * @param to To supplied to Animator.
+     * @param weight Weight supplied to Animator.
+     * @param blendMode Blend mode supplied to Animator.
+     */
     void ApplySprite(const Playhead& head, const Playhead* to, float weight,
                      AnimationSpriteBlend blendMode);
-    /** @brief Restore values of tracks no longer driven by the next clip. */
+    /** @brief Restore values of tracks no longer driven by the next clip.
+     * @param next Next supplied to Animator.
+     */
     void RestoreUncontrolled(const Playhead& next);
-    /** @brief Validate and assign one declared runtime parameter. */
+    /** @brief Validate and assign one declared runtime parameter.
+     * @param name Name of the resource, property or element to access.
+     * @param type Type supplied to Animator.
+     * @param value Value to store, serialize, compare or transform.
+     * @return True if the operation succeeded or its condition holds; otherwise false.
+     */
     bool SetParameter(std::string_view name, AnimatorParameterType type, ParameterValue value);
 };

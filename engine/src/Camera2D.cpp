@@ -5,6 +5,9 @@
 
 // Standalone camera calculations may run before the renderer singleton exists.
 // Prefer the virtual render texture when available, otherwise physical pixels.
+/** @brief Camera render size in Camera2D.cpp.
+ * @return Result of camera render size in Camera2D.cpp.
+ */
 static Vec2I CameraRenderSize_() noexcept
 {
     if (auto* render = RenderManager::GetInstancePtr_NO_ERROR_MSG())
@@ -14,6 +17,12 @@ static Vec2I CameraRenderSize_() noexcept
     return {0, 0};
 }
 
+/** @brief Clampf in Camera2D.cpp.
+ * @param v Input vector or value to process.
+ * @param lo Lo supplied to Camera2D.cpp.
+ * @param hi Hi supplied to Camera2D.cpp.
+ * @return Result of clampf in Camera2D.cpp.
+ */
 static inline float clampf(float v, float lo, float hi)
 {
 	return std::max(lo, std::min(v, hi));

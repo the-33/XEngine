@@ -51,10 +51,18 @@ public:
  * @ingroup xengine_serialization
  */
 class BinaryWriter final {
+    /** @brief Stored bytes value used by BinaryWriter.
+     */
     std::vector<std::byte> bytes_;
+    /** @brief Stored bit offset value used by BinaryWriter.
+     */
     unsigned bitOffset_ = 0;
+    /** @brief Stored bit order value used by BinaryWriter.
+     */
     BitOrder bitOrder_ = BitOrder::LSBFirst;
 
+    /** @brief Require aligned in BinaryWriter.
+     */
     void RequireAligned() const {
         if (bitOffset_) throw std::logic_error("Call AlignToByte() before writing byte-aligned values");
     }
@@ -65,15 +73,19 @@ public:
     explicit BinaryWriter(BitOrder order = BitOrder::LSBFirst) : bitOrder_(order) {}
 
     /** @brief Returns a read-only view of the serialized byte buffer.
+     * @return A read-only view of the serialized byte buffer.
      */
     const std::vector<std::byte>& Data() const noexcept { return bytes_; }
     /** @brief Moves the accumulated byte buffer out of the writer.
+     * @return Result of take data in BinaryWriter.
      */
     std::vector<std::byte> TakeData() { AlignToByte(); return std::move(bytes_); }
     /** @brief Returns the number of bytes currently written to the buffer.
+     * @return The number of bytes currently written to the buffer.
      */
     std::size_t Size() const noexcept { return bytes_.size(); }
     /** @brief Reports whether the next write starts at a byte boundary.
+     * @return True when is byte aligned; otherwise false.
      */
     bool IsByteAligned() const noexcept { return bitOffset_ == 0; }
     /** @brief Pads the current bit field to the next byte before writing byte-aligned primitives.
@@ -169,14 +181,19 @@ public:
         WriteUInt32(static_cast<std::uint32_t>(bytes.size()));
         WriteBytes(bytes);
     }
-    /** Write one bit into the current byte; use AlignToByte() before any primitive write. */
+    /** Write one bit into the current byte; use AlignToByte() before any primitive write.
+     * @param value Value to store, serialize, compare or transform.
+     */
     void WriteBit(bool value) {
         if (bitOffset_ == 0) bytes_.push_back(std::byte{0});
         const unsigned position = bitOrder_ == BitOrder::LSBFirst ? bitOffset_ : 7 - bitOffset_;
         if (value) bytes_.back() |= static_cast<std::byte>(1u << position);
         bitOffset_ = (bitOffset_ + 1) % 8;
     }
-    /** Write count bits (0..64), least or most significant first per BitOrder. */
+    /** Write count bits (0..64), least or most significant first per BitOrder.
+     * @param value Value to store, serialize, compare or transform.
+     * @param count Number of elements to process.
+     */
     void WriteBits(std::uint64_t value, unsigned count) {
         if (count > 64) throw std::invalid_argument("WriteBits count must be <= 64");
         for (unsigned i = 0; i < count; ++i) {
@@ -184,7 +201,10 @@ public:
             WriteBit(((value >> shift) & 1u) != 0);
         }
     }
-    /** Write arbitrary number of bits, taking each byte's bits in the configured order. */
+    /** Write arbitrary number of bits, taking each byte's bits in the configured order.
+     * @param input Input supplied to BinaryWriter.
+     * @param count Number of elements to process.
+     */
     void WriteBits(std::span<const std::byte> input, std::size_t count) {
         if (count > input.size() * 8) throw std::invalid_argument("Insufficient source bits");
         for (std::size_t i = 0; i < count; ++i) {
@@ -198,15 +218,30 @@ public:
  * @ingroup xengine_serialization
  */
 class BinaryReader final {
+    /** @brief Stored data value used by BinaryReader.
+     */
     std::span<const std::byte> data_;
+    /** @brief Stored position value used by BinaryReader.
+     */
     std::size_t position_ = 0;
+    /** @brief Stored bit offset value used by BinaryReader.
+     */
     unsigned bitOffset_ = 0;
+    /** @brief Stored bit order value used by BinaryReader.
+     */
     BitOrder bitOrder_ = BitOrder::LSBFirst;
+    /** @brief Stored limits value used by BinaryReader.
+     */
     BinaryLimits limits_{};
 
+    /** @brief Require aligned in BinaryReader.
+     */
     void RequireAligned() const {
         if (bitOffset_) throw BinaryReadError("Call AlignToByte() before reading byte-aligned values");
     }
+    /** @brief Require in BinaryReader.
+     * @param count Number of elements to process.
+     */
     void Require(std::size_t count) const {
         if (position_ > data_.size() || count > data_.size() - position_)
             throw BinaryReadError("Unexpected end of binary input");
@@ -223,15 +258,19 @@ public:
         if (input.size() > limits.maxBytes) throw BinaryReadError("Binary input exceeds configured limit");
     }
     /** @brief Returns the current read offset in bytes.
+     * @return The current read offset in bytes.
      */
     std::size_t Position() const noexcept { return position_; }
     /** @brief Returns the number of unread complete input bytes.
+     * @return The number of unread complete input bytes.
      */
     std::size_t RemainingBytes() const noexcept { return data_.size() - position_; }
     /** @brief Reports whether byte aligned is currently true.
+     * @return True when is byte aligned; otherwise false.
      */
     bool IsByteAligned() const noexcept { return bitOffset_ == 0; }
     /** @brief Returns the configured bounds for binary input reads.
+     * @return The configured bounds for binary input reads.
      */
     const BinaryLimits& Limits() const noexcept { return limits_; }
     /** @brief Skips unused bits of the current input byte before reading primitives.
@@ -240,6 +279,7 @@ public:
         if (bitOffset_) { ++position_; bitOffset_ = 0; }
     }
     /** @brief Reads byte using the specified format and bounds.
+     * @return Requested read byte value or reference.
      */
     std::uint8_t ReadByte() {
         RequireAligned(); Require(1);
@@ -247,12 +287,14 @@ public:
     }
     /** @brief Attempts to consume one byte without throwing on insufficient input.
      * @param output Destination buffer for decoded values.
+     * @return True if the operation succeeded or its condition holds; otherwise false.
      */
     bool TryReadByte(std::uint8_t& output) noexcept {
         if (bitOffset_ || position_ >= data_.size()) return false;
         output = std::to_integer<std::uint8_t>(data_[position_++]); return true;
     }
     /** @brief Reads bool using the specified format and bounds.
+     * @return Requested read bool value or reference.
      */
     bool ReadBool() {
         auto b = ReadByte();
@@ -269,6 +311,7 @@ public:
     }
     /** @brief Attempts to consume the requested number of bytes.
      * @param output Destination buffer for decoded values.
+     * @return True if the operation succeeded or its condition holds; otherwise false.
      */
     bool TryReadBytes(std::span<std::byte> output) noexcept {
         if (bitOffset_ || output.size() > data_.size() - position_) return false;
@@ -277,6 +320,7 @@ public:
     }
     /** @brief Reads exactly the requested byte count and throws on truncated or misaligned input.
      * @param count Number of elements or bits to read/write, as stated by the method.
+     * @return Requested read bytes value or reference.
      */
     std::vector<std::byte> ReadBytes(std::size_t count) {
         RequireAligned(); Require(count);
@@ -285,6 +329,7 @@ public:
         return result;
     }
     /** @brief Reads uint16 using the specified format and bounds.
+     * @return Requested read u int16 value or reference.
      */
     std::uint16_t ReadUInt16() {
         std::uint16_t result = 0;
@@ -292,9 +337,11 @@ public:
         return result;
     }
     /** @brief Reads int16 using the specified format and bounds.
+     * @return Requested read int16 value or reference.
      */
     std::int16_t ReadInt16() { return std::bit_cast<std::int16_t>(ReadUInt16()); }
     /** @brief Reads uint32 using the specified format and bounds.
+     * @return Requested read u int32 value or reference.
      */
     std::uint32_t ReadUInt32() {
         std::uint32_t result = 0;
@@ -302,9 +349,11 @@ public:
         return result;
     }
     /** @brief Reads int32 using the specified format and bounds.
+     * @return Requested read int32 value or reference.
      */
     std::int32_t ReadInt32() { return std::bit_cast<std::int32_t>(ReadUInt32()); }
     /** @brief Reads uint64 using the specified format and bounds.
+     * @return Requested read u int64 value or reference.
      */
     std::uint64_t ReadUInt64() {
         std::uint64_t result = 0;
@@ -312,15 +361,19 @@ public:
         return result;
     }
     /** @brief Reads int64 using the specified format and bounds.
+     * @return Requested read int64 value or reference.
      */
     std::int64_t ReadInt64() { return std::bit_cast<std::int64_t>(ReadUInt64()); }
     /** @brief Reads float32 using the specified format and bounds.
+     * @return Requested read float32 value or reference.
      */
     float ReadFloat32() { return std::bit_cast<float>(ReadUInt32()); }
     /** @brief Reads float64 using the specified format and bounds.
+     * @return Requested read float64 value or reference.
      */
     double ReadFloat64() { return std::bit_cast<double>(ReadUInt64()); }
     /** @brief Reads 7 bit encoded uint32 using the specified format and bounds.
+     * @return Requested read7 bit encoded u int32 value or reference.
      */
     std::uint32_t Read7BitEncodedUInt32() {
         std::uint32_t result = 0;
@@ -333,6 +386,7 @@ public:
         throw BinaryReadError("Unterminated 7-bit length");
     }
     /** @brief Reads a .NET-style 7-bit UTF-8 length and bounded string bytes; rejects invalid prefixes and truncation.
+     * @return Requested read string value or reference.
      */
     std::string ReadString() {
         const std::size_t count = Read7BitEncodedUInt32();
@@ -343,6 +397,7 @@ public:
         return result;
     }
     /** @brief Reads byte array using the specified format and bounds.
+     * @return Requested read byte array value or reference.
      */
     std::vector<std::byte> ReadByteArray() {
         auto count = ReadUInt32();
@@ -350,6 +405,7 @@ public:
         return ReadBytes(count);
     }
     /** @brief Reads bit using the specified format and bounds.
+     * @return Requested read bit value or reference.
      */
     bool ReadBit() {
         Require(1);
@@ -360,6 +416,7 @@ public:
     }
     /** @brief Reads exactly count bits using the selected BitOrder and raises BinaryReadError if incomplete.
      * @param count Number of elements or bits to read/write, as stated by the method.
+     * @return Requested read bits value or reference.
      */
     std::uint64_t ReadBits(unsigned count) {
         if (count > 64) throw BinaryReadError("ReadBits count must be <= 64");

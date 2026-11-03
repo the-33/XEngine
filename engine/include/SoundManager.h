@@ -1,3 +1,5 @@
+/** @brief Grant Singleton< SoundManager > access to the internal state of SoundManager.
+ */
 #pragma once
 /** @file SoundManager.h
  * @brief Music and sound-effect playback, volume and channel management.
@@ -21,37 +23,90 @@ class TimeManager;
  */
 class SoundManager : public Singleton<SoundManager>
 {
+    /** @brief Permit the singleton base to construct and release the SoundManager manager.
+     */
     friend class Singleton<SoundManager>;
+    /** @brief Grant Engine access to the internal state of SoundManager.
+     */
     friend class Engine;
 
 private:
+    /** @brief Internal configuration values for SoundManager.
+     */
     struct Config {
+        /** @brief Configured sfx channels value used by Config.
+         */
         int   sfxChannels = 32;   // number of sound-effect channels
+        /** @brief Stored master volume value used by Config.
+         */
         float masterVolume = 1.0f; // 0..1, afecta a TODO (music + sfx)
+        /** @brief Configured enable ducking value used by Config.
+         */
         bool  enableDucking = false; // optional: reduce music volume while playing SFX
+        /** @brief Configured duck volume value used by Config.
+         */
         float duckVolume = 0.6f;  // music volume while SFX are active
+        /** @brief Configured duck attack sec value used by Config.
+         */
         float duckAttackSec = 0.02f; // tiempos
+        /** @brief Configured duck release sec value used by Config.
+         */
         float duckReleaseSec = 0.25f;
     };
 
+    /** @brief Construct a SoundManager instance.
+     */
     SoundManager() = default;
+    /** @brief Destroy a SoundManager instance and release owned resources.
+     */
     ~SoundManager() = default;
-    SoundManager(const SoundManager&) = delete;
-    SoundManager& operator=(const SoundManager&) = delete;
+    /** @brief Construct a SoundManager instance.
+     * @param other Source object whose copy, move or equality is being requested.
+     */
+    SoundManager(const SoundManager& other) = delete;
+    /** @brief Implement the operator= operation for SoundManager.
+     * @return Result of applying the overloaded operator.
+     * @param other Source object whose copy, move or equality is being requested.
+     */
+    SoundManager& operator=(const SoundManager& other) = delete;
 
+    /** @brief Stored sfx channels value used by SoundManager.
+     */
     int   mSfxChannels = 32;
+    /** @brief Stored master volume value used by SoundManager.
+     */
     float mMasterVolume = 1.0f;
+    /** @brief Stored enable ducking value used by SoundManager.
+     */
     bool  mEnableDucking = false;
+    /** @brief Stored duck volume value used by SoundManager.
+     */
     float mDuckVolume = 0.6f;
+    /** @brief Stored duck attack sec value used by SoundManager.
+     */
     float mDuckAttackSec = 0.02f;
+    /** @brief Stored duck release sec value used by SoundManager.
+     */
     float mDuckReleaseSec = 0.25f;
 
+    /** @brief Stored channel busy value used by SoundManager.
+     */
     std::vector<bool> mChannelBusy;
 
+    /** @brief Stored time manager value used by SoundManager.
+     */
     TimeManager* mTimeManager = nullptr;
 
+    /** @brief Initialize the SoundManager subsystem.
+     * @param cfg Cfg supplied to SoundManager.
+     * @return True if the operation succeeded or its condition holds; otherwise false.
+     */
     bool Init(const Config& cfg) noexcept;
+    /** @brief Release resources managed by SoundManager.
+     */
     void Shutdown() noexcept;
+    /** @brief Update the SoundManager state for the current frame.
+     */
     void Update() noexcept; // when handling ducking/fades
 
 public:
@@ -61,6 +116,7 @@ public:
      */
     void  SetMasterVolume(float v01) noexcept; // 0..1
     /** @brief Returns the current normalized master volume (does not modify it).
+     * @return The current normalized master volume (does not modify it).
      */
     float MasterVolume() const noexcept;
 
@@ -69,12 +125,14 @@ public:
      * @param music Loaded music resource; must remain valid during use.
      * @param loops Additional playback repetitions; a negative music value requests indefinite playback.
      * @param gain01 Normalized gain multiplier from 0 to 1.
+     * @return True if the operation succeeded or its condition holds; otherwise false.
      */
     bool PlayMusic(const Music* music, int loops = -1, float gain01 = 1.0f) noexcept;
     /** @brief Stops music playback.
      */
     void StopMusic() noexcept;
     /** @brief True if SDL_mixer reports music currently playing.
+     * @return True when is music playing; otherwise false.
      */
     bool IsMusicPlaying() const noexcept;
 
@@ -95,6 +153,7 @@ public:
      */
     void StopSFXChannel(int channel) noexcept; // opcional
     /** @brief True if one or more mixer channels are currently playing an effect.
+     * @return True when is any sfx playing; otherwise false.
      */
     bool IsAnySFXPlaying() const noexcept;
 
@@ -104,6 +163,7 @@ public:
      */
     void SetSFXChannelCount(int count) noexcept;  // resize the channel pool if supported by the backend
     /** @brief Returns the number of sound-effect playback channels.
+     * @return The number of sound-effect playback channels.
      */
     int  SFXChannelCount() const noexcept;
 };

@@ -19,13 +19,26 @@
 #include <unistd.h>
 #endif
 
+/** @brief Namespace collecting @207245236351044332373133012012307056371142135150 functionality for XEngine.
+ */
 namespace {
-enum class Level { Log, Warning, Error };
+/** @brief Severity category for engine console messages.
+ */
+enum class Level {
+    Log,     ///< Informational message.
+    Warning, ///< Recoverable unexpected condition.
+    Error    ///< Failure that requires attention.
+};
 
 std::mutex gConsoleMutex;
 std::thread gStdoutReader;
 int gOriginalStdout = -1;
 bool gOriginalUnitbuf = false;
+#if defined(XENGINE_PLATFORM_WINDOWS)
+// Protected by gConsoleMutex. A redirected stdout does not need a console
+// code-page change: its bytes are already valid UTF-8.
+bool gWindowsConsoleConfigured = false;
+#endif
 
 int DuplicateFd(int fd) noexcept
 {
@@ -105,6 +118,21 @@ void Emit(Level level, std::string_view message, std::string_view title) noexcep
     std::lock_guard<std::mutex> lock(gConsoleMutex);
     const int target = gOriginalStdout >= 0 ? gOriginalStdout : 1;
     const bool colored = IsTerminal(target);
+#if defined(XENGINE_PLATFORM_WINDOWS)
+    // Configure the inherited console BEFORE the very first UTF-8 glyph.
+    // Waiting until BeginStdoutCapture() would garble all startup icons in cmd.
+    if (colored && !gWindowsConsoleConfigured) {
+        const auto handle = _get_osfhandle(target);
+        if (handle != -1) {
+            HANDLE output = reinterpret_cast<HANDLE>(handle);
+            DWORD mode = 0;
+            if (GetConsoleMode(output, &mode)) {
+                (void)SetConsoleMode(output, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
+                gWindowsConsoleConfigured = SetConsoleOutputCP(CP_UTF8) != 0;
+            }
+        }
+    }
+#endif
     const char* tint = level == Level::Error ? "\x1b[91m" :
                        level == Level::Warning ? "\x1b[93m" : "\x1b[96m";
     const char* prefix = level == Level::Error ? "✖ [ERROR] " :
@@ -234,17 +262,6 @@ bool XEngineConsole::BeginStdoutCapture() noexcept
         CloseFd(descriptors[1]);
         return false;
     }
-
-#if defined(XENGINE_PLATFORM_WINDOWS)
-    // Windows necesita habilitar secuencias ANSI y UTF-8 para los iconos.
-    if (IsTerminal(original)) {
-        HANDLE output = reinterpret_cast<HANDLE>(_get_osfhandle(original));
-        DWORD mode = 0;
-        if (GetConsoleMode(output, &mode))
-            (void)SetConsoleMode(output, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
-        (void)SetConsoleOutputCP(CP_UTF8);
-    }
-#endif
 
     if (ReplaceFd(descriptors[1], 1) < 0) {
         CloseFd(original);

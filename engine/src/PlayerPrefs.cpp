@@ -21,6 +21,8 @@
 # include <windows.h>
 #endif
 
+/** @brief Namespace collecting @042072364061002031054316264145111214270055346201 functionality for XEngine.
+ */
 namespace {
 using Preference = std::variant<std::int32_t, float, std::string>;
 struct State {

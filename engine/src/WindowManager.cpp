@@ -7,6 +7,10 @@
 #include "SDL_syswm.h"
 #endif
 
+/** @brief As sdl in WindowManager.cpp.
+ * @param p P supplied to WindowManager.cpp.
+ * @return Result of as sdl in WindowManager.cpp.
+ */
 static inline SDL_Window* AsSDL(void* p) noexcept {
     return static_cast<SDL_Window*>(p);
 }
@@ -15,7 +19,7 @@ bool WindowManager::Init(const Config& conf) noexcept
 {
     if (!(SDL_WasInit(SDL_INIT_VIDEO) & SDL_INIT_VIDEO)) {
         if (SDL_InitSubSystem(SDL_INIT_VIDEO) != 0) {
-            LogError("WindowManager::Init()", "SDL_InitSubSystem(VIDEO) failed.", SDL_GetError());
+            LogError("Engine - Window", "Init(): SDL_InitSubSystem(VIDEO) failed.", SDL_GetError());
             return false;
         }
     }
@@ -39,7 +43,7 @@ bool WindowManager::Init(const Config& conf) noexcept
     );
 
     if (!win) {
-        LogError("WindowManager::Init()", "SDL_CreateWindow failed.", SDL_GetError());
+        LogError("Engine - Window", "Init(): SDL_CreateWindow failed.", SDL_GetError());
         return false;
     }
 
@@ -168,7 +172,7 @@ void WindowManager::SetFullscreen(bool enabled) noexcept
     Uint32 mode = enabled ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0;
 
     if (SDL_SetWindowFullscreen(AsSDL(windowHandle), mode) != 0) {
-        LogError("WindowManager::SetFullscreen()", "SDL_SetWindowFullscreen failed.", SDL_GetError());
+        LogError("Engine - Window", "SetFullscreen(): SDL_SetWindowFullscreen failed.", SDL_GetError());
     }
     else {
         fullscreen = enabled;
@@ -201,13 +205,13 @@ bool WindowManager::SetExclusiveFullscreen(int newWidth, int newHeight) noexcept
     SDL_DisplayMode previous{};
     const bool hadPrevious = SDL_GetWindowDisplayMode(win, &previous) == 0;
     if (SDL_SetWindowDisplayMode(win, &supported) != 0) {
-        LogError("WindowManager::SetExclusiveFullscreen()",
+        LogError("Engine - Window",
                  "SDL_SetWindowDisplayMode failed.", SDL_GetError());
         return false;
     }
 
     if (SDL_SetWindowFullscreen(win, SDL_WINDOW_FULLSCREEN) != 0) {
-        LogError("WindowManager::SetExclusiveFullscreen()",
+        LogError("Engine - Window",
                  "SDL_SetWindowFullscreen failed.", SDL_GetError());
         if (hadPrevious) (void)SDL_SetWindowDisplayMode(win, &previous);
         return false;

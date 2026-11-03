@@ -25,7 +25,7 @@ void SpriteRenderer::ClearAnimationBlend() noexcept
 void SpriteRenderer::SetSource(RectI src) noexcept {
 
     if (!texture) {
-        LogWarning("SpriteRenderer", "SetSource() called without texture.");
+        LogWarning("Engine - Render", "SpriteRenderer::SetSource() called without texture.");
         return;
     }
 
@@ -50,7 +50,7 @@ void SpriteRenderer::SetTint(Color tint) noexcept
 {
     if ((tint.r < 0 || tint.r > 255) || (tint.g < 0 || tint.g > 255) || (tint.b < 0 || tint.b > 255) || (tint.a < 0 || tint.a > 255))
     {
-        LogWarning("SpriteRenderer", "SetTint(): color not valid.");
+        LogWarning("Engine - Render", "SpriteRenderer::SetTint(): color not valid.");
         return;
     }
 

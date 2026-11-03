@@ -13,6 +13,8 @@
 # include <unistd.h>
 #endif
 
+/** @brief Namespace collecting @333161274243134005205064334216320022145311027301 functionality for XEngine.
+ */
 namespace {
 FileError ErrorFromCode(const std::error_code& ec) noexcept {
     if (!ec) return FileError::None;

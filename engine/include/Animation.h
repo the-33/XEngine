@@ -135,7 +135,9 @@ struct AnimationClip {
     std::optional<AnimationSpriteSheet> spritesheet; ///< Optional frame sequence from a sprite atlas.
     std::vector<AnimationEvent> events; ///< Time-ordered named callbacks.
 
-    /** @brief Effective duration in seconds, before state and Animator speed multipliers. */
+    /** @brief Effective duration in seconds, before state and Animator speed multipliers.
+     * @return Result of duration in AnimationClip.
+     */
     float Duration() const noexcept;
     /** @brief Parse and validate a versioned animation asset; never touches disk.
      * @param text UTF-8 JSON document.

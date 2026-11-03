@@ -109,7 +109,7 @@ files, not just that list.
 
 XEngine has exactly one official engine version: the root `VERSION` file.
 The last legacy development iteration was **v16.37**; the official initial
-development release was **0.1.0** (current release: **2.0.1**). `tools/engine_version.py` validates the
+development release was **0.1.0** (current release: **0.3.0**). `tools/engine_version.py` validates the
 SemVer string and derives the engine distribution archive filenames;
 `tools/build_doxygen.py` injects it into both Doxygen profiles. The build
 must not maintain a second numeric version in either Doxyfile.

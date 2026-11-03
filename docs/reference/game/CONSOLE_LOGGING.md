@@ -1,43 +1,59 @@
 # Console logging {#xengine_console_logging}
 
-XEngine ofrece tres niveles de registro accesibles desde cualquier script que
-incluya `<XEngine.h>`. Los mensajes se imprimen por consola, sin abrir ventanas
-de error que interrumpan el juego.
+XEngine provides three logging levels from any script that includes
+`<XEngine.h>`. Messages go to the console without interrupting the game
+with modal error dialogs.
 
 ```cpp
-Console.Log("Jugador creado", "Player");
-Console.Warning("Queda poca vida", "PlayerHealth");
-Console.Error("No se pudo abrir el guardado", "SaveSystem");
+Console.Log("Player spawned", "Player");
+Console.Warning("Low health", "PlayerHealth");
+Console.Error("Could not open save", "SaveSystem");
 ```
 
-El segundo argumento es el título del registro. Es opcional y toma el valor
-`"Game"` si no se indica. Los títulos llevan el nivel y un icono; el texto se
-muestra debajo, indentado cuatro espacios. Los mensajes multilínea conservan
-la indentación de cada línea.
+The second argument is the log title. It is optional and defaults to `"Game"`
+for user scripts. Each entry shows the level, icon and title; the message
+appears on indented lines, including multiline messages.
 
 ```text
 ● [LOG] Player
-    Jugador creado
+    Player spawned
 ⚠ [WARNING] PlayerHealth
-    Queda poca vida
+    Low health
 ✖ [ERROR] SaveSystem
-    No se pudo abrir el guardado
+    Could not open save
 ```
 
-Cuando la salida está conectada a un terminal compatible, LOG se pinta en
-cian, WARNING en amarillo y ERROR en rojo. La salida redirigida a un archivo
-no contiene códigos de color. Los iconos y textos se emiten en UTF-8.
+Engine-owned messages always use `Engine` for general messages or
+`Engine - <System>` for system-specific messages. Examples include
+`Engine - Render`, `Engine - Assets`, `Engine - Physics`, `Engine - Audio`
+and `Engine - Animation`. This applies to startup/shutdown progress, renderer
+backend diagnostics, profiler output and warnings/errors. The backend
+diagnostic marker `[RENDER-BACKEND]` and profiler marker `[PROFILE]` remain
+inside messages for troubleshooting. Game messages keep their `Game` title
+or any custom title supplied by the game.
 
-Mientras XEngine está iniciado, las llamadas tradicionales del juego a
-`printf`, `puts` y `std::cout` se capturan como mensajes LOG con título
-`Game`. Los `printf` pendientes se vacían al procesar cada frame y al cerrar
-el motor. La salida de error estándar (`stderr`) no se redirige.
+```text
+● [LOG] Engine
+    XEngine started successfully.
+⚠ [WARNING] Engine - Render
+    [RENDER-BACKEND] requested=opengl is not installed; trying fallback
+```
 
-La interfaz de compatibilidad `LogError(caption, error)` sigue disponible:
-el primer argumento se utiliza como título y el segundo como mensaje ERROR.
-`LogWarning(caption, warning)` registra advertencias del motor. Ambas se
-muestran por consola sin cuadros de diálogo. El registro ERROR respeta la
-configuración `Engine::logErrors`.
+On compatible terminals, LOG is cyan, WARNING is yellow and ERROR is red.
+Redirected output has no color escape sequences. Icons and text use UTF-8.
+On Windows, XEngine enables UTF-8 and ANSI support on an attached console
+before emitting the very first startup message, so the `●`, `⚠` and `✖`
+icons display correctly even before stdout capture begins. Redirected output
+remains UTF-8 without changing the console settings.
 
-Las funciones `Debug::Log`, `Debug::LogWarning` y `Debug::LogError` realizan
-la misma operación si se necesita acceder directamente a la API interna.
+While XEngine is running, legacy game calls to `printf`, `puts` and
+`std::cout` are captured as LOG entries titled `Game`. Pending output is
+flushed each frame and at shutdown. Game `stderr` is not redirected.
+
+The compatibility API `LogError(caption, error)` remains available: its first
+argument is the title and its second is the error message.
+`LogWarning(caption, warning)` works similarly for warnings. Errors respect
+`Engine::logErrors`.
+
+`Debug::Log`, `Debug::LogWarning` and `Debug::LogError` expose the same
+behavior if internal access is required.

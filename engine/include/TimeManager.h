@@ -1,3 +1,5 @@
+/** @brief Grant Singleton< TimeManager > access to the internal state of TimeManager.
+ */
 #pragma once
 /** @file TimeManager.h
  * @brief Scaled frame time, fixed timestep and engine time values.
@@ -12,32 +14,88 @@
  */
 class TimeManager : public Singleton<TimeManager>
 {
+	/** @brief Permit the singleton base to construct and release the TimeManager manager.
+	 */
 	friend class Singleton<TimeManager>;
+	/** @brief Grant Engine access to the internal state of TimeManager.
+	 */
 	friend class Engine;
 
 private:
+	/** @brief Delta in TimeManager.
+	 * @return Result of delta in TimeManager.
+	 */
 	float Delta() const noexcept { return delta; }
+	/** @brief Fixed delta in TimeManager.
+	 * @return Result of fixed delta in TimeManager.
+	 */
 	inline float FixedDelta() const noexcept { return fixedDt; }
+	/** @brief Since start in TimeManager.
+	 * @return Result of since start in TimeManager.
+	 */
 	double SinceStart() const noexcept;
+	/** @brief Set time scale in TimeManager.
+	 * @param s S supplied to TimeManager.
+	 */
 	void SetTimeScale(float s) noexcept;
+	/** @brief Time scale in TimeManager.
+	 * @return Result of time scale in TimeManager.
+	 */
 	float TimeScale() const noexcept { return timeScale_; }
+	/** @brief Retrieve the high res timestamp from TimeManager.
+	 * @return Requested get high res timestamp value or reference.
+	 */
 	uint64_t GetHighResTimestamp() const noexcept;
 
+	/** @brief Construct a TimeManager instance.
+	 */
 	TimeManager() = default;
+	/** @brief Destroy a TimeManager instance and release owned resources.
+	 */
 	~TimeManager() = default;
 
+	/** @brief Initialize the TimeManager subsystem.
+	 * @param fixedDt Fixed dt supplied to TimeManager.
+	 * @return True if the operation succeeded or its condition holds; otherwise false.
+	 */
 	bool Init(float fixedDt = 1.f / 60.f) noexcept;
+	/** @brief Update the TimeManager state for the current frame.
+	 */
 	void Tick() noexcept;
 
-	TimeManager(const TimeManager&) = delete;
-	TimeManager& operator=(const TimeManager&) = delete;
-	TimeManager(TimeManager&&) = delete;
-	TimeManager& operator=(TimeManager&&) = delete;
+	/** @brief Construct a TimeManager instance.
+	 * @param other Source object whose copy, move or equality is being requested.
+	 */
+	TimeManager(const TimeManager& other) = delete;
+	/** @brief Implement the operator= operation for TimeManager.
+	 * @return Result of applying the overloaded operator.
+	 * @param other Source object whose copy, move or equality is being requested.
+	 */
+	TimeManager& operator=(const TimeManager& other) = delete;
+	/** @brief Construct a TimeManager instance.
+	 * @param other Source object whose copy, move or equality is being requested.
+	 */
+	TimeManager(TimeManager&& other) = delete;
+	/** @brief Implement the operator= operation for TimeManager.
+	 * @return Result of applying the overloaded operator.
+	 * @param other Source object whose copy, move or equality is being requested.
+	 */
+	TimeManager& operator=(TimeManager&& other) = delete;
 
+	/** @brief Configured start ticks value used by TimeManager.
+	 */
 	double startTicks = 0.0;
+	/** @brief Configured prev ticks value used by TimeManager.
+	 */
 	double prevTicks = 0.0;
+	/** @brief Configured delta value used by TimeManager.
+	 */
 	float delta = 0.f;
+	/** @brief Stored time scale value used by TimeManager.
+	 */
 	float timeScale_ = 1.f;
+	/** @brief Configured fixed dt value used by TimeManager.
+	 */
 	float fixedDt = 1.f / 60.f;
 
 public:

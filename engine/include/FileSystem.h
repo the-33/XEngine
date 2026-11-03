@@ -34,6 +34,7 @@ struct FileReadResult {
      */
     std::vector<std::byte> data;
     /** @brief Reports I/O success, not application-format validity.
+     * @return True if the operation succeeded or its condition holds; otherwise false.
      */
     bool Ok() const noexcept { return error == FileError::None; }
 };
@@ -50,28 +51,34 @@ public:
 
     /** @brief Tests whether the filesystem path exists, regardless of its type.
      * @param path Target filesystem path; file extension is application-defined.
+     * @return True if the operation succeeded or its condition holds; otherwise false.
      */
     static bool Exists(const std::filesystem::path& path) noexcept;
     /** @brief Reports whether the path points to an ordinary file.
      * @param path Target filesystem path; file extension is application-defined.
+     * @return True when is regular file; otherwise false.
      */
     static bool IsRegularFile(const std::filesystem::path& path) noexcept;
     /** @brief Reports whether the path points to a directory.
      * @param path Target filesystem path; file extension is application-defined.
+     * @return True when is directory; otherwise false.
      */
     static bool IsDirectory(const std::filesystem::path& path) noexcept;
     /** @brief Recursively creates any missing directories at the requested path.
      * @param path Target filesystem path; file extension is application-defined.
+     * @return Result of create directories in FileSystem.
      */
     static FileError CreateDirectories(const std::filesystem::path& path) noexcept;
     /** @brief Removes one file or empty directory; does not recursively delete trees.
      * @param path Target filesystem path; file extension is application-defined.
+     * @return Result of remove in FileSystem.
      */
     static FileError Remove(const std::filesystem::path& path) noexcept;
     /** @brief Copies a file; destination replacement requires explicit opt-in.
      * @param source Candidate or source location selected by the caller.
      * @param destination Destination path chosen by the caller.
      * @param overwrite Whether an existing destination is permitted to be replaced.
+     * @return Result of copy in FileSystem.
      */
     static FileError Copy(const std::filesystem::path& source, const std::filesystem::path& destination,
                           bool overwrite = false) noexcept;
@@ -79,6 +86,7 @@ public:
      * @param source Candidate or source location selected by the caller.
      * @param destination Destination path chosen by the caller.
      * @param overwrite Whether an existing destination is permitted to be replaced.
+     * @return Result of move in FileSystem.
      */
     static FileError Move(const std::filesystem::path& source, const std::filesystem::path& destination,
                           bool overwrite = false) noexcept;
@@ -86,11 +94,13 @@ public:
      * @param source Candidate or source location selected by the caller.
      * @param destination Destination path chosen by the caller.
      * @param overwrite Whether an existing destination is permitted to be replaced.
+     * @return Result of rename in FileSystem.
      */
     static FileError Rename(const std::filesystem::path& source, const std::filesystem::path& destination,
                             bool overwrite = false) noexcept { return Move(source, destination, overwrite); }
     /** @brief Returns the filesystem modification timestamp, or `nullopt` on failure.
      * @param path Target filesystem path; file extension is application-defined.
+     * @return The filesystem modification timestamp, or nullopt on failure.
      */
     static std::optional<std::filesystem::file_time_type> LastWriteTime(
         const std::filesystem::path& path) noexcept;
@@ -98,12 +108,14 @@ public:
     /** @brief Reads an entire binary file with an explicit maximum byte count; never interprets the bytes.
      * @param path Target filesystem path; file extension is application-defined.
      * @param maxBytes Maximum number of bytes the caller permits reading.
+     * @return Requested read all bytes value or reference.
      */
     static FileReadResult ReadAllBytes(const std::filesystem::path& path,
                                       std::uint64_t maxBytes = DefaultMaxReadBytes) noexcept;
     /** @brief Writes raw bytes directly, truncating any existing file; this operation is not atomic.
      * @param path Target filesystem path; file extension is application-defined.
      * @param bytes Uninterpreted binary byte sequence.
+     * @return Result of write all bytes in FileSystem.
      */
     static FileError WriteAllBytes(const std::filesystem::path& path,
                                    std::span<const std::byte> bytes) noexcept;
@@ -111,12 +123,14 @@ public:
      * @param path Target filesystem path; file extension is application-defined.
      * @param text Output string that receives the complete file contents on success.
      * @param maxBytes Maximum number of bytes the caller permits reading.
+     * @return Requested read all text value or reference.
      */
     static FileError ReadAllText(const std::filesystem::path& path, std::string& text,
                                  std::uint64_t maxBytes = DefaultMaxReadBytes) noexcept;
     /** @brief Writes the supplied bytes of a text string directly; it does not perform an atomic publish.
      * @param path Target filesystem path; file extension is application-defined.
      * @param text Text to render or serialize.
+     * @return Result of write all text in FileSystem.
      */
     static FileError WriteAllText(const std::filesystem::path& path,
                                   std::string_view text) noexcept;

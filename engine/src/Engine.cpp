@@ -11,6 +11,8 @@
 #ifdef _WIN32
 #define CLEAR_SCREEN "cls"
 #else
+/** @brief Define the clear screen value used during compilation.
+ */
 #define CLEAR_SCREEN "clear"
 #endif
 
@@ -70,11 +72,19 @@
 #include "Camera2D.h"
 #include "Scene.h"
 
+/** @brief Type alias for json used by Engine.cpp.
+ */
 using json = nlohmann::json;
 
 // Independent of TimeManager::Tick(), which is only updated once per frame.
 // steady_clock measurements include VSync blocking time where applicable.
+/** @brief Type alias for profile clock used by Engine.cpp.
+ */
 using ProfileClock = std::chrono::steady_clock;
+/** @brief Profile elapsed in Engine.cpp.
+ * @param start Starting position or iterator of the requested range.
+ * @return Result of profile elapsed in Engine.cpp.
+ */
 static inline float ProfileElapsed_(ProfileClock::time_point start) noexcept
 {
     return std::chrono::duration<float>(ProfileClock::now() - start).count();
@@ -122,7 +132,7 @@ Engine::Engine() noexcept
 		else stopDestroying = true;
 		if (!stopDestroying && SceneManager::GetInstancePtr() != nullptr) SceneManager::DestroySingleton();
 
-		LogError("Engine Error", "Engine(): Failed to create one or more managers.");
+		LogError("Engine", "Engine(): Failed to create one or more managers.");
 	}
 }
 
@@ -155,9 +165,7 @@ bool Engine::StartImpl(const std::string configPath, bool inlineJson) noexcept
         return false;
     }
 
-    printf("Starting XEngine...\n");
-    printf("------------------------------\n\n");
-    printf("Loading configuration...\n");
+    Console.Log("Starting XEngine... Loading configuration.", "Engine");
     Config cfg;
     const bool configLoaded = inlineJson
         ? LoadConfigFromJson(configPath, "embedded config", cfg)
@@ -173,7 +181,7 @@ bool Engine::StartImpl(const std::string configPath, bool inlineJson) noexcept
             configPath.empty() ? kDefaultConfigPath : configPath;
         if (std::filesystem::exists(resolvedPath, statError) || statError)
         {
-            LogError("Engine::Start()", "Invalid/unreadable existing engine config: " +
+            LogError("Engine", "Start(): Invalid/unreadable existing engine config: " +
                      resolvedPath + ". Refusing to silently load defaults.");
             return false;
         }
@@ -184,7 +192,7 @@ bool Engine::StartImpl(const std::string configPath, bool inlineJson) noexcept
 #if defined(XENGINE_RELEASE)
     cfg.logStats = false;
 #endif
-    printf("Configuration loaded.\n\n");
+    Console.Log("Configuration loaded.", "Engine");
 
     mCfg = cfg;
     mPreviousRenderParallel = false;
@@ -192,9 +200,9 @@ bool Engine::StartImpl(const std::string configPath, bool inlineJson) noexcept
     mLastRenderWeightedPrevious = 0;
     mFixedDt = mCfg.time.fixedDt;
     mLogStats = mCfg.logStats;
-#if defined(XENGINE_RELEASE)
+    mShowDebugDraws = false;
     mShowStatsOverlay = false;
-#endif
+    mStatsHeldColumnWidth = 0.f;
     mLogErrors = mCfg.logErrors;
     mAccumulator = 0.f;
     mDeterministicFixedStepsPerFrame = 0;
@@ -202,38 +210,46 @@ bool Engine::StartImpl(const std::string configPath, bool inlineJson) noexcept
     mFrameHistoryCount = 0;
     mFrameHistoryIndex = 0;
 
-    printf("Initializing SDL... ");
+#if defined(_WIN32)
+    // SDL2 must declare per-monitor DPI awareness BEFORE SDL_INIT_VIDEO.
+    // Otherwise Windows can virtualize a 1920x1080 laptop at 125% scaling as
+    // 1536x864, and the OS may stretch the finished UI as a bitmap.
+    // Respect an explicit application/environment override of either hint.
+    if (!SDL_GetHint(SDL_HINT_WINDOWS_DPI_AWARENESS))
+        SDL_SetHint(SDL_HINT_WINDOWS_DPI_AWARENESS, "permonitorv2");
+    // Keep SDL window coordinates in physical pixels on Windows. The separate
+    // WINDOWS_DPI_SCALING=1 mode deliberately uses logical DPI-scaled points.
+    if (!SDL_GetHint(SDL_HINT_WINDOWS_DPI_SCALING))
+        SDL_SetHint(SDL_HINT_WINDOWS_DPI_SCALING, "0");
+#endif
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_EVENTS | SDL_INIT_GAMECONTROLLER) != 0)
     {
-        LogError("Engine::Start()", "SDL_Init with video, audio, events and gamecontroller failed.", SDL_GetError());
+        LogError("Engine", "Start(): SDL_Init with video, audio, events and gamecontroller failed.", SDL_GetError());
         return false;
     }
-    printf("OK\n");
+    Console.Log("Initializing SDL... OK", "Engine");
 
-    printf("Initializing SDL_image... ");
     int imgFlags = IMG_INIT_PNG | IMG_INIT_JPG;
     if ((IMG_Init(imgFlags) & imgFlags) != imgFlags)
     {
-        LogError("Engine::Start()", "IMG_Init(imgFlags) failed.", IMG_GetError());
+        LogError("Engine", "Start(): IMG_Init(imgFlags) failed.", IMG_GetError());
         return false;
     }
-    printf("OK\n");
+    Console.Log("Initializing SDL_image... OK", "Engine");
 
-    printf("Initializing SDL_ttf... ");
     if (TTF_Init() != 0)
     {
-        LogError("Engine::Start()", "TTF_Init() failed.", TTF_GetError());
+        LogError("Engine", "Start(): TTF_Init() failed.", TTF_GetError());
         return false;
     }
-    printf("OK\n");
+    Console.Log("Initializing SDL_ttf... OK", "Engine");
 
-    printf("Initializing SDL_mixer... ");
     if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0)
     {
-        LogError("Engine::Start()", "Mix_OpenAudio failed.", Mix_GetError());
+        LogError("Engine", "Start(): Mix_OpenAudio failed.", Mix_GetError());
         return false;
     }
-    printf("OK\n\n");
+    Console.Log("Initializing SDL_mixer... OK", "Engine - Audio");
 
     auto* win = WindowManager::GetInstancePtr();
     auto* time = TimeManager::GetInstancePtr();
@@ -250,13 +266,12 @@ bool Engine::StartImpl(const std::string configPath, bool inlineJson) noexcept
     if (!win || !time || !random || !input || !assets || !sound ||
         !render || !collision || !physics || !ui || !scenes)
     {
-        LogError("Engine error", "Start(): One or more managers are null, check Engine::Engine()");
+        LogError("Engine", "Start(): One or more managers are null, check Engine::Engine()");
         return false;
     }
 
     bool ok = true;
 
-    printf("Initializing WindowManager... ");
     {
         WindowManager::Config cfg{
         mCfg.window.width,
@@ -268,13 +283,12 @@ bool Engine::StartImpl(const std::string configPath, bool inlineJson) noexcept
         ok = win->Init(cfg);
         if (!ok)
         {
-            LogError("Engine Start", "WindowManager::Init() failed.");
+            LogError("Engine", "Start(): WindowManager::Init() failed.");
             return false;
         }
     }
-    printf("OK\n");
+    Console.Log("Initializing WindowManager... OK", "Engine - Window");
 
-    printf("Initializing RenderManager... ");
     {
         RenderManager::Config cfg{
             mCfg.renderer.hardwareAcceleration,
@@ -287,26 +301,40 @@ bool Engine::StartImpl(const std::string configPath, bool inlineJson) noexcept
         ok = render->Init(cfg);
         if (!ok)
         {
-            LogError("Engine Start", "RenderManager::Init() failed.");
+            LogError("Engine", "Start(): RenderManager::Init() failed.");
             return false;
         }
     }
-    printf("OK\n");
+    Console.Log("Initializing RenderManager... OK", "Engine - Render");
 
-    printf("Initializing TimeManager... ");
+#if defined(_WIN32)
+    if (XEngineBuild::IsDebug) {
+        const Vec2I logical = win->GetSize();
+        const Vec2I drawable = win->GetDrawableSize();
+        const Vec2I desktop = win->GetDesktopResolution();
+        const auto backend = render->QueryBackendDiagnostics();
+        const char* dpi = SDL_GetHint(SDL_HINT_WINDOWS_DPI_AWARENESS);
+        Console.Log("[DPI] awareness=" + std::string(dpi ? dpi : "OS default") +
+                    " window=" + std::to_string(logical.x) + "x" + std::to_string(logical.y) +
+                    " drawable=" + std::to_string(drawable.x) + "x" + std::to_string(drawable.y) +
+                    " renderer=" + std::to_string(backend.rendererOutputWidth) + "x" +
+                        std::to_string(backend.rendererOutputHeight) +
+                    " desktop=" + std::to_string(desktop.x) + "x" + std::to_string(desktop.y),
+                    "Engine - Window");
+    }
+#endif
+
     ok = time->Init(mCfg.time.fixedDt);
     if (!ok)
     {
-        LogError("Engine Start", "TimeManager::Init() failed.");
+        LogError("Engine", "Start(): TimeManager::Init() failed.");
         return false;
     }
-    printf("OK\n");
+    Console.Log("Initializing TimeManager... OK", "Engine - Time");
 
-    printf("Initializing RandomManager... ");
     random->Init();
-    printf("OK\n");
+    Console.Log("Initializing RandomManager... OK", "Engine - Random");
 
-    printf("Initializing InputManager... ");
     {
         InputManager::Config cfg{
             mCfg.input.startMouseLocked,
@@ -317,22 +345,20 @@ bool Engine::StartImpl(const std::string configPath, bool inlineJson) noexcept
         ok = input->Init(cfg);
         if (!ok)
         {
-            LogError("Engine Start", "InputManager::Init() failed.");
+            LogError("Engine", "Start(): InputManager::Init() failed.");
             return false;
         }
     }
-    printf("OK\n");
+    Console.Log("Initializing InputManager... OK", "Engine - Input");
 
-    printf("Initializing AssetManager... ");
     ok = assets->Init(mCfg.assets.assetsFolderPath);
     if (!ok)
     {
-        LogError("Engine Start", "AssetManager::Init() failed.");
+        LogError("Engine", "Start(): AssetManager::Init() failed.");
         return false;
     }
-    printf("OK\n");
+    Console.Log("Initializing AssetManager... OK", "Engine - Assets");
 
-    printf(" * Loading default font asset to AssetManager... ");
     if (!cfg.assets.defaultFontRelativePath.empty())
     {
         assets->LoadFont(cfg.assets.defaultFontRelativePath, cfg.uiStyle.defaultFontKey, cfg.uiStyle.defaultFontptSize);
@@ -344,9 +370,8 @@ bool Engine::StartImpl(const std::string configPath, bool inlineJson) noexcept
             if (bold->GetSDL()) TTF_SetFontStyle(bold->GetSDL(), TTF_STYLE_BOLD);
 #endif
     }
-    printf("OK\n");
+    Console.Log("Loading default font asset... OK", "Engine - Assets");
 
-    printf("Initializing SoundManager... ");
     {
         SoundManager::Config cfg{
             mCfg.sound.sfxChannels,
@@ -360,24 +385,22 @@ bool Engine::StartImpl(const std::string configPath, bool inlineJson) noexcept
         ok = sound->Init(cfg);
         if (!ok)
         {
-            LogError("Engine Start", "SoundManager::Init() failed.");
+            LogError("Engine", "Start(): SoundManager::Init() failed.");
             return false;
         }
     }
-    printf("OK\n");
+    Console.Log("Initializing SoundManager... OK", "Engine - Audio");
 
-    printf("Initializing CollisionManager... ");
     ok = collision->Init();
     collision->ConfigureBroadphase(mCfg.collision.broadphase,
                                     mCfg.collision.cellSize, mCfg.collision.autoCellSize);
     if (!ok)
     {
-        LogError("Engine Start", "CollisionManager::Init() failed.");
+        LogError("Engine", "Start(): CollisionManager::Init() failed.");
         return false;
     }
-    printf("OK\n");
+    Console.Log("Initializing CollisionManager... OK", "Engine - Physics");
 
-    printf("Initializing PhysicsManager... ");
     {
         PhysicsManager::Config cfg
         {
@@ -391,13 +414,12 @@ bool Engine::StartImpl(const std::string configPath, bool inlineJson) noexcept
         ok = physics->Init(cfg);
         if (!ok)
         {
-            LogError("Engine Start", "PhysicsManager::Init() failed.");
+            LogError("Engine", "Start(): PhysicsManager::Init() failed.");
             return false;
         }
     }
-    printf("OK\n");
+    Console.Log("Initializing PhysicsManager... OK", "Engine - Physics");
 
-    printf("Initializing UIManager... ");
     {
         UIManager::UIStyle style{
             mCfg.uiStyle.text,
@@ -416,27 +438,26 @@ bool Engine::StartImpl(const std::string configPath, bool inlineJson) noexcept
         ok = ui->Init(style);
         if (!ok)
         {
-            LogError("Engine Start", "UIManager::Init() failed.");
+            LogError("Engine", "Start(): UIManager::Init() failed.");
             return false;
         }
     }
-    printf("OK\n");
+    Console.Log("Initializing UIManager... OK", "Engine - UI");
 
-    printf("Initializing SceneManager... ");
     ok = scenes->Init();
     if (!ok)
     {
-        LogError("Engine Start", "SceneManager::Init() failed.");
+        LogError("Engine", "Start(): SceneManager::Init() failed.");
         return false;
     }
-    printf("OK\n");
+    Console.Log("Initializing SceneManager... OK", "Engine - Scene");
 
     SafeToQuit = true;
     mStarted = true;
     // Los prints del juego pasan al registro, sin alterar stderr.
     if (!XEngineConsole::BeginStdoutCapture())
-        LogWarning("Engine::Start()", "No se pudo capturar stdout; se mantiene la salida original.");
-    printf("\nXEngine started successfully.\n\n");
+        LogWarning("Engine", "Start(): Could not capture stdout; preserving the original output stream.");
+    Console.Log("XEngine started successfully.", "Engine");
 
     return true;
 }
@@ -647,7 +668,7 @@ void Engine::WriteProfiles_() noexcept
     std::ofstream out(path, std::ios::trunc);
     if (!out)
     {
-        std::fprintf(stderr, "[PROFILE] Cannot write %s\n", path);
+        Console.Error(std::string("[PROFILE] Cannot write ") + path, "Engine - Profiler");
         return;
     }
     out << "frame,frame_ms,input_ms,fixed_ms,update_ms,render_present_ms,"
@@ -726,7 +747,8 @@ void Engine::WriteProfiles_() noexcept
             << ',' << r.renderSelectionMs
             << '\n';
     }
-    std::printf("[PROFILE] Saved %zu frame samples: %s\n", mProfiles.size(), path);
+    Console.Log("[PROFILE] Saved " + std::to_string(mProfiles.size()) +
+                " frame samples: " + path, "Engine - Profiler");
     mProfiles.clear();
 }
 
@@ -747,57 +769,44 @@ void Engine::StopImpl() noexcept
     auto* ui = UIManager::GetInstancePtr();
     auto* scenes = SceneManager::GetInstancePtr();
 
-    printf("Shutting down SceneManager... ");
     if (scenes) { scenes->Shutdown(); }
-    printf("OK\n");
+    Console.Log("Shutting down SceneManager... OK", "Engine - Scene");
 
-    printf("Shutting down UIManager... ");
     if (ui) { ui->Shutdown(); }
-    printf("OK\n");
+    Console.Log("Shutting down UIManager... OK", "Engine - UI");
 
-    printf("Shutting down PhysicsManager... ");
     if (physics) { physics->Shutdown(); }
-    printf("OK\n");
+    Console.Log("Shutting down PhysicsManager... OK", "Engine - Physics");
 
-    printf("Shutting down CollisionManager... ");
     if (collision) { collision->Shutdown(); }
-    printf("OK\n");
+    Console.Log("Shutting down CollisionManager... OK", "Engine - Physics");
 
-    printf("Shutting down SoundManager... ");
     if (sound) { sound->Shutdown(); }
-    printf("OK\n");
+    Console.Log("Shutting down SoundManager... OK", "Engine - Audio");
 
-    printf("Shutting down AssetManager... ");
     if (assets) { assets->Shutdown(); }
-    printf("OK\n");
+    Console.Log("Shutting down AssetManager... OK", "Engine - Assets");
 
-    printf("Shutting down InputManager... ");
     if (input) { input->Shutdown(); }
-    printf("OK\n");
+    Console.Log("Shutting down InputManager... OK", "Engine - Input");
 
-    printf("Shutting down RenderManager... ");
     if (render) { render->Shutdown(); }
-    printf("OK\n");
+    Console.Log("Shutting down RenderManager... OK", "Engine - Render");
 
-    printf("Shutting down WindowManager... ");
     if (win) { win->Shutdown(); }
-    printf("OK\n");
+    Console.Log("Shutting down WindowManager... OK", "Engine - Window");
 
-    printf("Shutting down SDL_mixer... ");
     Mix_CloseAudio();
-    printf("OK\n");
+    Console.Log("Shutting down SDL_mixer... OK", "Engine - Audio");
 
-    printf("Shutting down SDL_ttf... ");
     TTF_Quit();
-    printf("OK\n");
+    Console.Log("Shutting down SDL_ttf... OK", "Engine");
 
-    printf("Shutting down SDL_image... ");
     IMG_Quit();
-    printf("OK\n");
+    Console.Log("Shutting down SDL_image... OK", "Engine");
 
-    printf("Shutting down SDL... ");
     SDL_Quit();
-    printf("OK\n");
+    Console.Log("Shutting down SDL... OK", "Engine");
 
     mStarted = false;
     mShuttingDown = false;
@@ -808,7 +817,7 @@ bool Engine::ApplyStartingScene() const noexcept
 {
     if (!Scenes()->mHasPending)
     {
-        LogError("Engine::ApplyStartingScene()", "No pending scene to apply at start. Engine will shut down.");
+        LogError("Engine", "ApplyStartingScene(): No pending scene to apply at start. Engine will shut down.");
 		return false;
     }
 
@@ -848,6 +857,11 @@ inline float Engine::GetAspectRatio() noexcept
 }
 
 // Helper to express the aspect ratio as a fraction
+/** @brief Gcd in Engine.cpp.
+ * @param a First input operand.
+ * @param b Second input operand.
+ * @return Result of gcd in Engine.cpp.
+ */
 int gcd(int a, int b) {
     while (b != 0) {
         int t = b;
@@ -882,6 +896,10 @@ float Engine::GetFPS_() const noexcept { return Engine::GetFPS(); }
 float Engine::GetAspectRatio_() const noexcept { return Engine::GetAspectRatio(); }
 Vec2I Engine::GetAspectRatioAsFraction_() const noexcept { return Engine::GetAspectRatioAsFraction(); }
 
+/** @brief Trim in Engine.cpp.
+ * @param s S supplied to Engine.cpp.
+ * @return Result of trim in Engine.cpp.
+ */
 static inline std::string Trim(const std::string& s)
 {
     auto first = std::find_if_not(s.begin(), s.end(), ::isspace);
@@ -890,6 +908,10 @@ static inline std::string Trim(const std::string& s)
     return std::string(first, last);
 }
 
+/** @brief Parse bool in Engine.cpp.
+ * @param s S supplied to Engine.cpp.
+ * @return True if the operation succeeded or its condition holds; otherwise false.
+ */
 static inline bool ParseBool(const std::string& s)
 {
     std::string v;
@@ -900,6 +922,10 @@ static inline bool ParseBool(const std::string& s)
     return (v == "1" || v == "true" || v == "yes" || v == "on");
 }
 
+/** @brief Parse color in Engine.cpp.
+ * @param s S supplied to Engine.cpp.
+ * @return Result of parse color in Engine.cpp.
+ */
 static inline Color ParseColor(const std::string& s)
 {
     // Expects "r,g,b,a"
@@ -984,6 +1010,11 @@ static inline Color ParseColor(const std::string& s)
 
 */
 
+/** @brief Json color or default in Engine.cpp.
+ * @param j J supplied to Engine.cpp.
+ * @param def Def supplied to Engine.cpp.
+ * @return Result of json color or default in Engine.cpp.
+ */
 static Color JsonColorOrDefault(const json& j, const Color& def) noexcept
 {
     Color c = def;
@@ -1008,6 +1039,11 @@ static Color JsonColorOrDefault(const json& j, const Color& def) noexcept
     return c;
 }
 
+/** @brief Json vec2 or default in Engine.cpp.
+ * @param j J supplied to Engine.cpp.
+ * @param def Def supplied to Engine.cpp.
+ * @return Result of json vec2 or default in Engine.cpp.
+ */
 static Vec2 JsonVec2OrDefault(const json& j, const Vec2& def) noexcept
 {
     if (!j.is_array() || j.size() < 2) return def;
@@ -1024,6 +1060,11 @@ static Vec2 JsonVec2OrDefault(const json& j, const Vec2& def) noexcept
     return out;
 }
 
+/** @brief Byte to line col in Engine.cpp.
+ * @param text UTF-8 text supplied to the operation.
+ * @param bytePos Byte pos supplied to Engine.cpp.
+ * @return Result of byte to line col in Engine.cpp.
+ */
 static std::pair<int, int> ByteToLineCol(const std::string& text, std::size_t bytePos) noexcept
 {
     int line = 1;
@@ -1298,8 +1339,8 @@ bool Engine::LoadConfigFromJson(const std::string& text, const std::string& orig
     {
         // e.byte = approximate error byte offset within the string
         const auto [line, col] = ByteToLineCol(text, e.byte);
-        LogError("Engine::LoadConfigFromFile",
-            (std::string("JSON parse error at ") + origin +
+        LogError("Engine",
+            (std::string("LoadConfigFromFile(): JSON parse error at ") + origin +
                 " line " + std::to_string(line) +
                 ", col " + std::to_string(col) +
                 ": " + e.what()).c_str());
@@ -1308,14 +1349,14 @@ bool Engine::LoadConfigFromJson(const std::string& text, const std::string& orig
     catch (const json::exception& e)
     {
         // Type errors / out_of_range / etc.
-        LogError("Engine::LoadConfigFromFile",
-            (std::string("JSON error in ") + origin + ": " + e.what()).c_str());
+        LogError("Engine",
+            (std::string("LoadConfigFromFile(): JSON error in ") + origin + ": " + e.what()).c_str());
         return false;
     }
     catch (...)
     {
-        LogError("Engine::LoadConfigFromFile",
-            (std::string("Unknown error parsing JSON config: ") + origin).c_str());
+        LogError("Engine",
+            (std::string("LoadConfigFromFile(): Unknown error parsing JSON config: ") + origin).c_str());
         return false;
     }
 
@@ -1356,9 +1397,17 @@ void Engine::PollInput_() noexcept
 	input->Update();
     if (XEngineBuild::IsDebug && mLogStats && input && input->KeyPressed(Key::F3))
     {
-        mShowStatsOverlay = !mShowStatsOverlay;
+        mShowDebugDraws = !mShowDebugDraws;
+        mShowStatsOverlay = mShowDebugDraws;
+        if (mShowStatsOverlay) mStatsHeldColumnWidth = 0.f;
         mStatsNextRefresh = 0.0;
         mStatsPage = 0;
+    }
+    else if (XEngineBuild::IsDebug && mLogStats && mShowDebugDraws && input &&
+             input->KeyPressed(Key::F2))
+    {
+        mShowStatsOverlay = !mShowStatsOverlay;
+        if (mShowStatsOverlay) mStatsNextRefresh = 0.0;
     }
     if (XEngineBuild::IsDebug && mShowStatsOverlay && input &&
         input->KeyPressed(Key::F4) && !mStatsLayout.pages.empty())
@@ -1569,6 +1618,10 @@ void Engine::DoRender_() noexcept
     mRenderTime = ProfileElapsed_(renderStart);
 }
 
+/** @brief S printf in Engine.cpp.
+ * @param fmt Fmt supplied to Engine.cpp.
+ * @return Result of s printf in Engine.cpp.
+ */
 static std::string SPrintf_(const char* fmt, ...) noexcept
 {
     char buf[256];
@@ -1579,6 +1632,11 @@ static std::string SPrintf_(const char* fmt, ...) noexcept
     return std::string(buf);
 }
 
+/** @brief Safe pct in Engine.cpp.
+ * @param part Part supplied to Engine.cpp.
+ * @param total Total supplied to Engine.cpp.
+ * @return Result of safe pct in Engine.cpp.
+ */
 static inline double SafePct_(double part, double total) noexcept
 {
     if (!(total > 1e-12)) return 0.0;
@@ -1598,7 +1656,7 @@ void Engine::DrawStatsOverlay_() noexcept
 
     if (!win || !time || !assets || !render || !collision || !scenes || !ui) return;
 
-    // Refresh values and positions together: the text width is not constant.
+    // Refresh values at 4 Hz, but do not let fluctuating digits resize the panel.
     const double now = time->timeSinceStart;
     const Vec2I viewport = win->GetDrawableSize();
     const bool refreshed = now >= mStatsNextRefresh;
@@ -1889,6 +1947,7 @@ void Engine::DrawStatsOverlay_() noexcept
     constexpr float margin = 9.f;
     constexpr float horizontalPadding = 9.f;
     constexpr float valueGap = 10.f;
+    constexpr float widthSafetyPadding = 32.f;
     constexpr float headerHeight = 32.f;
     constexpr float footerHeight = 26.f;
     constexpr float columnGap = 12.f;
@@ -1896,9 +1955,12 @@ void Engine::DrawStatsOverlay_() noexcept
         TTF_FontHeight(consoleFontNormal->GetSDL()),
         TTF_FontHeight(consoleFontBold->GetSDL()))) + 1.f;
 
-    if (refreshed || mStatsViewport != viewport || mStatsLayout.pages.empty() ||
-        mStatsLineHeight != lineHeight)
+    const bool viewportOrFontChanged = mStatsViewport != viewport ||
+        mStatsLineHeight != lineHeight;
+    if (refreshed || viewportOrFontChanged || mStatsLayout.pages.empty())
     {
+        // A new viewport/font may have less room: start a new width baseline.
+        if (viewportOrFontChanged) mStatsHeldColumnWidth = 0.f;
         mStatsViewport = viewport;
         mStatsLineHeight = lineHeight;
         mStatsDisplayRows.clear();
@@ -1948,9 +2010,14 @@ void Engine::DrawStatsOverlay_() noexcept
         }
         if (!currentBlock.empty()) blocks.emplace_back(std::move(currentBlock));
 
+        // Extra room absorbs normal digit changes (FPS, frame times, counters).
+        // A running panel may grow for a genuinely longer value, but never
+        // shrinks at the next 0.25 s refresh; F3 reopen/resize resets it.
+        mStatsHeldColumnWidth = XEngineStatsOverlay::HoldColumnWidth(
+            mStatsHeldColumnWidth, std::max(260.f, desiredWidth + widthSafetyPadding));
         mStatsLayout = XEngineStatsOverlay::Pack(blocks,
             static_cast<float>(viewport.x), static_cast<float>(viewport.y),
-            std::max(260.f, desiredWidth), lineHeight, margin, headerHeight,
+            mStatsHeldColumnWidth, lineHeight, margin, headerHeight,
             footerHeight, columnGap);
         mStatsColumnWidth = mStatsLayout.columnWidth;
         // Cache fitted strings: the F3 overlay must not perform expensive
@@ -2006,8 +2073,8 @@ void Engine::DrawStatsOverlay_() noexcept
     }
 
     const std::string footer = mStatsLayout.pages.size() > 1
-        ? "F3: close  |  F4: next page"
-        : "F3: close";
+        ? "F2: hide panel  |  F3: close  |  F4: next page"
+        : "F2: hide panel  |  F3: close";
     ui->Label(fit(footer, consoleFontNormal->GetSDL(), panelW - 2.f * horizontalPadding),
         margin + horizontalPadding, panelH - lineHeight - 6.f,
         *consoleFontNormal, Color::White());

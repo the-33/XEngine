@@ -18,6 +18,8 @@
  */
 class Component 
 {
+	/** @brief Grant GameObject access to the internal state of Component.
+	 */
 	friend class GameObject;
 
 protected:
@@ -53,6 +55,7 @@ protected:
     static constexpr bool kUnique = false;               // NOT unique by default
 
     /** @brief Returns the game object of Component.
+     * @return The game object of component.
      */
     inline GameObject* GetGameObject() const noexcept { return mGameObject; }
 
@@ -77,6 +80,7 @@ public:
 
     /** @brief Implements operator= for this value or property type.
      * @param o Object or owner associated with this operation.
+     * @return Result of applying the overloaded operator.
      */
     Component& operator=(Component&& o) noexcept
     {
@@ -89,6 +93,7 @@ public:
     }
 
     /** @brief Reports whether unique is currently true.
+     * @return True when is unique; otherwise false.
      */
     virtual bool IsUnique() const noexcept { return kUnique; }
 
@@ -105,13 +110,17 @@ public:
 
     // Bucle
     /** @brief Called during fixed simulation steps with the fixed timestep in seconds.
+     * @param dt Elapsed frame or fixed-step duration, in seconds.
      */
-    virtual void FixedUpdate(float) {}
+    virtual void FixedUpdate(float dt) {}
     /** @brief Called once per frame after fixed updates; argument is scaled elapsed seconds.
+     * @param dt Elapsed frame or fixed-step duration, in seconds.
      */
-    virtual void Update(float) {}
-    /** @brief Called after every component Update and before rendering. */
-    virtual void LateUpdate(float) {}
+    virtual void Update(float dt) {}
+    /** @brief Called after every component Update and before rendering.
+     * @param dt Elapsed frame or fixed-step duration, in seconds.
+     */
+    virtual void LateUpdate(float dt) {}
     /** @brief Lifecycle hook for render; the engine controls invocation order.
      */
     virtual void Render() {}

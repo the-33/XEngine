@@ -8,6 +8,7 @@
 #include "SDL.h"
 #include "SDL_mixer.h"
 #include "SDL_ttf.h"
+#include <string>
 
 // =========================
 // Texture
@@ -26,32 +27,42 @@ public:
 	 */
 	~Texture() noexcept;                     // libera SDL_Texture*
 	/** @brief Constructs a Texture instance.
+	 * @param other Other supplied to Texture.
 	 */
-	Texture(Texture&&) noexcept;    // move-only
+	Texture(Texture&& other) noexcept;    // move-only
 	/** @brief Implements operator= for this value or property type.
+	 * @param other Other supplied to Texture.
+	 * @return Result of applying the overloaded operator.
 	 */
-	Texture& operator=(Texture&&) noexcept;
+	Texture& operator=(Texture&& other) noexcept;
 	/** @brief Constructs a Texture instance.
+	 * @param other Source object whose copy, move or equality is being requested.
 	 */
-	Texture(const Texture&) = delete;
+	Texture(const Texture& other) = delete;
 	/** @brief Implements operator= for this value or property type.
+	 * @return Result of applying the overloaded operator.
+	 * @param other Source object whose copy, move or equality is being requested.
 	 */
-	Texture& operator=(const Texture&) = delete;
+	Texture& operator=(const Texture& other) = delete;
 
 	// Internal access (RenderManager only)
 	/** @brief Returns the underlying SDL_Texture handle without transferring ownership.
+	 * @return The underlying sdl_texture handle without transferring ownership.
 	 */
 	SDL_Texture* GetSDL() const noexcept;
 
 	// Useful metadata (filled in during loading with SDL_QueryTexture / SDL_image)
 	/** @brief Returns the resource width, in pixels.
+	 * @return The resource width, in pixels.
 	 */
 	int  Width()  const noexcept;
 	/** @brief Returns the resource height, in pixels.
+	 * @return The resource height, in pixels.
 	 */
 	int  Height() const noexcept;
 
 	/** @brief Returns the texture's pixels-per-world-unit scale.
+	 * @return The texture's pixels-per-world-unit scale.
 	 */
 	float PixelsPerUnit() const noexcept { return pixelsPerUnit; }
 	/** @brief Sets texture scale metadata, falling back to 100 for nonpositive input.
@@ -60,10 +71,20 @@ public:
 	void  SetPixelsPerUnit(float ppu) noexcept { pixelsPerUnit = (ppu > 0.f ? ppu : 100.f); }
 
 private:
+	/** @brief Grant AssetManager access to the internal state of Texture.
+	 */
 	friend class AssetManager;   // assign the pointer when loading
+	/** @brief Grant RenderManager access to the internal state of Texture.
+	 */
 	friend class RenderManager;  // for drawing
+	/** @brief Stored texture value used by Texture.
+	 */
 	SDL_Texture* mTexture = nullptr;
+	/** @brief Stored w value used by Texture.
+	 */
 	int mW = 0, mH = 0;
+	/** @brief Configured pixels per unit value used by Texture.
+	 */
 	float pixelsPerUnit = 100.f;
 };
 
@@ -84,26 +105,43 @@ public:
 	 */
 	~Font() noexcept;                      // libera TTF_Font*
 	/** @brief Constructs a Font instance.
+	 * @param other Other supplied to Font.
 	 */
-	Font(Font&&) noexcept;
+	Font(Font&& other) noexcept;
 	/** @brief Implements operator= for this value or property type.
+	 * @param other Other supplied to Font.
+	 * @return Result of applying the overloaded operator.
 	 */
-	Font& operator=(Font&&) noexcept;
+	Font& operator=(Font&& other) noexcept;
 	/** @brief Constructs a Font instance.
+	 * @param other Source object whose copy, move or equality is being requested.
 	 */
-	Font(const Font&) = delete;
+	Font(const Font& other) = delete;
 	/** @brief Implements operator= for this value or property type.
+	 * @return Result of applying the overloaded operator.
+	 * @param other Source object whose copy, move or equality is being requested.
 	 */
-	Font& operator=(const Font&) = delete;
+	Font& operator=(const Font& other) = delete;
 
 	/** @brief Returns the underlying TTF_Font handle without transferring ownership.
+	 * @return The underlying ttf_font handle without transferring ownership.
 	 */
 	TTF_Font* GetSDL() const noexcept;
 
 private:
+	/** @brief Grant AssetManager access to the internal state of Font.
+	 */
 	friend class AssetManager;
+	/** @brief Grant RenderManager access to the internal state of Font.
+	 */
+	friend class RenderManager;
+	/** @brief Stored font value used by Font.
+	 */
 	TTF_Font* mFont = nullptr;
+	/** @brief Stored point size value used by Font.
+	 */
 	int mPointSize = 0;
+	std::string mSourcePath; ///< Source file for crisp screen-sized font variants.
 };
 
 // =========================
@@ -123,25 +161,38 @@ public:
 	 */
 	~SoundEffect() noexcept;                         // libera Mix_Chunk*
 	/** @brief Constructs a SoundEffect instance.
+	 * @param other Other supplied to SoundEffect.
 	 */
-	SoundEffect(SoundEffect&&) noexcept;
+	SoundEffect(SoundEffect&& other) noexcept;
 	/** @brief Implements operator= for this value or property type.
+	 * @param other Other supplied to SoundEffect.
+	 * @return Result of applying the overloaded operator.
 	 */
-	SoundEffect& operator=(SoundEffect&&) noexcept;
+	SoundEffect& operator=(SoundEffect&& other) noexcept;
 	/** @brief Constructs a SoundEffect instance.
+	 * @param other Source object whose copy, move or equality is being requested.
 	 */
-	SoundEffect(const SoundEffect&) = delete;
+	SoundEffect(const SoundEffect& other) = delete;
 	/** @brief Implements operator= for this value or property type.
+	 * @return Result of applying the overloaded operator.
+	 * @param other Source object whose copy, move or equality is being requested.
 	 */
-	SoundEffect& operator=(const SoundEffect&) = delete;
+	SoundEffect& operator=(const SoundEffect& other) = delete;
 
 	/** @brief Returns the underlying Mix_Chunk handle without transferring ownership.
+	 * @return The underlying mix_chunk handle without transferring ownership.
 	 */
 	Mix_Chunk* GetSDL() const noexcept;
 
 private:
+	/** @brief Grant AssetManager access to the internal state of SoundEffect.
+	 */
 	friend class AssetManager;
+	/** @brief Grant SoundManager access to the internal state of SoundEffect.
+	 */
 	friend class SoundManager;
+	/** @brief Stored chunk value used by SoundEffect.
+	 */
 	Mix_Chunk* mChunk = nullptr;
 };
 
@@ -162,24 +213,45 @@ public:
 	 */
 	~Music() noexcept;                               // libera Mix_Music*
 	/** @brief Constructs a Music instance.
+	 * @param other Other supplied to Music.
 	 */
-	Music(Music&&) noexcept;
+	Music(Music&& other) noexcept;
 	/** @brief Implements operator= for this value or property type.
+	 * @param other Other supplied to Music.
+	 * @return Result of applying the overloaded operator.
 	 */
-	Music& operator=(Music&&) noexcept;
+	Music& operator=(Music&& other) noexcept;
 	/** @brief Constructs a Music instance.
+	 * @param other Source object whose copy, move or equality is being requested.
 	 */
-	Music(const Music&) = delete;
+	Music(const Music& other) = delete;
 	/** @brief Implements operator= for this value or property type.
+	 * @return Result of applying the overloaded operator.
+	 * @param other Source object whose copy, move or equality is being requested.
 	 */
-	Music& operator=(const Music&) = delete;
+	Music& operator=(const Music& other) = delete;
 
 	/** @brief Returns the underlying Mix_Music handle without transferring ownership.
+	 * @return The underlying mix_music handle without transferring ownership.
 	 */
 	Mix_Music* GetSDL() const noexcept;
 
 private:
+	/** @brief Grant AssetManager access to the internal state of Music.
+	 */
 	friend class AssetManager;
+	/** @brief Grant SoundManager access to the internal state of Music.
+	 */
 	friend class SoundManager;
+	/** @brief Stored music value used by Music.
+	 */
 	Mix_Music* mMusic = nullptr;
 };
+
+/** @name Co-declared engine member descriptions
+ * @brief Members sharing declarations with other fields.
+ * @{ */
+/** @var int Texture::mH
+ * @brief Stored h state owned by Texture.
+ */
+/** @} */

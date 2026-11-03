@@ -7,6 +7,8 @@
 #include <stdexcept>
 #include <unordered_set>
 
+/** @brief Namespace collecting @220304265107347005103130205124352311373124072226 functionality for XEngine.
+ */
 namespace {
 using Json = nlohmann::json;
 

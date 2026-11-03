@@ -11,10 +11,21 @@
 /** @brief CPU-only rendering preparation with no SDL or live-scene access. */
 namespace xengine::detail::render_preparation
 {
+/** @brief Configured x value used by Rect.
+ */
 struct Rect { float x, y, w, h; };
+/** @brief Configured center x value used by Camera.
+ */
 struct Camera { float centerX, centerY, baseW, baseH, zoom; int width, height; };
+/** @brief Configured screen value used by Prepared.
+ */
 struct Prepared { Rect screen{}; float pivotX = 0.f, pivotY = 0.f; bool visible = false; };
 
+/** @brief Intersects in render_preparation.
+ * @param a First input operand.
+ * @param b Second input operand.
+ * @return True if the operation succeeded or its condition holds; otherwise false.
+ */
 inline bool Intersects(Rect a, Rect b) noexcept
 {
     return a.x < b.x + b.w && a.x + a.w > b.x &&
@@ -77,3 +88,67 @@ inline Prepared Prepare(const Camera& cam, Rect world, float rotationDeg,
 // Compatibility namespace: existing engine code and internal tests may still
 // include the historical forwarding header and use its original spelling.
 namespace RenderPreparation = xengine::detail::render_preparation;
+
+/** @name Co-declared engine member descriptions
+ * @brief Members sharing declarations with other fields.
+ * @{ */
+/** @var float xengine::detail::render_preparation::Camera::centerX
+ * @brief Camera center x in the projection coordinate space.
+ */
+
+/** @var float xengine::detail::render_preparation::Camera::centerY
+ * @brief Camera center y in the projection coordinate space.
+ */
+
+/** @var float xengine::detail::render_preparation::Camera::baseW
+ * @brief Camera base w in the projection coordinate space.
+ */
+
+/** @var float xengine::detail::render_preparation::Camera::baseH
+ * @brief Camera base h in the projection coordinate space.
+ */
+
+/** @var float xengine::detail::render_preparation::Camera::zoom
+ * @brief Camera zoom in the projection coordinate space.
+ */
+
+/** @var int xengine::detail::render_preparation::Camera::width
+ * @brief Camera width in the projection coordinate space.
+ */
+
+/** @var int xengine::detail::render_preparation::Camera::height
+ * @brief Camera height in the projection coordinate space.
+ */
+
+/** @var Rect xengine::detail::render_preparation::Prepared::screen
+ * @brief Screen used by Prepared.
+ */
+
+/** @var float xengine::detail::render_preparation::Prepared::pivotX
+ * @brief Pivot x used by Prepared.
+ */
+
+/** @var float xengine::detail::render_preparation::Prepared::pivotY
+ * @brief Pivot y used by Prepared.
+ */
+
+/** @var bool xengine::detail::render_preparation::Prepared::visible
+ * @brief Visible used by Prepared.
+ */
+
+/** @var float xengine::detail::render_preparation::Rect::x
+ * @brief X used by Rect.
+ */
+
+/** @var float xengine::detail::render_preparation::Rect::y
+ * @brief Y used by Rect.
+ */
+
+/** @var float xengine::detail::render_preparation::Rect::w
+ * @brief W used by Rect.
+ */
+
+/** @var float xengine::detail::render_preparation::Rect::h
+ * @brief H used by Rect.
+ */
+/** @} */

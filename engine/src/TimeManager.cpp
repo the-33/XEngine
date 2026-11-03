@@ -5,6 +5,9 @@
 #include "SDL.h"
 
 // Local helpers for high-resolution timing in seconds
+/** @brief Now seconds hr in TimeManager.cpp.
+ * @return Result of now seconds hr in TimeManager.cpp.
+ */
 static inline double NowSecondsHR() noexcept {
     const Uint64 counter = SDL_GetPerformanceCounter();
     const double freq = static_cast<double>(SDL_GetPerformanceFrequency());

@@ -22,12 +22,16 @@ class AdaptiveBroadphase final {
 public:
     // One bucket per power-of-two collider-count range, and one per worker mode.
     // Separate buckets ensure observations from different scales are not mixed.
+    /** @brief Reset the AdaptiveBroadphase state.
+     */
     void Reset() noexcept { mBuckets = {}; }
 
     /** @brief Chooses whether to use grid broad phase on the current pass.
      * @return True for grid, false for brute force. During calibration this
      *         intentionally probes both candidates rather than always using
      *         the current winner.
+     * @param colliders Collider collection to query or use in collision detection.
+     * @param parallelWorkers Number of workers available for parallel processing.
      */
     bool Choose(std::size_t colliders, bool parallelWorkers) noexcept {
         Bucket& b = Get(colliders, parallelWorkers);
@@ -43,6 +47,10 @@ public:
 
     /** @brief Records the observed preparation/candidate cost in milliseconds.
      * @note Invalid negative or non-finite measurements are ignored.
+     * @param colliders Collider collection to query or use in collision detection.
+     * @param parallelWorkers Number of workers available for parallel processing.
+     * @param usedGrid Whether to used grid for this operation.
+     * @param gridBuildAndCandidateMs Grid build and candidate ms in milliseconds.
      */
     void Observe(std::size_t colliders, bool parallelWorkers, bool usedGrid,
                  float gridBuildAndCandidateMs) noexcept {
@@ -63,14 +71,33 @@ public:
     }
 
 private:
+    /** @brief Configured initial samples value used by AdaptiveBroadphase.
+     */
     static constexpr unsigned kInitialSamples = 6;
+    /** @brief Configured probe interval value used by AdaptiveBroadphase.
+     */
     static constexpr unsigned kProbeInterval = 48;
+    /** @brief Configured alpha value used by AdaptiveBroadphase.
+     */
     static constexpr float kAlpha = 0.125f;
+    /** @brief Configured hysteresis value used by AdaptiveBroadphase.
+     */
     static constexpr float kHysteresis = 0.08f;
+    /** @brief Stored mean value used by Estimate.
+     */
     struct Estimate { float mean = 0.f; unsigned samples = 0; };
+    /** @brief Configured brute value used by Bucket.
+     */
     struct Bucket { Estimate brute, grid; unsigned calls = 0; bool preferGrid = false; };
+    /** @brief Stored buckets value used by AdaptiveBroadphase.
+     */
     std::array<Bucket, 64> mBuckets{};
 
+    /** @brief Retrieve the value from AdaptiveBroadphase.
+     * @param n N supplied to AdaptiveBroadphase.
+     * @param parallelWorkers Number of workers available for parallel processing.
+     * @return Requested get value or reference.
+     */
     Bucket& Get(std::size_t n, bool parallelWorkers) noexcept {
         unsigned bucket = 0;
         while (n > 1 && bucket < 31) { n >>= 1; ++bucket; }
@@ -89,16 +116,34 @@ private:
  */
 class AdaptiveCellBroadphase final {
 public:
+    /** @brief Configured strategies value used by AdaptiveCellBroadphase.
+     */
     static constexpr unsigned kStrategies = 4;
+    /** @brief Configured initial samples value used by AdaptiveCellBroadphase.
+     */
     static constexpr unsigned kInitialSamples = 5;
+    /** @brief Configured probe interval value used by AdaptiveCellBroadphase.
+     */
     static constexpr unsigned kProbeInterval = 24; // first post-calibration probe
+    /** @brief Configured max probe interval value used by AdaptiveCellBroadphase.
+     */
     static constexpr unsigned kMaxProbeInterval = 192;
+    /** @brief Configured confirmation interval value used by AdaptiveCellBroadphase.
+     */
     static constexpr unsigned kConfirmationInterval = 8;
+    /** @brief Configured confirmations value used by AdaptiveCellBroadphase.
+     */
     static constexpr unsigned kConfirmations = 3;
+    /** @brief Configured hysteresis value used by AdaptiveCellBroadphase.
+     */
     static constexpr float kHysteresis = 0.12f;
     // Concentration distinguishes two spatial layouts with the same number of
     // colliders and similar global AABB occupancy. Contexts are *not* cutoffs
     // for choosing an algorithm: each context measures all four strategies.
+    /** @brief Concentration class in AdaptiveCellBroadphase.
+     * @param bins Bins supplied to AdaptiveCellBroadphase.
+     * @return Result of concentration class in AdaptiveCellBroadphase.
+     */
     static unsigned ConcentrationClass(const std::array<unsigned, 16>& bins) noexcept {
         double count = 0., sumSquares = 0.;
         for (unsigned v : bins) { count += v; sumSquares += double(v) * double(v); }
@@ -106,10 +151,20 @@ public:
         const double effectiveBins = count * count / sumSquares;
         return effectiveBins <= 3. ? 0u : (effectiveBins <= 8. ? 1u : 2u);
     }
+    /** @brief Configured strategy value used by Choice.
+     */
     struct Choice { unsigned strategy = 0; bool probe = false; };
 
+    /** @brief Reset the AdaptiveCellBroadphase state.
+     */
     void Reset() noexcept { mBuckets = {}; }
 
+    /** @brief Choose in AdaptiveCellBroadphase.
+     * @param colliders Collider collection to query or use in collision detection.
+     * @param workers Workers supplied to AdaptiveCellBroadphase.
+     * @param densityClass Density class supplied to AdaptiveCellBroadphase.
+     * @return Result of choose in AdaptiveCellBroadphase.
+     */
     Choice Choose(std::size_t colliders, bool workers, unsigned densityClass) noexcept {
         Bucket& b = Get(colliders, workers, densityClass);
         // Calibration runs in round-robin order to limit time-dependent bias.
@@ -144,6 +199,13 @@ public:
         return {b.winner, false};
     }
 
+    /** @brief Observe in AdaptiveCellBroadphase.
+     * @param colliders Collider collection to query or use in collision detection.
+     * @param workers Workers supplied to AdaptiveCellBroadphase.
+     * @param densityClass Density class supplied to AdaptiveCellBroadphase.
+     * @param strategy Strategy supplied to AdaptiveCellBroadphase.
+     * @param milliseconds Milliseconds supplied to AdaptiveCellBroadphase.
+     */
     void Observe(std::size_t colliders, bool workers, unsigned densityClass,
                  unsigned strategy, float milliseconds) noexcept {
         if (strategy >= kStrategies || !std::isfinite(milliseconds) || milliseconds < 0.f) return;
@@ -211,6 +273,11 @@ public:
         }
     }
 
+    /** @brief Cell size in AdaptiveCellBroadphase.
+     * @param strategy Strategy supplied to AdaptiveCellBroadphase.
+     * @param reference Reference supplied to AdaptiveCellBroadphase.
+     * @return Result of cell size in AdaptiveCellBroadphase.
+     */
     static float CellSize(unsigned strategy, float reference = 2.f) noexcept {
         if (strategy == 1) return std::max(0.05f, reference * 0.5f);
         if (strategy == 3) return std::min(4096.f, reference * 2.f);
@@ -220,10 +287,22 @@ public:
 private:
     // Nine recent observations per strategy. Drop the largest and smallest
     // samples so a brief OS scheduling spike cannot become the new baseline.
+    /** @brief Recorded statistics and decisions for adaptive algorithm selection.
+     */
     struct Estimate {
+        /** @brief Configured recent value used by Estimate.
+         */
         std::array<float, 9> recent{};
+        /** @brief Configured samples value used by Estimate.
+         */
         unsigned samples = 0;
+        /** @brief Add in Estimate.
+         * @param x Horizontal coordinate or component.
+         */
         void Add(float x) noexcept { recent[samples % recent.size()] = x; ++samples; }
+        /** @brief Robust cost in Estimate.
+         * @return Result of robust cost in Estimate.
+         */
         float RobustCost() const noexcept {
             const unsigned count = std::min(samples, static_cast<unsigned>(recent.size()));
             if (!count) return 0.f;
@@ -246,16 +325,38 @@ private:
             return sum / static_cast<float>(count - 2 * trim);
         }
     };
+    /** @brief Recorded statistics and decisions for adaptive algorithm selection.
+     */
     struct Bucket {
+        /** @brief Configured cost value used by Bucket.
+         */
         std::array<Estimate, kStrategies> cost{};
+        /** @brief Configured calibration cursor value used by Bucket.
+         */
         unsigned calibrationCursor = 0, probeCursor = 0, winner = 0;
+        /** @brief Configured calls value used by Bucket.
+         */
         unsigned calls = 0, sinceProbe = 0, probeInterval = kProbeInterval;
+        /** @brief Configured pending value used by Bucket.
+         */
         unsigned pending = kStrategies, confirmations = 0;
+        /** @brief Configured quiet probes value used by Bucket.
+         */
         unsigned quietProbes = 0, driftSamples = 0, cooldown = 0;
+        /** @brief Configured calibrated value used by Bucket.
+         */
         bool calibrated = false;
     };
     // Three global occupancy classes x three spatial concentration classes.
+    /** @brief Stored buckets value used by AdaptiveCellBroadphase.
+     */
     std::array<Bucket, 32 * 2 * 9> mBuckets{};
+    /** @brief Retrieve the value from AdaptiveCellBroadphase.
+     * @param n N supplied to AdaptiveCellBroadphase.
+     * @param workers Workers supplied to AdaptiveCellBroadphase.
+     * @param density Density supplied to AdaptiveCellBroadphase.
+     * @return Requested get value or reference.
+     */
     Bucket& Get(std::size_t n, bool workers, unsigned density) noexcept {
         unsigned bin = 0;
         while (n > 1 && bin < 31) { n >>= 1; ++bin; }
@@ -264,6 +365,73 @@ private:
 };
 
 } // namespace xengine::detail
+/** @brief Type alias for adaptive broadphase used by XEngine/detail/AdaptiveBroadphase.h.
+ */
 using AdaptiveBroadphase = xengine::detail::AdaptiveBroadphase;
+/** @brief Type alias for adaptive cell broadphase used by XEngine/detail/AdaptiveBroadphase.h.
+ */
 using AdaptiveCellBroadphase = xengine::detail::AdaptiveCellBroadphase;
 
+/** @name Co-declared engine member descriptions
+ * @brief Members sharing declarations with other fields.
+ * @{ */
+/** @var Estimate xengine::detail::AdaptiveBroadphase::Bucket::brute
+ * @brief Brute used by Bucket.
+ */
+
+/** @var Estimate xengine::detail::AdaptiveBroadphase::Bucket::grid
+ * @brief Grid used by Bucket.
+ */
+
+/** @var unsigned xengine::detail::AdaptiveBroadphase::Bucket::calls
+ * @brief Recorded calls used to compare algorithm costs.
+ */
+
+/** @var bool xengine::detail::AdaptiveBroadphase::Bucket::preferGrid
+ * @brief Prefer grid used by Bucket.
+ */
+
+/** @var unsigned xengine::detail::AdaptiveCellBroadphase::Bucket::probeCursor
+ * @brief Probe cursor used by Bucket.
+ */
+
+/** @var unsigned xengine::detail::AdaptiveCellBroadphase::Bucket::winner
+ * @brief Index identifying the selected broad-phase winner.
+ */
+
+/** @var unsigned xengine::detail::AdaptiveCellBroadphase::Bucket::sinceProbe
+ * @brief Since probe used by Bucket.
+ */
+
+/** @var unsigned xengine::detail::AdaptiveCellBroadphase::Bucket::probeInterval
+ * @brief Probe interval used by Bucket.
+ */
+
+/** @var unsigned xengine::detail::AdaptiveCellBroadphase::Bucket::confirmations
+ * @brief Confirmations used by Bucket.
+ */
+
+/** @var unsigned xengine::detail::AdaptiveCellBroadphase::Bucket::driftSamples
+ * @brief Drift samples used by Bucket.
+ */
+
+/** @var unsigned xengine::detail::AdaptiveCellBroadphase::Bucket::cooldown
+ * @brief Cooldown used by Bucket.
+ */
+
+/** @var unsigned xengine::detail::AdaptiveCellBroadphase::Choice::strategy
+ * @brief Index identifying the selected broad-phase strategy.
+ */
+
+/** @var bool xengine::detail::AdaptiveCellBroadphase::Choice::probe
+ * @brief Probe used by Choice.
+ */
+
+/** @var float xengine::detail::AdaptiveBroadphase::Estimate::mean
+ * @brief Recorded mean used to compare algorithm costs.
+ */
+
+/** @var unsigned xengine::detail::AdaptiveBroadphase::Estimate::samples
+ * @brief Recorded samples used to compare algorithm costs.
+ */
+/** @} */

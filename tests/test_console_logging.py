@@ -27,6 +27,7 @@ class ConsoleLoggingTests(unittest.TestCase):
                 '#include "ErrorHandler.h"\n'
                 '#include <cstdio>\n#include <iostream>\n'
                 'int main() {\n'
+                '  Console.Log("early-startup", "Engine");\n'
                 '  if (!XEngineConsole::BeginStdoutCapture()) return 2;\n'
                 '  std::printf("raw-from-game\\n");\n'
                 '  std::cout << "cout-from-game" << std::endl;\n'
@@ -34,6 +35,9 @@ class ConsoleLoggingTests(unittest.TestCase):
                 '  Console.Warning("careful", "Inventory");\n'
                 '  Console.Error("broken", "FileLoad");\n'
                 '  LogError("FileSystem", "No file");\n'
+                '  Console.Log("starting", "Engine");\n'
+                '  Console.Warning("backend fallback", "Engine - Render");\n'
+                '  LogError("Engine - Assets", "Cannot load asset");\n'
                 '  XEngineConsole::EndStdoutCapture();\n'
                 '}\n',
                 encoding="utf-8",
@@ -55,14 +59,27 @@ class ConsoleLoggingTests(unittest.TestCase):
                                     text=True, encoding="utf-8", errors="replace",
                                     check=False, timeout=10)
             self.assertEqual(result.returncode, 0, result.stderr)
-            for marker in ("● [LOG] Game\n    raw-from-game",
+            for marker in ("● [LOG] Engine\n    early-startup",
+                           "● [LOG] Game\n    raw-from-game",
                            "● [LOG] Game\n    cout-from-game",
                            "● [LOG] Game\n    hello",
                            "⚠ [WARNING] Inventory\n    careful",
                            "✖ [ERROR] FileLoad\n    broken",
-                           "✖ [ERROR] FileSystem\n    No file"):
+                           "✖ [ERROR] FileSystem\n    No file",
+                           "● [LOG] Engine\n    starting",
+                           "⚠ [WARNING] Engine - Render\n    backend fallback",
+                           "✖ [ERROR] Engine - Assets\n    Cannot load asset"):
                 self.assertIn(marker, result.stdout)
             self.assertNotIn("\x1b[", result.stdout)
+
+    def test_windows_console_utf8_is_initialized_before_first_log(self):
+        source = (ROOT / 'engine' / 'src' / 'ErrorHandler.cpp').read_text(encoding='utf-8')
+        emit = source.split('void Emit(', 1)[1].split('bool ErrorsEnabled()', 1)[0]
+        self.assertIn('SetConsoleOutputCP(CP_UTF8)', emit)
+        self.assertLess(emit.index('SetConsoleOutputCP(CP_UTF8)'),
+                        emit.index('WriteAll(target, prefix)'))
+        capture = source.split('bool XEngineConsole::BeginStdoutCapture()', 1)[1]
+        self.assertNotIn('SetConsoleOutputCP(CP_UTF8)', capture)
 
 
 if __name__ == "__main__":

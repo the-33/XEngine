@@ -37,6 +37,7 @@ namespace math
 
     template<class T>
     /** @brief Returns a small floating-point tolerance, or zero for integral types.
+     * @return A small floating-point tolerance, or zero for integral types.
      */
     constexpr T Epsilon() noexcept
     {
@@ -49,6 +50,8 @@ namespace math
     /** @brief Returns the smaller of the two scalar arguments.
      * @param a First input operand.
      * @param b Second input operand.
+     * @tparam T Template type or value used by Min.
+     * @return The smaller of the two scalar arguments.
      */
     constexpr T Min(T a, T b) noexcept { return (a < b) ? a : b; }
 
@@ -56,12 +59,16 @@ namespace math
     /** @brief Returns the larger of the two scalar arguments.
      * @param a First input operand.
      * @param b Second input operand.
+     * @tparam T Template type or value used by Max.
+     * @return The larger of the two scalar arguments.
      */
     constexpr T Max(T a, T b) noexcept { return (a > b) ? a : b; }
 
     template<Arithmetic T>
     /** @brief Returns the nonnegative magnitude of a scalar or vector.
      * @param v Value, vector or input to this operation.
+     * @tparam T Template type or value used by Abs.
+     * @return The nonnegative magnitude of a scalar or vector.
      */
     constexpr T Abs(T v) noexcept { return (v < T{ 0 }) ? -v : v; }
 
@@ -70,12 +77,16 @@ namespace math
      * @param v Value, vector or input to this operation.
      * @param lo Lower permitted boundary.
      * @param hi Upper permitted boundary.
+     * @tparam T Template type or value used by Clamp.
+     * @return Result of clamp in math.
      */
     constexpr T Clamp(T v, T lo, T hi) noexcept { return std::clamp(v, lo, hi); }
 
     template<Arithmetic T>
     /** @brief Clamps a scalar into the interval from zero to one.
      * @param v Value, vector or input to this operation.
+     * @tparam T Template type or value used by Saturate.
+     * @return Result of saturate in math.
      */
     constexpr T Saturate(T v) noexcept { return Clamp(v, T{ 0 }, T{ 1 }); }
 
@@ -84,6 +95,8 @@ namespace math
      * @param a First input operand.
      * @param b Second input operand.
      * @param t Interpolation factor.
+     * @tparam T Template type or value used by Lerp.
+     * @return Result of lerp in math.
      */
     constexpr T Lerp(T a, T b, T t) noexcept { return a + (b - a) * t; }
 
@@ -92,6 +105,8 @@ namespace math
      * @param a First input operand.
      * @param b Second input operand.
      * @param eps Numeric tolerance used for this comparison.
+     * @tparam T Template type or value used by NearlyEqual.
+     * @return True if the operation succeeded or its condition holds; otherwise false.
      */
     constexpr bool NearlyEqual(T a, T b, T eps = Epsilon<T>()) noexcept
     {
@@ -101,18 +116,24 @@ namespace math
     template<Float T>
     /** @brief Converts degrees to radians.
      * @param d Distance or angular value.
+     * @tparam T Template type or value used by Deg2Rad.
+     * @return Result of deg2 rad in math.
      */
     constexpr T Deg2Rad(T d) noexcept { return d * (static_cast<T>(3.14159265358979323846) / static_cast<T>(180)); }
 
     template<Float T>
     /** @brief Converts radians to degrees.
      * @param r Angle in radians.
+     * @tparam T Template type or value used by Rad2Deg.
+     * @return Result of rad2 deg in math.
      */
     constexpr T Rad2Deg(T r) noexcept { return r * (static_cast<T>(180) / static_cast<T>(3.14159265358979323846)); }
 
     template<Float T>
     /** @brief Normalizes an angle in radians into (-pi, pi].
      * @param a First input operand.
+     * @tparam T Template type or value used by WrapAngleRad.
+     * @return Result of wrap angle rad in math.
      */
     constexpr T WrapAngleRad(T a) noexcept
     {
@@ -129,6 +150,8 @@ namespace math
      * @param edge0 Lower edge of the transition interval.
      * @param edge1 Upper edge of the transition interval.
      * @param x Horizontal coordinate or component.
+     * @tparam T Template type or value used by SmoothStep.
+     * @return Result of smooth step in math.
      */
     constexpr T SmoothStep(T edge0, T edge1, T x) noexcept
     {
@@ -161,44 +184,55 @@ struct TVec2
 
     /** @brief Implements operator[] for this value or property type.
      * @param i Index of the requested component or element.
+     * @return Reference to the element at the requested index.
      */
     constexpr T& operator[](int i) noexcept { return (i == 0) ? x : y; }
     /** @brief Implements operator[] for this value or property type.
      * @param i Index of the requested component or element.
+     * @return Reference to the element at the requested index.
      */
     constexpr const T& operator[](int i) const noexcept { return (i == 0) ? x : y; }
 
     /** @brief Implements operator- for this value or property type.
+     * @return Result of applying the overloaded operator.
      */
     constexpr TVec2 operator-() const noexcept { return { -x, -y }; }
 
     /** @brief Implements operator+= for this value or property type.
      * @param v Value, vector or input to this operation.
+     * @return Result of applying the overloaded operator.
      */
     constexpr TVec2& operator+=(TVec2 v) noexcept { x += v.x; y += v.y; return *this; }
     /** @brief Implements operator-= for this value or property type.
      * @param v Value, vector or input to this operation.
+     * @return Result of applying the overloaded operator.
      */
     constexpr TVec2& operator-=(TVec2 v) noexcept { x -= v.x; y -= v.y; return *this; }
     /** @brief Implements operator*= for this value or property type.
      * @param s Scalar multiplier, divisor or input value.
+     * @return Result of applying the overloaded operator.
      */
     constexpr TVec2& operator*=(T s) noexcept { x *= s; y *= s; return *this; }
     /** @brief Implements operator/= for this value or property type.
      * @param s Scalar multiplier, divisor or input value.
+     * @return Result of applying the overloaded operator.
      */
     constexpr TVec2& operator/=(T s) noexcept { x /= s; y /= s; return *this; }
 
     /** @brief Returns a vector with both components zero.
+     * @return A vector with both components zero.
      */
     static constexpr TVec2 Zero()  noexcept { return { T{0}, T{0} }; }
     /** @brief Returns a vector with all components equal to one.
+     * @return A vector with all components equal to one.
      */
     static constexpr TVec2 One()   noexcept { return { T{1}, T{1} }; }
     /** @brief Returns a unit vector along positive X.
+     * @return A unit vector along positive x.
      */
     static constexpr TVec2 Right() noexcept { return { T{1}, T{0} }; }
     /** @brief Returns a unit vector along positive Y.
+     * @return A unit vector along positive y.
      */
     static constexpr TVec2 Up()    noexcept { return { T{0}, T{1} }; }
 };
@@ -207,6 +241,9 @@ struct TVec2
 /** @brief Adds two 2D vectors component-wise, preserving their common numeric type.
  * @param a First vector.
  * @param b Second vector.
+ * @tparam A Template type or value used by operator+.
+ * @tparam B Template type or value used by operator+.
+ * @return Result of applying the overloaded operator.
  */
 template<math::Arithmetic A, math::Arithmetic B>
     requires (!std::is_same_v<A, bool> && !std::is_same_v<B, bool>)
@@ -220,6 +257,9 @@ constexpr auto operator+(TVec2<A> a, TVec2<B> b) noexcept
 /** @brief Subtracts two 2D vectors component-wise.
  * @param a Left operand.
  * @param b Right operand.
+ * @tparam A Template type or value used by operator-.
+ * @tparam B Template type or value used by operator-.
+ * @return Result of applying the overloaded operator.
  */
 template<math::Arithmetic A, math::Arithmetic B>
     requires (!std::is_same_v<A, bool> && !std::is_same_v<B, bool>)
@@ -233,6 +273,9 @@ constexpr auto operator-(TVec2<A> a, TVec2<B> b) noexcept
 /** @brief Multiplies both 2D vector components by a scalar.
  * @param v Input vector.
  * @param s Scalar multiplier.
+ * @tparam A Template type or value used by operator*.
+ * @tparam S Template type or value used by operator*.
+ * @return Result of applying the overloaded operator.
  */
 template<math::Arithmetic A, math::Arithmetic S>
     requires (!std::is_same_v<S, bool>)
@@ -246,6 +289,9 @@ constexpr auto operator*(TVec2<A> v, S s) noexcept
 /** @brief Multiplies a scalar by both 2D vector components.
  * @param s Scalar multiplier.
  * @param v Input vector.
+ * @tparam S Template type or value used by operator*.
+ * @tparam A Template type or value used by operator*.
+ * @return Result of applying the overloaded operator.
  */
 template<math::Arithmetic S, math::Arithmetic A>
     requires (!std::is_same_v<S, bool>)
@@ -254,6 +300,9 @@ constexpr auto operator*(S s, TVec2<A> v) noexcept { return v * s; }
 /** @brief Divides both 2D vector components by a scalar.
  * @param v Input vector.
  * @param s Scalar divisor; must not be zero.
+ * @tparam A Template type or value used by operator/.
+ * @tparam S Template type or value used by operator/.
+ * @return Result of applying the overloaded operator.
  */
 template<math::Arithmetic A, math::Arithmetic S>
     requires (!std::is_same_v<S, bool>)
@@ -269,6 +318,9 @@ template<math::Arithmetic A, math::Arithmetic B>
 /** @brief Multiplies vector components pairwise.
  * @param a First input operand.
  * @param b Second input operand.
+ * @tparam A Template type or value used by Hadamard.
+ * @tparam B Template type or value used by Hadamard.
+ * @return Result of hadamard in BaseTypes.h.
  */
 constexpr auto Hadamard(TVec2<A> a, TVec2<B> b) noexcept
 {
@@ -281,6 +333,9 @@ template<math::Arithmetic A, math::Arithmetic B>
 /** @brief Implements operator== for this value or property type.
  * @param a First input operand.
  * @param b Second input operand.
+ * @tparam A Template type or value used by operator==.
+ * @tparam B Template type or value used by operator==.
+ * @return Result of applying the overloaded operator.
  */
 constexpr bool operator==(TVec2<A> a, TVec2<B> b) noexcept
 {
@@ -292,6 +347,9 @@ template<math::Arithmetic A, math::Arithmetic B>
 /** @brief Implements operator!= for this value or property type.
  * @param a First input operand.
  * @param b Second input operand.
+ * @tparam A Template type or value used by operator!=.
+ * @tparam B Template type or value used by operator!=.
+ * @return Result of applying the overloaded operator.
  */
 constexpr bool operator!=(TVec2<A> a, TVec2<B> b) noexcept { return !(a == b); }
 
@@ -302,6 +360,9 @@ namespace math
     /** @brief Computes the dot product of the input vectors.
      * @param a First input operand.
      * @param b Second input operand.
+     * @tparam A Template type or value used by Dot.
+     * @tparam B Template type or value used by Dot.
+     * @return Result of dot in math.
      */
     constexpr auto Dot(TVec2<A> a, TVec2<B> b) noexcept
     {
@@ -313,12 +374,16 @@ namespace math
     template<Arithmetic T>
     /** @brief Returns the squared Euclidean vector length without taking a square root.
      * @param v Value, vector or input to this operation.
+     * @tparam T Template type or value used by LengthSq.
+     * @return The squared euclidean vector length without taking a square root.
      */
     constexpr auto LengthSq(TVec2<T> v) noexcept { return Dot(v, v); }
 
     template<Arithmetic T>
     /** @brief Returns the Euclidean vector length.
      * @param v Value, vector or input to this operation.
+     * @tparam T Template type or value used by Length.
+     * @return The euclidean vector length.
      */
     inline auto Length(TVec2<T> v) noexcept
     {
@@ -330,12 +395,16 @@ namespace math
     /** @brief Returns Euclidean distance between the two points.
      * @param a First input operand.
      * @param b Second input operand.
+     * @tparam T Template type or value used by Distance.
+     * @return Euclidean distance between the two points.
      */
     inline auto Distance(TVec2<T> a, TVec2<T> b) noexcept { return Length(a - b); }
 
     template<Arithmetic T>
     /** @brief Returns a vector scaled to unit length where possible.
      * @param v Value, vector or input to this operation.
+     * @tparam T Template type or value used by Normalized.
+     * @return A vector scaled to unit length where possible.
      */
     inline auto Normalized(TVec2<T> v) noexcept
     {
@@ -349,6 +418,9 @@ namespace math
     /** @brief Returns the smaller of the two scalar arguments.
      * @param a First input operand.
      * @param b Second input operand.
+     * @tparam A Template type or value used by Min.
+     * @tparam B Template type or value used by Min.
+     * @return The smaller of the two scalar arguments.
      */
     constexpr auto Min(TVec2<A> a, TVec2<B> b) noexcept
     {
@@ -361,6 +433,9 @@ namespace math
     /** @brief Returns the larger of the two scalar arguments.
      * @param a First input operand.
      * @param b Second input operand.
+     * @tparam A Template type or value used by Max.
+     * @tparam B Template type or value used by Max.
+     * @return The larger of the two scalar arguments.
      */
     constexpr auto Max(TVec2<A> a, TVec2<B> b) noexcept
     {
@@ -374,6 +449,10 @@ namespace math
      * @param v Value, vector or input to this operation.
      * @param lo Lower permitted boundary.
      * @param hi Upper permitted boundary.
+     * @tparam V Template type or value used by Clamp.
+     * @tparam L Template type or value used by Clamp.
+     * @tparam H Template type or value used by Clamp.
+     * @return Result of clamp in math.
      */
     constexpr auto Clamp(TVec2<V> v, TVec2<L> lo, TVec2<H> hi) noexcept
     {
@@ -389,6 +468,9 @@ namespace math
      * @param v Value, vector or input to this operation.
      * @param lo Lower permitted boundary.
      * @param hi Upper permitted boundary.
+     * @tparam V Template type or value used by Clamp.
+     * @tparam S Template type or value used by Clamp.
+     * @return Result of clamp in math.
      */
     constexpr auto Clamp(TVec2<V> v, S lo, S hi) noexcept
     {
@@ -404,6 +486,9 @@ namespace math
      * @param a First input operand.
      * @param b Second input operand.
      * @param t Interpolation factor.
+     * @tparam V Template type or value used by Lerp.
+     * @tparam Tt Template type or value used by Lerp.
+     * @return Result of lerp in math.
      */
     constexpr auto Lerp(TVec2<V> a, TVec2<V> b, Tt t) noexcept
     {
@@ -417,6 +502,8 @@ namespace math
     template<Arithmetic T>
     /** @brief Returns the nonnegative magnitude of a scalar or vector.
      * @param v Value, vector or input to this operation.
+     * @tparam T Template type or value used by Abs.
+     * @return The nonnegative magnitude of a scalar or vector.
      */
     constexpr auto Abs(TVec2<T> v) noexcept
     {
@@ -427,24 +514,32 @@ namespace math
     template<Float T>
     /** @brief Rounds each component down to the nearest integer.
      * @param v Value, vector or input to this operation.
+     * @tparam T Template type or value used by Floor.
+     * @return Result of floor in math.
      */
     inline TVec2<T> Floor(TVec2<T> v) noexcept { return { std::floor(v.x), std::floor(v.y) }; }
 
     template<Float T>
     /** @brief Rounds each component up to the nearest integer.
      * @param v Value, vector or input to this operation.
+     * @tparam T Template type or value used by Ceil.
+     * @return Result of ceil in math.
      */
     inline TVec2<T> Ceil(TVec2<T> v) noexcept { return { std::ceil(v.x), std::ceil(v.y) }; }
 
     template<Float T>
     /** @brief Rounds each component to the nearest integer.
      * @param v Value, vector or input to this operation.
+     * @tparam T Template type or value used by Round.
+     * @return Result of round in math.
      */
     inline TVec2<T> Round(TVec2<T> v) noexcept { return { std::round(v.x), std::round(v.y) }; }
 
     template<Arithmetic T>
     /** @brief Returns a perpendicular vector rotated by a quarter-turn.
      * @param v Value, vector or input to this operation.
+     * @tparam T Template type or value used by Perp.
+     * @return A perpendicular vector rotated by a quarter-turn.
      */
     constexpr auto Perp(TVec2<T> v) noexcept { return TVec2<T>{ -v.y, v.x }; } // 90 degrees counterclockwise
 
@@ -452,6 +547,8 @@ namespace math
     /** @brief Returns the unsigned angle between vectors, in radians.
      * @param a First input operand.
      * @param b Second input operand.
+     * @tparam T Template type or value used by AngleRad.
+     * @return The unsigned angle between vectors, in radians.
      */
     inline T AngleRad(TVec2<T> a, TVec2<T> b) noexcept
     {
@@ -465,6 +562,8 @@ namespace math
     /** @brief Returns the signed angle between vectors, in radians.
      * @param a First input operand.
      * @param b Second input operand.
+     * @tparam T Template type or value used by SignedAngleRad.
+     * @return The signed angle between vectors, in radians.
      */
     inline T SignedAngleRad(TVec2<T> a, TVec2<T> b) noexcept
     {
@@ -478,6 +577,8 @@ namespace math
     /** @brief Returns the vector rotated by the supplied angle.
      * @param v Value, vector or input to this operation.
      * @param angleRad Angle in radians.
+     * @tparam T Template type or value used by Rotate.
+     * @return The vector rotated by the supplied angle.
      */
     inline TVec2<T> Rotate(TVec2<T> v, T angleRad) noexcept
     {
@@ -490,6 +591,8 @@ namespace math
     /** @brief Creates a unit direction vector from an angle in radians.
      * @param angleRad Angle in radians.
      * @param length Requested number of elements or bytes.
+     * @tparam T Template type or value used by FromAngleRad.
+     * @return Result of from angle rad in math.
      */
     inline TVec2<T> FromAngleRad(T angleRad, T length = T{ 1 }) noexcept
     {
@@ -500,6 +603,8 @@ namespace math
     /** @brief Reflects the input vector about the supplied normal.
      * @param v Value, vector or input to this operation.
      * @param nUnit Unit-length normal vector.
+     * @tparam T Template type or value used by Reflect.
+     * @return Result of reflect in math.
      */
     inline TVec2<T> Reflect(TVec2<T> v, TVec2<T> nUnit) noexcept
     {
@@ -511,6 +616,8 @@ namespace math
     /** @brief Projects one vector onto another vector or axis.
      * @param v Value, vector or input to this operation.
      * @param onto Vector or axis onto which the input is projected.
+     * @tparam T Template type or value used by Project.
+     * @return Result of project in math.
      */
     inline TVec2<T> Project(TVec2<T> v, TVec2<T> onto) noexcept
     {
@@ -524,6 +631,8 @@ namespace math
      * @param current Current value before the requested transition.
      * @param target Target point, vector or transform for this operation.
      * @param maxDelta Largest allowed movement or change per update.
+     * @tparam T Template type or value used by MoveTowards.
+     * @return Result of move towards in math.
      */
     inline TVec2<T> MoveTowards(TVec2<T> current, TVec2<T> target, T maxDelta) noexcept
     {
@@ -559,31 +668,38 @@ struct TVec3
 
     /** @brief Implements operator[] for this value or property type.
      * @param i Index of the requested component or element.
+     * @return Reference to the element at the requested index.
      */
     constexpr T& operator[](int i) noexcept { return (i == 0) ? x : (i == 1 ? y : z); }
     /** @brief Implements operator[] for this value or property type.
      * @param i Index of the requested component or element.
+     * @return Reference to the element at the requested index.
      */
     constexpr const T& operator[](int i) const noexcept { return (i == 0) ? x : (i == 1 ? y : z); }
 
     /** @brief Implements operator- for this value or property type.
+     * @return Result of applying the overloaded operator.
      */
     constexpr TVec3 operator-() const noexcept { return { -x, -y, -z }; }
 
     /** @brief Implements operator+= for this value or property type.
      * @param v Value, vector or input to this operation.
+     * @return Result of applying the overloaded operator.
      */
     constexpr TVec3& operator+=(TVec3 v) noexcept { x += v.x; y += v.y; z += v.z; return *this; }
     /** @brief Implements operator-= for this value or property type.
      * @param v Value, vector or input to this operation.
+     * @return Result of applying the overloaded operator.
      */
     constexpr TVec3& operator-=(TVec3 v) noexcept { x -= v.x; y -= v.y; z -= v.z; return *this; }
     /** @brief Implements operator*= for this value or property type.
      * @param s Scalar multiplier, divisor or input value.
+     * @return Result of applying the overloaded operator.
      */
     constexpr TVec3& operator*=(T s) noexcept { x *= s; y *= s; z *= s; return *this; }
     /** @brief Implements operator/= for this value or property type.
      * @param s Scalar multiplier, divisor or input value.
+     * @return Result of applying the overloaded operator.
      */
     constexpr TVec3& operator/=(T s) noexcept { x /= s; y /= s; z /= s; return *this; }
 
@@ -592,6 +708,7 @@ struct TVec3
     explicit constexpr operator TVec2<T>() const noexcept { return { x, y }; }
     template<math::Arithmetic U>
     /** @brief Implements operator tvec2< u > for this value or property type.
+     * @tparam U Template type or value used by operator TVec2< U >.
      */
     explicit constexpr operator TVec2<U>() const noexcept
     {
@@ -599,18 +716,23 @@ struct TVec3
     }
 
     /** @brief Returns a zero-filled vector.
+     * @return A zero-filled vector.
      */
     static constexpr TVec3 Zero()    noexcept { return { T{0}, T{0}, T{0} }; }
     /** @brief Returns a vector with all components equal to one.
+     * @return A vector with all components equal to one.
      */
     static constexpr TVec3 One()     noexcept { return { T{1}, T{1}, T{1} }; }
     /** @brief Returns the positive X unit direction.
+     * @return The positive x unit direction.
      */
     static constexpr TVec3 Right()   noexcept { return { T{1}, T{0}, T{0} }; }
     /** @brief Returns the up unit direction.
+     * @return The up unit direction.
      */
     static constexpr TVec3 Up()      noexcept { return { T{0}, T{1}, T{0} }; }
     /** @brief Returns the forward unit direction.
+     * @return The forward unit direction.
      */
     static constexpr TVec3 Forward() noexcept { return { T{0}, T{0}, T{1} }; }
 };
@@ -619,6 +741,9 @@ template<math::Arithmetic A, math::Arithmetic B>
 /** @brief Implements operator+ for this value or property type.
  * @param a First input operand.
  * @param b Second input operand.
+ * @tparam A Template type or value used by operator+.
+ * @tparam B Template type or value used by operator+.
+ * @return Result of applying the overloaded operator.
  */
 constexpr auto operator+(TVec3<A> a, TVec3<B> b) noexcept
 {
@@ -631,6 +756,9 @@ template<math::Arithmetic A, math::Arithmetic B>
 /** @brief Implements operator- for this value or property type.
  * @param a First input operand.
  * @param b Second input operand.
+ * @tparam A Template type or value used by operator-.
+ * @tparam B Template type or value used by operator-.
+ * @return Result of applying the overloaded operator.
  */
 constexpr auto operator-(TVec3<A> a, TVec3<B> b) noexcept
 {
@@ -643,6 +771,9 @@ template<math::Arithmetic A, math::Arithmetic S>
 /** @brief Implements operator* for this value or property type.
  * @param v Value, vector or input to this operation.
  * @param s Scalar multiplier, divisor or input value.
+ * @tparam A Template type or value used by operator*.
+ * @tparam S Template type or value used by operator*.
+ * @return Result of applying the overloaded operator.
  */
 constexpr auto operator*(TVec3<A> v, S s) noexcept
 {
@@ -655,6 +786,9 @@ template<math::Arithmetic S, math::Arithmetic A>
 /** @brief Implements operator* for this value or property type.
  * @param s Scalar multiplier, divisor or input value.
  * @param v Value, vector or input to this operation.
+ * @tparam S Template type or value used by operator*.
+ * @tparam A Template type or value used by operator*.
+ * @return Result of applying the overloaded operator.
  */
 constexpr auto operator*(S s, TVec3<A> v) noexcept { return v * s; }
 
@@ -662,6 +796,9 @@ template<math::Arithmetic A, math::Arithmetic S>
 /** @brief Implements operator/ for this value or property type.
  * @param v Value, vector or input to this operation.
  * @param s Scalar multiplier, divisor or input value.
+ * @tparam A Template type or value used by operator/.
+ * @tparam S Template type or value used by operator/.
+ * @return Result of applying the overloaded operator.
  */
 constexpr auto operator/(TVec3<A> v, S s) noexcept
 {
@@ -675,6 +812,9 @@ template<math::Arithmetic A, math::Arithmetic B>
 /** @brief Multiplies vector components pairwise.
  * @param a First input operand.
  * @param b Second input operand.
+ * @tparam A Template type or value used by Hadamard.
+ * @tparam B Template type or value used by Hadamard.
+ * @return Result of hadamard in BaseTypes.h.
  */
 constexpr auto Hadamard(TVec3<A> a, TVec3<B> b) noexcept
 {
@@ -688,6 +828,9 @@ template<math::Arithmetic A, math::Arithmetic B>
 /** @brief Implements operator== for this value or property type.
  * @param a First input operand.
  * @param b Second input operand.
+ * @tparam A Template type or value used by operator==.
+ * @tparam B Template type or value used by operator==.
+ * @return Result of applying the overloaded operator.
  */
 constexpr bool operator==(TVec3<A> a, TVec3<B> b) noexcept
 {
@@ -700,6 +843,9 @@ template<math::Arithmetic A, math::Arithmetic B>
 /** @brief Implements operator!= for this value or property type.
  * @param a First input operand.
  * @param b Second input operand.
+ * @tparam A Template type or value used by operator!=.
+ * @tparam B Template type or value used by operator!=.
+ * @return Result of applying the overloaded operator.
  */
 constexpr bool operator!=(TVec3<A> a, TVec3<B> b) noexcept { return !(a == b); }
 
@@ -709,6 +855,9 @@ namespace math
     /** @brief Computes the dot product of the input vectors.
      * @param a First input operand.
      * @param b Second input operand.
+     * @tparam A Template type or value used by Dot.
+     * @tparam B Template type or value used by Dot.
+     * @return Result of dot in math.
      */
     constexpr auto Dot(TVec3<A> a, TVec3<B> b) noexcept
     {
@@ -722,6 +871,9 @@ namespace math
     /** @brief Computes the cross product of two vectors.
      * @param a First input operand.
      * @param b Second input operand.
+     * @tparam A Template type or value used by Cross.
+     * @tparam B Template type or value used by Cross.
+     * @return Result of cross in math.
      */
     constexpr auto Cross(TVec3<A> a, TVec3<B> b) noexcept
     {
@@ -736,12 +888,16 @@ namespace math
     template<Arithmetic T>
     /** @brief Returns the squared Euclidean vector length without taking a square root.
      * @param v Value, vector or input to this operation.
+     * @tparam T Template type or value used by LengthSq.
+     * @return The squared euclidean vector length without taking a square root.
      */
     constexpr auto LengthSq(TVec3<T> v) noexcept { return Dot(v, v); }
 
     template<Arithmetic T>
     /** @brief Returns the Euclidean vector length.
      * @param v Value, vector or input to this operation.
+     * @tparam T Template type or value used by Length.
+     * @return The euclidean vector length.
      */
     inline auto Length(TVec3<T> v) noexcept
     {
@@ -752,6 +908,8 @@ namespace math
     template<Arithmetic T>
     /** @brief Returns a vector scaled to unit length where possible.
      * @param v Value, vector or input to this operation.
+     * @tparam T Template type or value used by Normalized.
+     * @return A vector scaled to unit length where possible.
      */
     inline auto Normalized(TVec3<T> v) noexcept
     {
@@ -766,6 +924,10 @@ namespace math
      * @param v Value, vector or input to this operation.
      * @param lo Lower permitted boundary.
      * @param hi Upper permitted boundary.
+     * @tparam V Template type or value used by Clamp.
+     * @tparam L Template type or value used by Clamp.
+     * @tparam H Template type or value used by Clamp.
+     * @return Result of clamp in math.
      */
     constexpr auto Clamp(TVec3<V> v, TVec3<L> lo, TVec3<H> hi) noexcept
     {
@@ -782,6 +944,9 @@ namespace math
      * @param v Value, vector or input to this operation.
      * @param lo Lower permitted boundary.
      * @param hi Upper permitted boundary.
+     * @tparam V Template type or value used by Clamp.
+     * @tparam S Template type or value used by Clamp.
+     * @return Result of clamp in math.
      */
     constexpr auto Clamp(TVec3<V> v, S lo, S hi) noexcept
     {
@@ -797,6 +962,8 @@ namespace math
     /** @brief Reflects the input vector about the supplied normal.
      * @param v Value, vector or input to this operation.
      * @param nUnit Unit-length normal vector.
+     * @tparam T Template type or value used by Reflect.
+     * @return Result of reflect in math.
      */
     inline TVec3<T> Reflect(TVec3<T> v, TVec3<T> nUnit) noexcept
     {
@@ -807,6 +974,8 @@ namespace math
     /** @brief Projects one vector onto another vector or axis.
      * @param v Value, vector or input to this operation.
      * @param onto Vector or axis onto which the input is projected.
+     * @tparam T Template type or value used by Project.
+     * @return Result of project in math.
      */
     inline TVec3<T> Project(TVec3<T> v, TVec3<T> onto) noexcept
     {
@@ -820,6 +989,8 @@ namespace math
      * @param current Current value before the requested transition.
      * @param target Target point, vector or transform for this operation.
      * @param maxDelta Largest allowed movement or change per update.
+     * @tparam T Template type or value used by MoveTowards.
+     * @return Result of move towards in math.
      */
     inline TVec3<T> MoveTowards(TVec3<T> current, TVec3<T> target, T maxDelta) noexcept
     {
@@ -855,30 +1026,38 @@ struct TRect
     constexpr TRect(T X, T Y, T W, T H) noexcept : x(X), y(Y), w(W), h(H) {}
 
     /** @brief Returns the left edge of this rectangle.
+     * @return The left edge of this rectangle.
      */
     constexpr T Left()   const noexcept { return x; }
     /** @brief Returns the right edge of this rectangle.
+     * @return The right edge of this rectangle.
      */
     constexpr T Right()  const noexcept { return x + w; }
     /** @brief Returns the top edge of this rectangle.
+     * @return The top edge of this rectangle.
      */
     constexpr T Top()    const noexcept { return y; }
     /** @brief Returns the bottom edge of this rectangle.
+     * @return The bottom edge of this rectangle.
      */
     constexpr T Bottom() const noexcept { return y + h; }
 
     /** @brief Returns the position of the rectangle origin.
+     * @return The position of the rectangle origin.
      */
     constexpr TVec2<T> Pos()    const noexcept { return { x, y }; }
     /** @brief Returns rectangle width and height as a 2D vector.
+     * @return Rectangle width and height as a 2d vector.
      */
     constexpr TVec2<T> Size()   const noexcept { return { w, h }; }
     /** @brief Returns the center point of this rectangle.
+     * @return The center point of this rectangle.
      */
     constexpr TVec2<T> Center() const noexcept { return { x + w * T{0.5}, y + h * T{0.5} }; }
 
     /** @brief Tests whether the supplied point or rectangle is contained within these bounds.
      * @param p Point or position being processed.
+     * @return True if the operation succeeded or its condition holds; otherwise false.
      */
     constexpr bool Contains(TVec2<T> p) const noexcept
     {
@@ -887,6 +1066,7 @@ struct TRect
 
     /** @brief Tests axis-aligned overlap; shared edges count as overlapping.
      * @param r Rectangle in the coordinate space specified by the method.
+     * @return True if the operation succeeded or its condition holds; otherwise false.
      */
     constexpr bool Overlaps(TRect r) const noexcept
     {
@@ -895,17 +1075,20 @@ struct TRect
 
     /** @brief Returns a rectangle translated by the supplied offset.
      * @param d Distance or angular value.
+     * @return A rectangle translated by the supplied offset.
      */
     constexpr TRect Translated(TVec2<T> d) const noexcept { return { x + d.x, y + d.y, w, h }; }
 
     /** @brief Returns a rectangle with its edges moved inward by the supplied amount.
      * @param dx Horizontal offset.
      * @param dy Vertical offset.
+     * @return A rectangle with its edges moved inward by the supplied amount.
      */
     constexpr TRect Inset(T dx, T dy) const noexcept { return { x + dx, y + dy, w - T{2} *dx, h - T{2} *dy }; }
     /** @brief Returns a rectangle with its edges expanded outward by the supplied amount.
      * @param dx Horizontal offset.
      * @param dy Vertical offset.
+     * @return A rectangle with its edges expanded outward by the supplied amount.
      */
     constexpr TRect Outset(T dx, T dy) const noexcept { return { x - dx, y - dy, w + T{2} *dx, h + T{2} *dy }; }
 
@@ -913,6 +1096,8 @@ struct TRect
     /** @brief Returns a rectangle scaled using the supplied factor.
      * @param sx Horizontal scale.
      * @param sy Vertical scale.
+     * @tparam S Template type or value used by Scaled.
+     * @return A rectangle scaled using the supplied factor.
      */
     constexpr auto Scaled(S sx, S sy) const noexcept
     {
@@ -941,6 +1126,7 @@ struct TRect
     // Clamp a point into the rectangle
     /** @brief Restricts a point to the inside of this rectangle.
      * @param p Point or position being processed.
+     * @return Result of clamp point in TRect.
      */
     constexpr TVec2<T> ClampPoint(TVec2<T> p) const noexcept
     {
@@ -950,6 +1136,7 @@ struct TRect
     /** @brief Returns the smallest rectangle containing both input rectangles.
      * @param a First input operand.
      * @param b Second input operand.
+     * @return The smallest rectangle containing both input rectangles.
      */
     static constexpr TRect Union(TRect a, TRect b) noexcept
     {
@@ -963,6 +1150,7 @@ struct TRect
     /** @brief Returns the overlapping rectangle of the two inputs.
      * @param a First input operand.
      * @param b Second input operand.
+     * @return The overlapping rectangle of the two inputs.
      */
     static constexpr TRect Intersection(TRect a, TRect b) noexcept
     {
@@ -979,6 +1167,8 @@ template<math::Arithmetic T>
 /** @brief Implements operator+ for this value or property type.
  * @param rc Rectangle to convert or compare.
  * @param d Distance or angular value.
+ * @tparam T Template type or value used by operator+.
+ * @return Result of applying the overloaded operator.
  */
 constexpr TRect<T> operator+(TRect<T> rc, TVec2<T> d) noexcept { return rc.Translated(d); }
 
@@ -986,6 +1176,8 @@ template<math::Arithmetic T>
 /** @brief Implements operator- for this value or property type.
  * @param rc Rectangle to convert or compare.
  * @param d Distance or angular value.
+ * @tparam T Template type or value used by operator-.
+ * @return Result of applying the overloaded operator.
  */
 constexpr TRect<T> operator-(TRect<T> rc, TVec2<T> d) noexcept { return { rc.x - d.x, rc.y - d.y, rc.w, rc.h }; }
 
@@ -1014,91 +1206,112 @@ struct Color
 
     /** @brief Returns black with the specified alpha channel.
      * @param a Alpha channel (0 transparent, 255 opaque).
+     * @return Black with the specified alpha channel.
      */
     static constexpr Color Black(uint8_t a = 255)   noexcept { return { 0,   0,   0, a }; }
     /** @brief Returns white with the specified alpha channel.
      * @param a Alpha channel (0 transparent, 255 opaque).
+     * @return White with the specified alpha channel.
      */
     static constexpr Color White(uint8_t a = 255)   noexcept { return { 255, 255, 255, a }; }
 
     /** @brief Returns the predefined red color.
      * @param a First input operand.
+     * @return The predefined red color.
      */
     static constexpr Color Red(uint8_t a = 255)     noexcept { return { 255,   0,   0, a }; }
     /** @brief Returns the predefined green color.
      * @param a First input operand.
+     * @return The predefined green color.
      */
     static constexpr Color Green(uint8_t a = 255)   noexcept { return { 0, 255,   0, a }; }
     /** @brief Returns the predefined blue color.
      * @param a First input operand.
+     * @return The predefined blue color.
      */
     static constexpr Color Blue(uint8_t a = 255)    noexcept { return { 0,   0, 255, a }; }
 
     /** @brief Returns the predefined yellow color.
      * @param a First input operand.
+     * @return The predefined yellow color.
      */
     static constexpr Color Yellow(uint8_t a = 255)  noexcept { return { 255, 255,   0, a }; }
     /** @brief Returns the predefined cyan color.
      * @param a First input operand.
+     * @return The predefined cyan color.
      */
     static constexpr Color Cyan(uint8_t a = 255)    noexcept { return { 0, 255, 255, a }; }
     /** @brief Returns the predefined magenta color.
      * @param a First input operand.
+     * @return The predefined magenta color.
      */
     static constexpr Color Magenta(uint8_t a = 255) noexcept { return { 255,   0, 255, a }; }
 
     /** @brief Returns the predefined gray color.
      * @param a First input operand.
+     * @return The predefined gray color.
      */
     static constexpr Color Gray(uint8_t a = 255)       noexcept { return { 128, 128, 128, a }; }
     /** @brief Returns the predefined light gray color.
      * @param a First input operand.
+     * @return The predefined light gray color.
      */
     static constexpr Color LightGray(uint8_t a = 255)  noexcept { return { 211, 211, 211, a }; }
     /** @brief Returns the predefined dark gray color.
      * @param a First input operand.
+     * @return The predefined dark gray color.
      */
     static constexpr Color DarkGray(uint8_t a = 255)   noexcept { return { 64,  64,  64, a }; }
 
     /** @brief Returns the predefined orange color.
      * @param a First input operand.
+     * @return The predefined orange color.
      */
     static constexpr Color Orange(uint8_t a = 255) noexcept { return { 255, 165,   0, a }; }
     /** @brief Returns the predefined pink color.
      * @param a First input operand.
+     * @return The predefined pink color.
      */
     static constexpr Color Pink(uint8_t a = 255)   noexcept { return { 255, 192, 203, a }; }
     /** @brief Returns the predefined purple color.
      * @param a First input operand.
+     * @return The predefined purple color.
      */
     static constexpr Color Purple(uint8_t a = 255) noexcept { return { 128,   0, 128, a }; }
     /** @brief Returns the predefined brown color.
      * @param a First input operand.
+     * @return The predefined brown color.
      */
     static constexpr Color Brown(uint8_t a = 255)  noexcept { return { 139,  69,  19, a }; }
 
     /** @brief Returns the predefined lime color.
      * @param a First input operand.
+     * @return The predefined lime color.
      */
     static constexpr Color Lime(uint8_t a = 255)   noexcept { return { 0, 255,   0, a }; }
     /** @brief Returns the predefined navy color.
      * @param a First input operand.
+     * @return The predefined navy color.
      */
     static constexpr Color Navy(uint8_t a = 255)   noexcept { return { 0,   0, 128, a }; }
     /** @brief Returns the predefined teal color.
      * @param a First input operand.
+     * @return The predefined teal color.
      */
     static constexpr Color Teal(uint8_t a = 255)   noexcept { return { 0, 128, 128, a }; }
     /** @brief Returns the predefined olive color.
      * @param a First input operand.
+     * @return The predefined olive color.
      */
     static constexpr Color Olive(uint8_t a = 255)  noexcept { return { 128, 128,   0, a }; }
     /** @brief Returns the predefined maroon color.
      * @param a First input operand.
+     * @return The predefined maroon color.
      */
     static constexpr Color Maroon(uint8_t a = 255) noexcept { return { 128,   0,   0, a }; }
     /** @brief Returns the predefined silver color.
      * @param a First input operand.
+     * @return The predefined silver color.
      */
     static constexpr Color Silver(uint8_t a = 255) noexcept { return { 192, 192, 192, a }; }
 
@@ -1117,6 +1330,7 @@ struct Color
      * @param c0 First input color.
      * @param c1 Second input color.
      * @param t Interpolation factor.
+     * @return Result of lerp in Color.
      */
     static inline Color Lerp(Color c0, Color c1, float t) noexcept
     {
@@ -1153,6 +1367,7 @@ struct Color
 
     // Premultiply alpha (RGB *= a/255)
     /** @brief Returns a color whose RGB channels are multiplied by alpha.
+     * @return A color whose rgb channels are multiplied by alpha.
      */
     inline Color Premultiplied() const noexcept
     {
@@ -1166,6 +1381,7 @@ struct Color
      * @param s Scalar multiplier, divisor or input value.
      * @param v Value, vector or input to this operation.
      * @param a First input operand.
+     * @return Result of from hsv in Color.
      */
     static inline Color FromHSV(float hDeg, float s, float v, uint8_t a = 255) noexcept
     {
@@ -1255,18 +1471,27 @@ using Rect = TRect<float>;
 template<math::Arithmetic TO, math::Arithmetic FROM>
 /** @brief Converts vector components to the requested numeric type.
  * @param v Value, vector or input to this operation.
+ * @tparam TO Template type or value used by Vec2Cast.
+ * @tparam FROM Template type or value used by Vec2Cast.
+ * @return Result of vec2 cast in BaseTypes.h.
  */
 constexpr TVec2<TO> Vec2Cast(TVec2<FROM> v) noexcept { return { static_cast<TO>(v.x), static_cast<TO>(v.y) }; }
 
 template<math::Arithmetic TO, math::Arithmetic FROM>
 /** @brief Converts vector components to the requested numeric type.
  * @param v Value, vector or input to this operation.
+ * @tparam TO Template type or value used by Vec3Cast.
+ * @tparam FROM Template type or value used by Vec3Cast.
+ * @return Result of vec3 cast in BaseTypes.h.
  */
 constexpr TVec3<TO> Vec3Cast(TVec3<FROM> v) noexcept { return { static_cast<TO>(v.x), static_cast<TO>(v.y), static_cast<TO>(v.z) }; }
 
 template<math::Arithmetic TO, math::Arithmetic FROM>
 /** @brief Converts rectangle components to the requested numeric type.
  * @param r Rectangle in the coordinate space specified by the method.
+ * @tparam TO Template type or value used by RectCast.
+ * @tparam FROM Template type or value used by RectCast.
+ * @return Result of rect cast in BaseTypes.h.
  */
 constexpr TRect<TO> RectCast(TRect<FROM> r) noexcept
 {
@@ -1275,14 +1500,17 @@ constexpr TRect<TO> RectCast(TRect<FROM> r) noexcept
 
 /** @brief Converts to integral Vec2 coordinates with rounding.
  * @param v Value, vector or input to this operation.
+ * @return Result of to vec2 round in BaseTypes.h.
  */
 inline Vec2I  ToVec2Round(Vec2 v) noexcept { return { (int)std::lround(v.x), (int)std::lround(v.y) }; }
 /** @brief Converts to integral Vec3 coordinates with rounding.
  * @param v Value, vector or input to this operation.
+ * @return Result of to vec3 round in BaseTypes.h.
  */
 inline Vec3I  ToVec3Round(Vec3 v) noexcept { return { (int)std::lround(v.x), (int)std::lround(v.y), (int)std::lround(v.z) }; }
 /** @brief Converts rectangle coordinates with rounding.
  * @param r Rectangle in the coordinate space specified by the method.
+ * @return Result of to rect round in BaseTypes.h.
  */
 inline RectI  ToRectRound(Rect r) noexcept { return { (int)std::lround(r.x), (int)std::lround(r.y), (int)std::lround(r.w), (int)std::lround(r.h) }; }
 

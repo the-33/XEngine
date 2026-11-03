@@ -22,12 +22,22 @@ struct CollisionInfo2D;
  */
 class Behaviour : public Component
 {
+    /** @brief Grant GameObject access to the internal state of Behaviour.
+     */
     friend class GameObject;
+    /** @brief Grant Component access to the internal state of Behaviour.
+     */
     friend class Component;
 
 private:
+    /** @brief Test whether Behaviour is enabled.
+     * @return True when is enabled; otherwise false.
+     */
     bool IsEnabled() const noexcept { return mEnabled; }
 
+    /** @brief Set enabled in Behaviour.
+     * @param e E supplied to Behaviour.
+     */
     void SetEnabled(bool e) noexcept
     {
         if (e == mEnabled) return;
@@ -47,7 +57,13 @@ private:
         }
     }
 
+    /** @brief Retrieve the transform from Behaviour.
+     * @return Requested get transform value or reference.
+     */
     Transform* GetTransform() const noexcept;
+    /** @brief Retrieve the scene from Behaviour.
+     * @return Requested get scene value or reference.
+     */
     Scene* GetScene() const noexcept;
 
     void OnAddedToGameObject(bool sceneAwoken, bool sceneStarted) override
@@ -77,24 +93,30 @@ protected:
     virtual void OnEnable() {}
 
     /** @brief Called on the first detected non-trigger contact with another collider.
+     * @param info Collision or trigger contact information for this callback.
      */
-    virtual void OnCollisionEnter(const CollisionInfo2D&) {}
+    virtual void OnCollisionEnter(const CollisionInfo2D& info) {}
     /** @brief Called while a non-trigger collider pair continues to overlap.
+     * @param info Collision or trigger contact information for this callback.
      */
-    virtual void OnCollisionStay(const CollisionInfo2D&) {}
+    virtual void OnCollisionStay(const CollisionInfo2D& info) {}
     /** @brief Called after a previously detected non-trigger contact ends.
+     * @param info Collision or trigger contact information for this callback.
      */
-    virtual void OnCollisionExit(const CollisionInfo2D&) {}
+    virtual void OnCollisionExit(const CollisionInfo2D& info) {}
 
     /** @brief Called when a pair involving a trigger first overlaps.
+     * @param info Collision or trigger contact information for this callback.
      */
-    virtual void OnTriggerEnter(const CollisionInfo2D&) {}
+    virtual void OnTriggerEnter(const CollisionInfo2D& info) {}
     /** @brief Called while a trigger pair continues to overlap.
+     * @param info Collision or trigger contact information for this callback.
      */
-    virtual void OnTriggerStay(const CollisionInfo2D&) {}
+    virtual void OnTriggerStay(const CollisionInfo2D& info) {}
     /** @brief Called after a trigger overlap ends.
+     * @param info Collision or trigger contact information for this callback.
      */
-    virtual void OnTriggerExit(const CollisionInfo2D&) {}
+    virtual void OnTriggerExit(const CollisionInfo2D& info) {}
 
 public:
     /** @brief Releases the Behaviour instance and any owned resources.

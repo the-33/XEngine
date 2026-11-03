@@ -10,6 +10,31 @@ for supported gameplay code, or [Engine Developer Reference](https://the-33.gith
 for implementation and internal APIs. Both are available from the
 [documentation portal](https://the-33.github.io/XEngine/).
 
+### Doxygen contract for engine contributors
+
+Each engine declaration has an inline Doxygen description. Use `@brief` for
+types, namespaces, properties, enumerations and their values, plus every
+function overload. Each **named argument** needs its own `@param`, template
+parameters use `@tparam`, and non-`void` functions document the value with
+`@return`. Constructors, destructors and `void` functions have no return value
+to document. Deleted and no-op methods still name and document their arguments.
+
+Multiple fields declared together retain their C++ memory layout; standalone
+`@var Type Class::field` comments document each field separately. Keep these
+comments in the engine sources so editor tooltips, the Game Developer guide
+and the full Engine Developer reference all use the same contract.
+
+From the repository root, with Doxygen installed, verify before committing:
+
+```sh
+python tools/build_doxygen.py
+python tools/check_doxygen_docs.py
+```
+
+The checker validates **both** the public and internal engine references,
+including briefs, argument names, template arguments and return values. The
+optional pre-commit hook runs it when engine documentation inputs change.
+
 If you are starting a game, first follow [Your first game](GETTING_STARTED.md).
 For an overview organized by task, see the
 documentation index (repository reference: `docs/DOCUMENTATION_INDEX.md`).

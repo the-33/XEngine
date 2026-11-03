@@ -11,6 +11,8 @@
 # include <windows.h>
 #endif
 
+/** @brief Namespace collecting @341100123100310043133134366175061107107337123324 functionality for XEngine.
+ */
 namespace {
 FileError MapError(const std::error_code& error) noexcept {
     if (!error) return FileError::None;

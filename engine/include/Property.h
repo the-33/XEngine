@@ -9,6 +9,12 @@
 // ======================================================
 // Helpers comunes (internos)
 // ======================================================
+/** @namespace xengine::detail
+ * @brief Namespace collecting detail functionality for XEngine.
+ */
+/** @namespace xengine::detail::property
+ * @brief Namespace collecting property functionality for XEngine.
+ */
 namespace xengine::detail::property
 {
     template<class P>
@@ -17,6 +23,7 @@ namespace xengine::detail::property
     template<class X>
     /** @brief Returns the underlying value represented by a property accessor.
      * @param x A regular value or owner-bound property accessor.
+     * @return The underlying value represented by a property accessor.
      */
     constexpr decltype(auto) unwrap(const X& x) noexcept
     {
@@ -47,6 +54,7 @@ struct PropertyRO
 
     // Lectura
     /** @brief Reads the current value from its owning object.
+     * @return Result of get in PropertyRO.
      */
     constexpr T get() const noexcept { return (self->*Getter)(); }
     /** @brief Implicit conversion that reads the current value via its getter.
@@ -55,6 +63,7 @@ struct PropertyRO
 
     // operator->:
     /** @brief For pointer values, returns the current pointer from the owner.
+     * @return Result of applying the overloaded operator.
      */
     constexpr auto operator->() const noexcept
         requires (std::is_pointer_v<T>)
@@ -65,6 +74,7 @@ struct PropertyRO
     /** @brief For value types, returns a pointer to a cached copy of the getter result.
      * @warning The returned pointer is invalidated by the next property arrow
      *          access and must not be stored; modifying it does not call a setter.
+     * @return Result of applying the overloaded operator.
      */
     constexpr const T* operator->() const noexcept
         requires (!std::is_pointer_v<T>)
@@ -95,6 +105,8 @@ struct PropertyRO
     { return !xengine::detail::property::unwrap(x); }
 
 private:
+    /** @brief Configured cache value used by PropertyRO.
+     */
     mutable T cache{};
 };
 
@@ -121,17 +133,22 @@ struct Property
     constexpr explicit Property(Owner* o) noexcept : self(o) {}
 
     /** @brief Constructs a Property instance.
+     * @param other Source object whose copy, move or equality is being requested.
      */
-    Property(const Property&) = delete;
+    Property(const Property& other) = delete;
     /** @brief Constructs a Property instance.
+     * @param other Source object whose copy, move or equality is being requested.
      */
-    Property(Property&&) = delete;
+    Property(Property&& other) = delete;
     /** @brief Implements operator= for this value or property type.
+     * @return Result of applying the overloaded operator.
+     * @param other Source object whose copy, move or equality is being requested.
      */
-    Property& operator=(Property&&) = delete;
+    Property& operator=(Property&& other) = delete;
 
     // Lectura
     /** @brief Reads the current value from its owning object.
+     * @return Result of get in Property.
      */
     constexpr T get() const noexcept { return (self->*Getter)(); }
     /** @brief Implicit conversion that reads the current owner value.
@@ -141,6 +158,7 @@ struct Property
     // Escritura
     /** @brief Assigns a value by invoking the owner's setter (which may validate it).
      * @param value Value passed to the owner setter.
+     * @return Result of applying the overloaded operator.
      */
     constexpr Property& operator=(T value) noexcept {
         (self->*Setter)(value);
@@ -149,6 +167,7 @@ struct Property
 
     /** @brief Implements operator= for this value or property type.
      * @param rhs Right-hand operand.
+     * @return Result of applying the overloaded operator.
      */
     constexpr Property& operator=(const Property& rhs) noexcept {
         return (*this = rhs.get());
@@ -156,6 +175,7 @@ struct Property
 
     // operator->:
     /** @brief For pointer values, returns the current pointer from the owner.
+     * @return Result of applying the overloaded operator.
      */
     constexpr auto operator->() const noexcept
         requires (std::is_pointer_v<T>)
@@ -165,6 +185,7 @@ struct Property
 
     /** @brief For value types, returns a pointer to a cached copy of the getter result.
      * @warning Writing through this pointer does not invoke the owner's setter.
+     * @return Result of applying the overloaded operator.
      */
     constexpr const T* operator->() const noexcept
         requires (!std::is_pointer_v<T>)
@@ -214,6 +235,7 @@ struct Property
 
         // ++ / -- (only if supported by T)
         /** @brief Implements operator++ for this value or property type.
+         * @return Result of applying the overloaded operator.
          */
         constexpr Property& operator++() noexcept
         requires requires (T a) { ++a; }
@@ -225,8 +247,10 @@ struct Property
     }
 
     /** @brief Implements operator++ for this value or property type.
+     * @return Result of applying the overloaded operator.
+     * @param postfixTag Unused integer marker distinguishing postfix from prefix operators.
      */
-    constexpr T operator++(int) noexcept
+    constexpr T operator++(int postfixTag) noexcept
         requires requires (T a) { a++; }
     {
         T old = get();
@@ -237,6 +261,7 @@ struct Property
     }
 
     /** @brief Implements operator-- for this value or property type.
+     * @return Result of applying the overloaded operator.
      */
     constexpr Property& operator--() noexcept
         requires requires (T a) { --a; }
@@ -248,8 +273,10 @@ struct Property
     }
 
     /** @brief Implements operator-- for this value or property type.
+     * @return Result of applying the overloaded operator.
+     * @param postfixTag Unused integer marker distinguishing postfix from prefix operators.
      */
-    constexpr T operator--(int) noexcept
+    constexpr T operator--(int postfixTag) noexcept
         requires requires (T a) { a--; }
     {
         T old = get();
@@ -281,6 +308,8 @@ struct Property
     { return !xengine::detail::property::unwrap(x); }
 
 private:
+    /** @brief Configured cache value used by Property.
+     */
     mutable T cache{};
 };
 

@@ -28,11 +28,16 @@ enum class InputDeviceKind {
     Gamepad,  ///< Mapped SDL2 GameController.
     Touch     ///< Reserved for future touch adapters.
 };
+/** @brief Input device data and utilities used by XEngine.
+ */
 struct InputDevice {
     InputDeviceKind kind = InputDeviceKind::None; ///< Device family.
     GamepadId gamepad = -1; ///< Joystick instance ID if kind is Gamepad.
-    /** @brief Compare device identities. */
-    bool operator==(const InputDevice&) const = default;
+    /** @brief Compare device identities.
+     * @return Result of applying the overloaded operator.
+     * @param other Source object whose copy, move or equality is being requested.
+     */
+    bool operator==(const InputDevice& other) const = default;
 };
 
 /** How PlayerInput may claim a device when joining or changing controls.
@@ -175,9 +180,13 @@ struct InputBinding {
 struct InputValue {
     float x = 0.f; ///< Horizontal or single-axis value.
     float y = 0.f; ///< Vertical value.
-    /** @brief True for any nonzero component. */
+    /** @brief True for any nonzero component.
+     * @return True if the operation succeeded or its condition holds; otherwise false.
+     */
     bool Pressed() const noexcept { return x != 0.f || y != 0.f; }
-    /** @brief Return this numeric value as a Vec2. */
+    /** @brief Return this numeric value as a Vec2.
+     * @return This numeric value as a vec2.
+     */
     Vec2 Vector() const noexcept { return {x, y}; }
 };
 
@@ -203,70 +212,137 @@ public:
     using Callback = std::function<void(const InputActionEvent&)>;
     /** @brief Standalone action for testing or an advanced custom input adapter.
      * Prefer InputManager::AddAction for normal gameplay.
+     * @param name Name of the resource, property or element to access.
+     * @param type Type supplied to InputAction.
      */
     InputAction(std::string name, InputActionType type)
         : name_(std::move(name)), type_(type) {}
-    /** @brief Feeds a synthetic sample; the manager owns normal SDL-driven updates. */
+    /** @brief Feeds a synthetic sample; the manager owns normal SDL-driven updates.
+     * @param player Logical player whose input is queried or updated.
+     * @param value Value to store, serialize, compare or transform.
+     * @param deltaSeconds Delta seconds in seconds.
+     */
     void Feed(PlayerId player, InputValue value, float deltaSeconds) noexcept {
         Advance(player, value, deltaSeconds);
     }
 
-    /** @brief Action name within its parent map. */
+    /** @brief Action name within its parent map.
+     * @return Result of name in InputAction.
+     */
     const std::string& Name() const noexcept { return name_; }
-    /** @brief Declared value type. */
+    /** @brief Declared value type.
+     * @return Result of type in InputAction.
+     */
     InputActionType Type() const noexcept { return type_; }
-    /** @brief Latest raw resolved value for a logical player. */
+    /** @brief Latest raw resolved value for a logical player.
+     * @param player Logical player whose input is queried or updated.
+     * @return Requested read value or reference.
+     */
     InputValue Read(PlayerId player = 0) const noexcept;
-    /** @brief Two-dimensional player value. */
+    /** @brief Two-dimensional player value.
+     * @param player Logical player whose input is queried or updated.
+     * @return Requested read vec2 value or reference.
+     */
     Vec2 ReadVec2(PlayerId player = 0) const noexcept { return Read(player).Vector(); }
-    /** @brief Single-axis player value. */
+    /** @brief Single-axis player value.
+     * @param player Logical player whose input is queried or updated.
+     * @return Requested read float value or reference.
+     */
     float ReadFloat(PlayerId player = 0) const noexcept { return Read(player).x; }
-    /** @brief Whether the action has a nonzero value this frame. */
+    /** @brief Whether the action has a nonzero value this frame.
+     * @param player Logical player whose input is queried or updated.
+     * @return True if the action has a nonzero value this frame; otherwise false.
+     */
     bool IsPressed(PlayerId player = 0) const noexcept;
-    /** @brief New pressed edge this frame. */
+    /** @brief New pressed edge this frame.
+     * @param player Logical player whose input is queried or updated.
+     * @return True if the operation succeeded or its condition holds; otherwise false.
+     */
     bool WasPressedThisFrame(PlayerId player = 0) const noexcept;
-    /** @brief New released edge this frame. */
+    /** @brief New released edge this frame.
+     * @param player Logical player whose input is queried or updated.
+     * @return True if the operation succeeded or its condition holds; otherwise false.
+     */
     bool WasReleasedThisFrame(PlayerId player = 0) const noexcept;
-    /** @brief Whether the configured interaction performed this frame. */
+    /** @brief Whether the configured interaction performed this frame.
+     * @param player Logical player whose input is queried or updated.
+     * @return True if the configured interaction performed this frame; otherwise false.
+     */
     bool WasPerformedThisFrame(PlayerId player = 0) const noexcept;
-    /** @brief Typed convenience read: bool, float or Vec2. */
+    /** @brief Typed convenience read: bool, float or Vec2.
+     * @param player Logical player whose input is queried or updated.
+     * @return Requested read value value or reference.
+     */
     template<class T> T ReadValue(PlayerId player = 0) const noexcept {
         if constexpr (std::is_same_v<T, Vec2>) return ReadVec2(player);
         else if constexpr (std::is_same_v<T, bool>) return IsPressed(player);
         else return static_cast<T>(ReadFloat(player));
     }
-    /** @brief Listen for performed events, returning a removal token. */
+    /** @brief Listen for performed events, returning a removal token.
+     * @param callback Callable invoked when the relevant event occurs.
+     * @return Result of on performed in InputAction.
+     */
     InputListenerId OnPerformed(Callback callback);
-    /** @brief Listen for performed events with just the player ID. */
+    /** @brief Listen for performed events with just the player ID.
+     * @param callback Callable invoked when the relevant event occurs.
+     * @return Result of on performed in InputAction.
+     */
     InputListenerId OnPerformed(std::function<void(PlayerId)> callback) {
         return OnPerformed([callback = std::move(callback)](const InputActionEvent& event) {
             if (callback) callback(event.player);
         });
     }
-    /** @brief Listen for new action activation. */
+    /** @brief Listen for new action activation.
+     * @param callback Callable invoked when the relevant event occurs.
+     * @return Result of on started in InputAction.
+     */
     InputListenerId OnStarted(Callback callback);
-    /** @brief Listen for an active action returning to idle. */
+    /** @brief Listen for an active action returning to idle.
+     * @param callback Callable invoked when the relevant event occurs.
+     * @return Result of on canceled in InputAction.
+     */
     InputListenerId OnCanceled(Callback callback);
-    /** @brief Unsubscribe a previously registered callback. */
+    /** @brief Unsubscribe a previously registered callback.
+     * @param id Stable identifier associated with the requested object or control.
+     * @return True if the operation succeeded or its condition holds; otherwise false.
+     */
     bool RemoveListener(InputListenerId id) noexcept;
 
-    /** @brief Append a physical source. */
+    /** @brief Append a physical source.
+     * @param binding Binding supplied to InputAction.
+     */
     void AddBinding(InputBinding binding) { bindings_.push_back(std::move(binding)); }
-    /** @brief Inspect currently registered physical bindings. */
+    /** @brief Inspect currently registered physical bindings.
+     * @return Result of bindings in InputAction.
+     */
     const std::vector<InputBinding>& Bindings() const noexcept { return bindings_; }
-    /** @brief Choose how simultaneous source values are combined. */
+    /** @brief Choose how simultaneous source values are combined.
+     * @param mode Operating mode selected for this operation.
+     */
     void SetCombineMode(InputCombineMode mode) noexcept { combine_ = mode; }
-    /** @brief Inspect the combination policy. */
+    /** @brief Inspect the combination policy.
+     * @return Result of combine mode in InputAction.
+     */
     InputCombineMode CombineMode() const noexcept { return combine_; }
-    /** @brief Set hold/tap/press interaction parameters. */
+    /** @brief Set hold/tap/press interaction parameters.
+     * @param interaction Interaction supplied to InputAction.
+     */
     void SetInteraction(InputInteraction interaction) noexcept { interaction_ = interaction; }
-    /** @brief Read current interaction parameters. */
+    /** @brief Read current interaction parameters.
+     * @return Result of interaction in InputAction.
+     */
     const InputInteraction& Interaction() const noexcept { return interaction_; }
-    /** @brief Append an action-level value processor. */
+    /** @brief Append an action-level value processor.
+     * @param processor Processor supplied to InputAction.
+     */
     void AddProcessor(InputProcessor processor) { processors_.push_back(processor); }
 
 private:
+    /** @brief Grant InputManager access to the internal state of InputAction.
+     */
     friend class InputManager;
+    /** @brief Runtime state of an input device or interactive control.
+     */
     struct State {
         InputValue value{};       ///< Most recently evaluated action value.
         bool down = false;       ///< Whether the action is currently actuated.
@@ -279,23 +355,60 @@ private:
         bool holdFired = false;  ///< Whether the hold interaction has already triggered.
         InputValue smoothed{};   ///< Value retained between smoothing updates.
     };
+    /** @brief Advance in InputAction.
+     * @param player Logical player whose input is queried or updated.
+     * @param value Value to store, serialize, compare or transform.
+     * @param dt Elapsed simulation time for the update, in seconds.
+     */
     void Advance(PlayerId player, InputValue value, float dt) noexcept;
+    /** @brief Emit in InputAction.
+     * @param player Logical player whose input is queried or updated.
+     * @param phase Phase supplied to InputAction.
+     * @param value Value to store, serialize, compare or transform.
+     */
     void Emit(PlayerId player, InputActionPhase phase, InputValue value) noexcept;
+    /** @brief Reset the InputAction state.
+     * @param player Logical player whose input is queried or updated.
+     */
     void Clear(PlayerId player) noexcept;
+    /** @brief Retrieve the state from InputAction.
+     * @param player Logical player whose input is queried or updated.
+     * @return Requested get state value or reference.
+     */
     const State* GetState(PlayerId player) const noexcept;
+    /** @brief Stored name value used by InputAction.
+     */
     std::string name_;
+    /** @brief Stored type value used by InputAction.
+     */
     InputActionType type_;
+    /** @brief Stored combine value used by InputAction.
+     */
     InputCombineMode combine_ = InputCombineMode::Strongest;
+    /** @brief Stored interaction value used by InputAction.
+     */
     InputInteraction interaction_{};
+    /** @brief Stored bindings value used by InputAction.
+     */
     std::vector<InputBinding> bindings_;
+    /** @brief Stored processors value used by InputAction.
+     */
     std::vector<InputProcessor> processors_;
+    /** @brief Stored states value used by InputAction.
+     */
     std::unordered_map<PlayerId, State> states_;
+    /** @brief Listener data and utilities used by InputAction.
+     */
     struct Listener {
         InputListenerId id;    ///< Identifier assigned to this action listener.
         InputActionPhase phase; ///< Action phase observed by the listener.
         Callback callback;     ///< Function invoked when the phase is emitted.
     };
+    /** @brief Stored listeners value used by InputAction.
+     */
     std::vector<Listener> listeners_;
+    /** @brief Stored next listener value used by InputAction.
+     */
     InputListenerId nextListener_ = 1;
 };
 
@@ -303,40 +416,67 @@ private:
 /** @brief Typed, non-owning action accessor for bool, float or Vec2. */
 template<class T> class InputActionRef {
 public:
-    /** @brief Construct a non-owning typed action handle. */
+    /** @brief Construct a non-owning typed action handle.
+     * @param action Action supplied to InputActionRef.
+     */
     explicit InputActionRef(InputAction* action = nullptr) noexcept : action_(action) {}
     /** @brief Whether the action resolved with the expected type. */
     explicit operator bool() const noexcept { return action_ != nullptr; }
-    /** @brief Read the player's typed action value. */
+    /** @brief Read the player's typed action value.
+     * @param player Logical player whose input is queried or updated.
+     * @return Requested read value value or reference.
+     */
     T ReadValue(PlayerId player = 0) const noexcept {
         return action_ ? action_->ReadValue<T>(player) : T{};
     }
-    /** @brief Whether the action is held. */
+    /** @brief Whether the action is held.
+     * @param player Logical player whose input is queried or updated.
+     * @return True if the action is held; otherwise false.
+     */
     bool IsPressed(PlayerId player = 0) const noexcept {
         return action_ && action_->IsPressed(player);
     }
-    /** @brief Press edge in the current input frame. */
+    /** @brief Press edge in the current input frame.
+     * @param player Logical player whose input is queried or updated.
+     * @return True if the operation succeeded or its condition holds; otherwise false.
+     */
     bool WasPressedThisFrame(PlayerId player = 0) const noexcept {
         return action_ && action_->WasPressedThisFrame(player);
     }
-    /** @brief Release edge in the current input frame. */
+    /** @brief Release edge in the current input frame.
+     * @param player Logical player whose input is queried or updated.
+     * @return True if the operation succeeded or its condition holds; otherwise false.
+     */
     bool WasReleasedThisFrame(PlayerId player = 0) const noexcept {
         return action_ && action_->WasReleasedThisFrame(player);
     }
-    /** @brief Interaction was performed in this frame. */
+    /** @brief Interaction was performed in this frame.
+     * @param player Logical player whose input is queried or updated.
+     * @return True if the operation succeeded or its condition holds; otherwise false.
+     */
     bool WasPerformedThisFrame(PlayerId player = 0) const noexcept {
         return action_ && action_->WasPerformedThisFrame(player);
     }
-    /** @brief Subscribe to performed events including phase and value. */
+    /** @brief Subscribe to performed events including phase and value.
+     * @param callback Callable invoked when the relevant event occurs.
+     * @return Result of on performed in InputActionRef.
+     */
     InputListenerId OnPerformed(InputAction::Callback callback) const {
         return action_ ? action_->OnPerformed(std::move(callback)) : 0;
     }
-    /** @brief Subscribe to performed events carrying a PlayerId. */
+    /** @brief Subscribe to performed events carrying a PlayerId.
+     * @param callback Callable invoked when the relevant event occurs.
+     * @return Result of on performed in InputActionRef.
+     */
     InputListenerId OnPerformed(std::function<void(PlayerId)> callback) const {
         return action_ ? action_->OnPerformed(std::move(callback)) : 0;
     }
-    /** @brief Underlying non-owning action pointer. */
+    /** @brief Underlying non-owning action pointer.
+     * @return Requested get value or reference.
+     */
     InputAction* Get() const noexcept { return action_; }
 private:
+    /** @brief Stored action value used by InputActionRef.
+     */
     InputAction* action_ = nullptr;
 };

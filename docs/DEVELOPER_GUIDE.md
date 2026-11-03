@@ -150,6 +150,13 @@ No `third_party/` vendor directory is required. Native builds use SDL2 developme
 
    `.bat` launchers prefer `py -3`, falling back to `python` if the Python Launcher is unavailable. When using an MSYS2 Bash terminal, invoke `.bat` through `cmd.exe /c`; do not use `bash build.bat`.
 
+   **Windows logs:** `build.bat --config Debug --run` links the game with the
+   Windows console subsystem and displays `Console.Log`, `Console.Warning`,
+   `Console.Error` and the Debug-only `[DPI]` startup diagnostic in the
+   terminal. SDL2's `pkg-config` options may request the GUI subsystem, so
+   the builder explicitly overrides that choice for Debug. Release games
+   retain the GUI subsystem to avoid opening a console when launched normally.
+
 ### Linux x86_64 — Ubuntu / Debian
 
 Install native development dependencies:
@@ -769,14 +776,22 @@ testing limitations.
 
 ### Debug profiler overlay
 
-Press **F3** to toggle runtime statistics and **F4** to advance to the next page. The panel adapts to the window size and measures font widths to prevent overlapping columns.
+In Debug builds, **F3** enables the statistics panel and collider debug draws.
+**F2** then hides or restores the panel while keeping the debug drawings active;
+**F3** closes both, even if the panel is hidden. **F4** advances pages only while
+the panel is visible. The panel adapts to the window size and measures font
+widths to prevent overlapping columns. Explicit per-collider `showGizmo`
+settings remain independent of the F3 mode.
+The profiler reserves 32 extra pixels for fluctuating values and retains its
+widest measured column throughout an F3 session. The width resets on F3
+reopening or window/font changes, so the panel does not jitter at 4 Hz.
 
 The **Active Configuration** section shows whether CPU workers are available
 and were used in the last frame, the active SDL backend versus the requested
 backend, `Renderer.parallelPreparation`, `Renderer.parallelMinCommands`, the
 render selection path, and `Collision.broadphase` / `Collision.cellSize` with
 their effective last-frame choices (including automatic grid cell sizing).
-See [Multithreading and profiling](MULTITHREADING_AND_PROFILING.md#on-screen-debug-profiler-f3--f4)
+See [Multithreading and profiling](MULTITHREADING_AND_PROFILING.md#on-screen-debug-profiler-f2--f3--f4)
 for details.
 
 ### Render adaptive diagnostics and deterministic CPU benchmark

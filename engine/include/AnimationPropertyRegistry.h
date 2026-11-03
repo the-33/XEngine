@@ -21,7 +21,9 @@ struct AnimationPropertyBinding {
     std::function<void(const AnimationValue&)> write; ///< Applies a value through its registered setter.
     std::function<bool()> valid; ///< Rechecks that the target component still exists.
 
-    /** @brief Whether both accessors can currently reach their target. */
+    /** @brief Whether both accessors can currently reach their target.
+     * @return True if both accessors can currently reach their target; otherwise false.
+     */
     bool IsValid() const { return valid && valid(); }
 };
 
@@ -103,9 +105,23 @@ public:
     static void RegisterBuiltins();
 
 private:
+    /** @brief Type alias for resolver used by AnimationPropertyRegistry.
+     */
     using Resolver = std::function<Component*(GameObject&, unsigned)>;
+    /** @brief Type alias for reader used by AnimationPropertyRegistry.
+     */
     using Reader = std::function<AnimationValue(Component&)>;
+    /** @brief Type alias for writer used by AnimationPropertyRegistry.
+     */
     using Writer = std::function<void(Component&, const AnimationValue&)>;
+    /** @brief Register raw in AnimationPropertyRegistry.
+     * @param componentName Component name supplied to AnimationPropertyRegistry.
+     * @param propertyName Property name supplied to AnimationPropertyRegistry.
+     * @param resolve Resolve supplied to AnimationPropertyRegistry.
+     * @param read Read supplied to AnimationPropertyRegistry.
+     * @param write Write supplied to AnimationPropertyRegistry.
+     * @return True if the operation succeeded or its condition holds; otherwise false.
+     */
     static bool RegisterRaw(std::string componentName, std::string propertyName,
                             Resolver resolve, Reader read, Writer write);
 };

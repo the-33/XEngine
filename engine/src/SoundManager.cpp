@@ -7,6 +7,10 @@
 #include "ErrorHandler.h"
 #include "SDL_mixer.h"
 
+/** @brief To mix vol in SoundManager.cpp.
+ * @param v01 V01 supplied to SoundManager.cpp.
+ * @return Result of to mix vol in SoundManager.cpp.
+ */
 static inline int ToMixVol(float v01) // Use a logarithmic scale for better perceived volume
 {
     v01 = std::clamp(v01, 0.0f, 1.0f);
@@ -14,19 +18,41 @@ static inline int ToMixVol(float v01) // Use a logarithmic scale for better perc
     return int(perceptual * MIX_MAX_VOLUME + 0.5f);
 }
 
+/** @brief Lerp in SoundManager.cpp.
+ * @param a First input operand.
+ * @param b Second input operand.
+ * @param t Interpolation factor or elapsed time, according to this operation.
+ * @return Result of lerp in SoundManager.cpp.
+ */
 static inline float Lerp(float a, float b, float t) {
     t = std::clamp(t, 0.0f, 1.0f);
     return a + (b - a) * t;
 }
 
+/** @brief Runtime data and utilities used by XEngine.
+ */
 struct Runtime {
+    /** @brief Stored music vol01 value used by Runtime.
+     */
     float musicVol01 = 1.0f;
+    /** @brief Stored music gain value used by Runtime.
+     */
     float musicGain = 1.0f;
+    /** @brief Configured ch gain value used by Runtime.
+     */
     std::vector<float> chGain;   // gain per SFX channel (0..1)
+    /** @brief Configured inited value used by Runtime.
+     */
     bool  inited = false;
 };
+/** @brief Rt in SoundManager.cpp.
+ * @return Result of rt in SoundManager.cpp.
+ */
 Runtime& RT() { static Runtime r; return r; }
 
+/** @brief Reapply sfx volumes in SoundManager.cpp.
+ * @param master01 Master01 supplied to SoundManager.cpp.
+ */
 static inline void ReapplySFXVolumes(float master01) {
     auto& rt = RT();
     const int n = (int)rt.chGain.size();
@@ -54,7 +80,7 @@ bool SoundManager::Init(const Config& cfg) noexcept
     // internal open counter twice: shutdown calls Mix_CloseAudio() once.
     if (Mix_QuerySpec(nullptr, nullptr, nullptr) == 0) {
         if (Mix_OpenAudio(frequency, format, channels, chunksize) != 0) {
-            LogError("SoundManager::Init()", "Mix_OpenAudio failed.", Mix_GetError());
+            LogError("Engine - Audio", "Init(): Mix_OpenAudio failed.", Mix_GetError());
             return false;
         }
     }
@@ -147,7 +173,7 @@ bool SoundManager::PlayMusic(const Music* music, int loops, float gain01) noexce
     if (!mm) return false;
 
     if (Mix_PlayMusic(mm, loops) != 0) {
-        LogError("SoundManager::PlayMusic()", "Mix_PlayMusic failed.", Mix_GetError());
+        LogError("Engine - Audio", "PlayMusic(): Mix_PlayMusic failed.", Mix_GetError());
         return false;
     }
 
@@ -179,7 +205,7 @@ int SoundManager::PlaySFX(const SoundEffect* sfx, int loops, float gain01) noexc
 
     const int channel = Mix_PlayChannel(-1, ch, loops);
     if (channel == -1) {
-        LogError("SoundManager::PlaySFX()", "Mix_PlayChannel failed.", Mix_GetError());
+        LogError("Engine - Audio", "PlaySFX(): Mix_PlayChannel failed.", Mix_GetError());
         return -1;
     }
 

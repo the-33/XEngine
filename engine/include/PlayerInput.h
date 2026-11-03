@@ -21,7 +21,9 @@ public:
     PlayerInputSettings settings{};
     /** @brief Construct with default manual configuration. */
     PlayerInput() = default;
-    /** @brief Construct with an explicit player profile. */
+    /** @brief Construct with an explicit player profile.
+     * @param profile Profile supplied to PlayerInput.
+     */
     explicit PlayerInput(PlayerInputSettings profile) : settings(std::move(profile)) {}
 
     /** @brief Applies this component's settings to the global input router. */
@@ -35,17 +37,26 @@ public:
                 registered_ = true;
         }
     }
-    /** @brief Non-owning action handle. Null if the action was not loaded. */
+    /** @brief Non-owning action handle. Null if the action was not loaded.
+     * @param path Filesystem path identifying the resource.
+     * @return Result of action in PlayerInput.
+     */
     InputAction* Action(const std::string& path) const noexcept {
         auto* input = InputManager::GetInstancePtr();
         return input ? input->FindAction(path) : nullptr;
     }
-    /** @brief Reads a movement or aim action for this character's player. */
+    /** @brief Reads a movement or aim action for this character's player.
+     * @param path Filesystem path identifying the resource.
+     * @return Requested read vec2 value or reference.
+     */
     Vec2 ReadVec2(const std::string& path) const noexcept {
         const auto* action = Action(path);
         return action ? action->ReadVec2(settings.player) : Vec2{};
     }
-    /** @brief Reads the current frame's button press for this character. */
+    /** @brief Reads the current frame's button press for this character.
+     * @param path Filesystem path identifying the resource.
+     * @return True if the operation succeeded or its condition holds; otherwise false.
+     */
     bool WasPressed(const std::string& path) const noexcept {
         const auto* action = Action(path);
         return action && action->WasPressedThisFrame(settings.player);
@@ -63,6 +74,10 @@ public:
     void Start() override { Apply(); }
 
 private:
+    /** @brief Stored registered value used by PlayerInput.
+     */
     bool registered_ = false;
+    /** @brief Stored previous value used by PlayerInput.
+     */
     std::optional<PlayerInputSettings> previous_;
 };

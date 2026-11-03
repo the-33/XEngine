@@ -89,9 +89,23 @@ public:
     }
 
 private:
+    /** @brief Raw bin in SpatialContextClassifier.
+     * @param value Value to store, serialize, compare or transform.
+     * @param low Low supplied to SpatialContextClassifier.
+     * @param high High supplied to SpatialContextClassifier.
+     * @return Result of raw bin in SpatialContextClassifier.
+     */
     static unsigned RawBin(double value, double low, double high) noexcept {
         return value >= high ? 2u : (value >= low ? 1u : 0u);
     }
+    /** @brief Hysteretic bin in SpatialContextClassifier.
+     * @param value Value to store, serialize, compare or transform.
+     * @param current Current supplied to SpatialContextClassifier.
+     * @param low Low supplied to SpatialContextClassifier.
+     * @param high High supplied to SpatialContextClassifier.
+     * @param margin Margin supplied to SpatialContextClassifier.
+     * @return Result of hysteretic bin in SpatialContextClassifier.
+     */
     static unsigned HystereticBin(double value, unsigned current,
                                   double low, double high, double margin) noexcept {
         const double thresholds[2]{low, high};
@@ -99,16 +113,47 @@ private:
         while (current > 0 && value < thresholds[current - 1] * (1. - margin)) --current;
         return current;
     }
+    /** @brief Scale in SpatialContextClassifier.
+     * @param colliders Collider collection to query or use in collision detection.
+     * @return Result of scale in SpatialContextClassifier.
+     */
     static unsigned Scale(std::size_t colliders) noexcept {
         unsigned scale = 0;
         while (colliders > 1 && scale < 31) { colliders >>= 1; ++scale; }
         return scale;
     }
+    /** @brief Stored scale value used by SpatialContextClassifier.
+     */
     unsigned mScale = 0, mOccupancy = 0, mConcentration = 0;
+    /** @brief Stored pending value used by SpatialContextClassifier.
+     */
     unsigned mPending = 9, mPendingFrames = 0;
+    /** @brief Stored workers value used by SpatialContextClassifier.
+     */
     bool mWorkers = false, mInitialized = false;
 };
 
 } // namespace xengine::detail
+/** @brief Type alias for spatial context classifier used by XEngine/detail/SpatialContextClassifier.h.
+ */
 using SpatialContextClassifier = xengine::detail::SpatialContextClassifier;
 
+/** @name Co-declared engine member descriptions
+ * @brief Members sharing declarations with other fields.
+ * @{ */
+/** @var unsigned xengine::detail::SpatialContextClassifier::mOccupancy
+ * @brief Stored occupancy state owned by SpatialContextClassifier.
+ */
+
+/** @var unsigned xengine::detail::SpatialContextClassifier::mConcentration
+ * @brief Stored concentration state owned by SpatialContextClassifier.
+ */
+
+/** @var unsigned xengine::detail::SpatialContextClassifier::mPendingFrames
+ * @brief Stored pending frames state owned by SpatialContextClassifier.
+ */
+
+/** @var bool xengine::detail::SpatialContextClassifier::mInitialized
+ * @brief Stored initialized state owned by SpatialContextClassifier.
+ */
+/** @} */

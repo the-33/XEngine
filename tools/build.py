@@ -464,6 +464,17 @@ def common_flags(target: str, profile: str) -> list[str]:
         flags += ['-O2','-DNDEBUG','-DXENGINE_RELEASE=1']
     return flags
 
+def game_subsystem_flags(target: str, profile: str) -> list[str]:
+    """Keep Windows Debug logs visible without opening a console for Release.
+
+    SDL2 pkg-config flags can contain -mwindows. Apply our subsystem choice
+    *after* those flags so a Debug game launched by build.bat --run inherits
+    the terminal's stdout/stderr instead of silently discarding the logs.
+    """
+    if target != 'windows':
+        return []
+    return ['-mconsole' if profile == 'debug' else '-mwindows']
+
 def source_compile_command(compiler: str, flags: list[str], cflags: list[str],
                            src: Path, obj: Path) -> list[str]:
     """One authoritative GCC invocation, reused by builds and IDE metadata."""
@@ -816,6 +827,7 @@ def game_build(project: str, *,target,profile,arch,tooling,run:bool=False,
     if target=='windows': link_options+=['-ladvapi32']  # PlayerPrefs: HKCU Registry API
     if target=='linux': link_options+=['-Wl,-rpath,$ORIGIN/lib']
     if profile=='release': link_options+=['-s']
+    link_options+=game_subsystem_flags(target,profile)
     link_sig_path=out/'GameLink.sha256'
     current_link_sig=link_signature(objects, library, icon_object, compiler, link_options)
     if (changed or icon_changed or not output.exists() or not link_sig_path.is_file()

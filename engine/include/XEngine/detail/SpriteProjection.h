@@ -17,13 +17,27 @@ namespace xengine::detail::sprite_projection {
  *       2D rotation and the local offset orientation.
  */
 struct Pose {
+    /** @brief Configured x value used by Pose.
+     */
     float x = 0.f, y = 0.f;
+    /** @brief Configured scale x value used by Pose.
+     */
     float scaleX = 1.f, scaleY = 1.f;
+    /** @brief Configured rotation x value used by Pose.
+     */
     float rotationX = 0.f, rotationY = 0.f, rotationZ = 0.f;
+    /** @brief Configured width value used by Pose.
+     */
     float width = 0.f, height = 0.f; // Source region / pixels-per-unit
+    /** @brief Configured offset x value used by Pose.
+     */
     float offsetX = 0.f, offsetY = 0.f;
+    /** @brief Configured pivot x value used by Pose.
+     */
     float pivotX = .5f, pivotY = .5f;
 };
+/** @brief Configured x value used by Rect.
+ */
 struct Rect { float x, y, w, h; };
 
 /** @brief Computes a sprite's world-space rectangle from its immutable pose.
@@ -66,3 +80,51 @@ inline Rect Project(const Pose& pose) noexcept {
 // Compatibility namespace: existing engine code and internal tests may still
 // include the historical forwarding header and use its original spelling.
 namespace SpriteProjection = xengine::detail::sprite_projection;
+
+/** @name Co-declared engine member descriptions
+ * @brief Members sharing declarations with other fields.
+ * @{ */
+/** @var float xengine::detail::sprite_projection::Pose::y
+ * @brief Y used by Pose.
+ */
+
+/** @var float xengine::detail::sprite_projection::Pose::scaleY
+ * @brief Scale y used by Pose.
+ */
+
+/** @var float xengine::detail::sprite_projection::Pose::rotationY
+ * @brief Rotation y used by Pose.
+ */
+
+/** @var float xengine::detail::sprite_projection::Pose::rotationZ
+ * @brief Rotation z used by Pose.
+ */
+
+/** @var float xengine::detail::sprite_projection::Pose::height
+ * @brief Camera height in the projection coordinate space.
+ */
+
+/** @var float xengine::detail::sprite_projection::Pose::offsetY
+ * @brief Offset y used by Pose.
+ */
+
+/** @var float xengine::detail::sprite_projection::Pose::pivotY
+ * @brief Pivot y used by Pose.
+ */
+
+/** @var float xengine::detail::sprite_projection::Rect::x
+ * @brief X used by Rect.
+ */
+
+/** @var float xengine::detail::sprite_projection::Rect::y
+ * @brief Y used by Rect.
+ */
+
+/** @var float xengine::detail::sprite_projection::Rect::w
+ * @brief W used by Rect.
+ */
+
+/** @var float xengine::detail::sprite_projection::Rect::h
+ * @brief H used by Rect.
+ */
+/** @} */

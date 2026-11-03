@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <algorithm>
+#include <array>
 
 #include "Transform.h"
 #include "CollisionManager.h"
@@ -11,7 +12,16 @@
 #include "SpriteRenderer.h"
 
 
+/** @brief Deg to rad in Collider2D.cpp.
+ * @param d D supplied to Collider2D.cpp.
+ * @return Result of deg to rad in Collider2D.cpp.
+ */
 static inline float DegToRad(float d) noexcept { return d * 3.14159265358979323846f / 180.f; }
+/** @brief Rot2 d in Collider2D.cpp.
+ * @param v Input vector or value to process.
+ * @param deg Deg supplied to Collider2D.cpp.
+ * @return Result of rot2 d in Collider2D.cpp.
+ */
 static inline Vec2 Rot2D(Vec2 v, float deg) noexcept {
     const float r = DegToRad(deg);
     const float c = std::cos(r);
@@ -282,7 +292,7 @@ void Collider2D::OnDestroy()
 
 void Collider2D::Render()
 {
-    if (!drawCollider_ && !Engine::GetInstancePtr()->mShowStatsOverlay) return;
+    if (!drawCollider_ && !Engine::GetInstancePtr()->mShowDebugDraws) return;
 
     Color gizmoColor = (CustomGizmoColor) ? drawColor_ : (isTrigger_) ? Color::Yellow() : Color::Green();
 
@@ -305,37 +315,36 @@ void Collider2D::Render()
 
     if (shape_ == Shape::Capsule) {
         const auto capsule = WorldCapsule();
+        if (!(capsule.radius > 0.f)) return;
         const Vec2 segment = capsule.b - capsule.a;
         const float lengthSq = math::Dot(segment, segment);
         const Vec2 axis = (lengthSq > 1e-12f)
             ? segment * (1.f / std::sqrt(lengthSq)) : Vec2{0.f, 1.f};
         const Vec2 normal{-axis.y, axis.x};
-        const float radius = capsule.radius;
 
-        if (lengthSq > 1e-12f) {
-            const Vec2 leftA = capsule.a + normal * radius;
-            const Vec2 leftB = capsule.b + normal * radius;
-            const Vec2 rightA = capsule.a - normal * radius;
-            const Vec2 rightB = capsule.b - normal * radius;
-            r.DrawDebugLine(leftA.x, leftA.y, leftB.x, leftB.y, gizmoColor);
-            r.DrawDebugLine(rightA.x, rightA.y, rightB.x, rightB.y, gizmoColor);
-        }
-
-        constexpr int segments = 16;
+        // One shared closed contour avoids tiny gaps between independently
+        // computed arcs and straight sides; additional segments smooth the caps.
+        constexpr int segments = 32;
         constexpr float pi = 3.14159265358979323846f;
-        auto drawArc = [&](Vec2 center, bool forward) {
-            const Vec2 side = forward ? normal : -normal;
-            const Vec2 outward = forward ? axis : -axis;
-            for (int i = 0; i < segments; ++i) {
-                const float a0 = pi * static_cast<float>(i) / segments;
-                const float a1 = pi * static_cast<float>(i + 1) / segments;
-                const Vec2 p0 = center + (side * std::cos(a0) + outward * std::sin(a0)) * radius;
-                const Vec2 p1 = center + (side * std::cos(a1) + outward * std::sin(a1)) * radius;
-                r.DrawDebugLine(p0.x, p0.y, p1.x, p1.y, gizmoColor);
-            }
-        };
-        drawArc(capsule.b, true);
-        drawArc(capsule.a, false);
+        std::array<Vec2, 2 * (segments + 1)> outline{};
+        for (int i = 0; i <= segments; ++i) {
+            const float angle = pi * static_cast<float>(i) / segments;
+            const float c = std::cos(angle);
+            const float s = std::sin(angle);
+            outline[i] = capsule.b + (normal * c + axis * s) * capsule.radius;
+            outline[segments + 1 + i] = capsule.a -
+                (normal * c + axis * s) * capsule.radius;
+        }
+        // Use the exact straight-side vertices at the two arc junctions.
+        outline[0] = capsule.b + normal * capsule.radius;
+        outline[segments] = capsule.b - normal * capsule.radius;
+        outline[segments + 1] = capsule.a - normal * capsule.radius;
+        outline.back() = capsule.a + normal * capsule.radius;
+        for (std::size_t i = 0; i < outline.size(); ++i) {
+            const Vec2& p0 = outline[i];
+            const Vec2& p1 = outline[(i + 1) % outline.size()];
+            r.DrawDebugLine(p0.x, p0.y, p1.x, p1.y, gizmoColor);
+        }
         return;
     }
 

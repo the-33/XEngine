@@ -217,10 +217,18 @@ void InputManager::Update() noexcept
     EvaluateActions(dt);
 }
 
+/** @brief To sdl in InputManager.cpp.
+ * @param k K supplied to InputManager.cpp.
+ * @return Result of to sdl in InputManager.cpp.
+ */
 static constexpr SDL_Scancode ToSDL(Key k) noexcept
 {
     return static_cast<SDL_Scancode>(static_cast<uint16_t>(k));
 }
+/** @brief To sdl in InputManager.cpp.
+ * @param b Second input operand.
+ * @return Result of to sdl in InputManager.cpp.
+ */
 static constexpr uint8_t ToSDL(MouseButton b) noexcept
 {
     return static_cast<uint8_t>(b);

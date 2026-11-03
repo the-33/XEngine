@@ -19,16 +19,37 @@
 using std::vector;
 
 // =================== Internal geometry helpers ===================
+/** @brief Abs dot in CollisionManager.cpp.
+ * @param vecA Vec a supplied to CollisionManager.cpp.
+ * @param vecB Vec b supplied to CollisionManager.cpp.
+ * @return Result of abs dot in CollisionManager.cpp.
+ */
 static inline float AbsDot(Vec2 vecA, Vec2 vecB) noexcept {
     return std::fabs(math::Dot(vecA, vecB));
 }
 
+/** @brief Overlap1 d in CollisionManager.cpp.
+ * @param aCenter A center supplied to CollisionManager.cpp.
+ * @param aExt A ext supplied to CollisionManager.cpp.
+ * @param bCenter B center supplied to CollisionManager.cpp.
+ * @param bExt B ext supplied to CollisionManager.cpp.
+ * @return True if the operation succeeded or its condition holds; otherwise false.
+ */
 static inline bool Overlap1D(float aCenter, float aExt, float bCenter, float bExt) noexcept {
     return std::fabs(aCenter - bCenter) <= (aExt + bExt);
 }
 
+/** @brief Deg to rad in CollisionManager.cpp.
+ * @param d D supplied to CollisionManager.cpp.
+ * @return Result of deg to rad in CollisionManager.cpp.
+ */
 static inline float DegToRad(float d) { return d * 3.14159265358979323846f / 180.f; }
 
+/** @brief Build axes in CollisionManager.cpp.
+ * @param deg Deg supplied to CollisionManager.cpp.
+ * @param ux Ux supplied to CollisionManager.cpp.
+ * @param uy Uy supplied to CollisionManager.cpp.
+ */
 static inline void BuildAxes(float deg, Vec2& ux, Vec2& uy) {
     const float r = DegToRad(deg);
     const float c = std::cos(r), s = std::sin(r);
@@ -36,19 +57,41 @@ static inline void BuildAxes(float deg, Vec2& ux, Vec2& uy) {
     uy = { -s, c };    // eje Y local
 }
 
+/** @brief Clamp f in CollisionManager.cpp.
+ * @param x Horizontal coordinate or component.
+ * @param a First input operand.
+ * @param b Second input operand.
+ * @return Result of clamp f in CollisionManager.cpp.
+ */
 static inline float ClampF(float x, float a, float b) noexcept {
     return (x < a) ? a : (x > b) ? b : x;
 }
 
+/** @brief Clamp v in CollisionManager.cpp.
+ * @param v Input vector or value to process.
+ * @param a First input operand.
+ * @param b Second input operand.
+ * @return Result of clamp v in CollisionManager.cpp.
+ */
 static inline Vec2 ClampV(const Vec2& v, const Vec2& a, const Vec2& b) noexcept {
     return { ClampF(v.x, a.x, b.x), ClampF(v.y, a.y, b.y) };
 }
 
+/** @brief Geometry parameters used for rendering or collision calculations.
+ */
 struct Basis2 {
+    /** @brief Configured x value used by Basis2.
+     */
     Vec2 x; // axisX
+    /** @brief Configured y value used by Basis2.
+     */
     Vec2 y; // axisY
 };
 
+/** @brief Obb bases in CollisionManager.cpp.
+ * @param rotDeg Rot deg supplied to CollisionManager.cpp.
+ * @return Result of obb bases in CollisionManager.cpp.
+ */
 static inline Basis2 OBBBases(float rotDeg) noexcept
 {
     const float r = DegToRad(rotDeg);
@@ -58,6 +101,12 @@ static inline Basis2 OBBBases(float rotDeg) noexcept
     return { Vec2{c, s}, Vec2{-s, c} };
 }
 
+/** @brief World to local in CollisionManager.cpp.
+ * @param pWorld P world supplied to CollisionManager.cpp.
+ * @param centerWorld Center world supplied to CollisionManager.cpp.
+ * @param b Second input operand.
+ * @return Result of world to local in CollisionManager.cpp.
+ */
 static inline Vec2 WorldToLocal(const Vec2& pWorld, const Vec2& centerWorld, const Basis2& b) noexcept
 {
     const Vec2 d = pWorld - centerWorld;
@@ -65,11 +114,22 @@ static inline Vec2 WorldToLocal(const Vec2& pWorld, const Vec2& centerWorld, con
     return { math::Dot(d, b.x), math::Dot(d, b.y) };
 }
 
+/** @brief Local to world in CollisionManager.cpp.
+ * @param pLocal P local supplied to CollisionManager.cpp.
+ * @param centerWorld Center world supplied to CollisionManager.cpp.
+ * @param b Second input operand.
+ * @return Result of local to world in CollisionManager.cpp.
+ */
 static inline Vec2 LocalToWorld(const Vec2& pLocal, const Vec2& centerWorld, const Basis2& b) noexcept
 {
     return centerWorld + b.x * pLocal.x + b.y * pLocal.y;
 }
 
+/** @brief Normalize safe in CollisionManager.cpp.
+ * @param v Input vector or value to process.
+ * @param fallback Fallback supplied to CollisionManager.cpp.
+ * @return Result of normalize safe in CollisionManager.cpp.
+ */
 static inline Vec2 NormalizeSafe(const Vec2& v, const Vec2& fallback = Vec2{ 1,0 }) noexcept
 {
     float ls = math::Dot(v, v);
@@ -221,12 +281,25 @@ CollisionManager::MinAxisResult CollisionManager::SAT_MinAxis(const Collider2D::
     return { bestAxis, bestPen, true };
 }
 
+/** @brief Project radius in CollisionManager.cpp.
+ * @param axis Axis supplied to CollisionManager.cpp.
+ * @param b Second input operand.
+ * @param half Half supplied to CollisionManager.cpp.
+ * @return Result of project radius in CollisionManager.cpp.
+ */
 static inline float ProjectRadius(const Vec2& axis, const Basis2& b, const Vec2& half) noexcept
 {
     // extents proyectados en axis: |dot(axis,ax)|*hx + |dot(axis,ay)|*hy
     return std::abs(math::Dot(axis, b.x)) * half.x + std::abs(math::Dot(axis, b.y)) * half.y;
 }
 
+/** @brief Support point obb in CollisionManager.cpp.
+ * @param center Center supplied to CollisionManager.cpp.
+ * @param b Second input operand.
+ * @param half Half supplied to CollisionManager.cpp.
+ * @param dir Dir supplied to CollisionManager.cpp.
+ * @return Result of support point obb in CollisionManager.cpp.
+ */
 static inline Vec2 SupportPointOBB(const Vec2& center, const Basis2& b, const Vec2& half, const Vec2& dir) noexcept
 {
     // most extreme point in direction dir
@@ -299,6 +372,12 @@ bool CollisionManager::Contact_OBB_OBB(const Vec2& ac, const Vec2& aHalf, float 
 
 // Capsule narrowphase. A capsule is a segment swept by a circle; all helpers
 // operate on immutable world-space snapshots and are safe for parallel passes.
+/** @brief Closest on segment in CollisionManager.cpp.
+ * @param p P supplied to CollisionManager.cpp.
+ * @param a First input operand.
+ * @param b Second input operand.
+ * @return Result of closest on segment in CollisionManager.cpp.
+ */
 static Vec2 ClosestOnSegment(const Vec2& p, const Vec2& a, const Vec2& b) noexcept
 {
     const Vec2 d = b - a;
@@ -307,6 +386,14 @@ static Vec2 ClosestOnSegment(const Vec2& p, const Vec2& a, const Vec2& b) noexce
     return a + d * ClampF(math::Dot(p - a, d) / lenSq, 0.f, 1.f);
 }
 
+/** @brief Closest segments in CollisionManager.cpp.
+ * @param p1 P1 supplied to CollisionManager.cpp.
+ * @param q1 Q1 supplied to CollisionManager.cpp.
+ * @param p2 P2 supplied to CollisionManager.cpp.
+ * @param q2 Q2 supplied to CollisionManager.cpp.
+ * @param point1 Point1 supplied to CollisionManager.cpp.
+ * @param point2 Point2 supplied to CollisionManager.cpp.
+ */
 static void ClosestSegments(const Vec2& p1, const Vec2& q1,
                             const Vec2& p2, const Vec2& q2,
                             Vec2& point1, Vec2& point2) noexcept
@@ -350,6 +437,12 @@ static void ClosestSegments(const Vec2& p1, const Vec2& q1,
 }
 
 template<class Capsule, class Circle>
+/** @brief Contact capsule circle in CollisionManager.cpp.
+ * @param capsule Capsule supplied to CollisionManager.cpp.
+ * @param circle Circle supplied to CollisionManager.cpp.
+ * @param out Caller-provided output destination.
+ * @return True if the operation succeeded or its condition holds; otherwise false.
+ */
 static bool Contact_Capsule_Circle(const Capsule& capsule,
                                    const Circle& circle,
                                    ContactPoint& out) noexcept
@@ -371,6 +464,12 @@ static bool Contact_Capsule_Circle(const Capsule& capsule,
 }
 
 template<class Capsule>
+/** @brief Contact capsule capsule in CollisionManager.cpp.
+ * @param a First input operand.
+ * @param b Second input operand.
+ * @param out Caller-provided output destination.
+ * @return True if the operation succeeded or its condition holds; otherwise false.
+ */
 static bool Contact_Capsule_Capsule(const Capsule& a,
                                     const Capsule& b,
                                     ContactPoint& out) noexcept
@@ -393,6 +492,12 @@ static bool Contact_Capsule_Capsule(const Capsule& a,
 }
 
 template<class Capsule, class OBB>
+/** @brief Contact capsule obb in CollisionManager.cpp.
+ * @param capsule Capsule supplied to CollisionManager.cpp.
+ * @param box Box supplied to CollisionManager.cpp.
+ * @param out Caller-provided output destination.
+ * @return True if the operation succeeded or its condition holds; otherwise false.
+ */
 static bool Contact_Capsule_OBB(const Capsule& capsule,
                                 const OBB& box,
                                 ContactPoint& out) noexcept
@@ -969,6 +1074,10 @@ void CollisionManager::BuildContacts_(std::vector<NarrowContact>& out) noexcept
     AccumulatePassProfile_(out.size());
 }
 
+/** @brief Flip contact for b in CollisionManager.cpp.
+ * @param cp Cp supplied to CollisionManager.cpp.
+ * @return Result of flip contact for b in CollisionManager.cpp.
+ */
 static inline ContactPoint FlipContactForB_(const ContactPoint& cp) noexcept
 {
     ContactPoint out = cp;

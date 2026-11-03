@@ -51,8 +51,19 @@ render the game at lower quality and upscale it on the same monitor mode.**
 render texture**, independent of the physical screen size. The renderer
 composites the low-resolution world image into a window or borderless fullscreen
 using nearest-neighbour filtering, with letterbox bars if aspect ratios differ.
+World-space Debug gizmos are composited **after** this upscale at a constant
+physical-pixel stroke thickness; their coordinates still follow the world
+camera and letterbox offset, independently of `UICanvas` scaling.
 `UIManager` buttons, labels, menus and text remain crisp at native display
 resolution. The monitor's actual video mode does not change:
+
+On Windows SDL2, XEngine requests `SDL_WINDOWS_DPI_AWARENESS=permonitorv2`
+before initializing video and leaves `SDL_WINDOWS_DPI_SCALING=0` by default.
+This asks Windows for true pixel coordinates per monitor even when the laptop
+uses 125% display scaling. Applications that deliberately set either SDL hint
+themselves keep their explicit override. In Debug builds an `Engine - Window`
+`[DPI]` line reports the logical window size, drawable size, renderer output,
+desktop video mode and requested awareness; these can differ on unusual setups.
 
 ```cpp
 Window->SetFullscreen(true); // Borderless, desktop resolution stays the same.
@@ -82,6 +93,13 @@ is scaled automatically inside `UIManager`. `Window->resizeRevision` changes
 when the window mode or dimensions change. `Camera2D::matchWindowAspect`
 keeps the vertical world span while adapting the horizontal span by default.
 Do not assume camera projection and UI pixels are the same coordinate space.
+For anchored widgets, `UICanvas::ScaleWithScreenSize` compares the **physical
+drawable size** with your game-defined `UICanvas::referenceResolution`: the
+reference does **not** come from `engine.json`. XEngine creates cached SDL_ttf
+font variants at the final screen size and measures them for text alignment,
+selection and text-input caret placement. Rounded panels snap edges and stroke
+widths to output pixels and use alpha-feathered contours for smooth corners.
+None of these UI changes alters the optional low-resolution world render target.
 
 ## World versus screen coordinates
 
@@ -97,6 +115,27 @@ if (camera) {
 Change world-space positions through `Transform`; position menus and buttons
 in screen space. When resizing, recalculate screen-space layout from the
 current `Window->drawableSize` rather than hardcoding coordinates for 1280x720.
+Small anchored controls remain available when the `UICanvas` scales below 1:
+`Slider`, `Toggle`, and `Dropdown` interpret their minimum drawable bounds in
+reference-canvas pixels. A low-resolution window therefore does not make the
+toggle or dropdown silently disappear just because their scaled height is
+under 12 physical pixels. Degenerate bounds are still rejected.
+
+If your game offers resize settings, call `UILayoutValidation::RequireVisible`
+for every **required** screen element, or `RequireControlVisible` for controls
+that need a minimum hit-test area. They validate resolved physical-pixel
+rectangles after the same edge rounding used by the UI renderer. For example,
+a 0.75-pixel divider still occupies one physical pixel and is valid; zero-size
+or off-screen rectangles are not. The checks throw `UILayoutException` with
+the failed element ID and reason
+(`InvalidCanvas`, `TooSmall`, or `Clipped`). A game can catch that exception,
+log `Console.Warning(..., "Engine - UI")`, restore its previous window and
+render dimensions, and display an explanation without exiting. Validate both
+the proposed drawable and the real drawable after applying the window mode.
+Because UI is immediate-mode, XEngine cannot infer controls that have not been
+submitted; the game supplies the required set explicitly. See
+`docs/WINDOW_AND_CAMERA.md` for a resize transaction example. The practice
+game shares the same rectangles between its Options renderer and validation.
 
 ## Immediate-mode controls
 
@@ -104,6 +143,67 @@ current `Window->drawableSize` rather than hardcoding coordinates for 1280x720.
 your `Behaviour::Render()` or equivalent gameplay rendering hook. Button IDs
 must be stable and unique for each interactive control, and the rectangle
 must be computed in screen coordinates.
+
+UI also supports **lines with configurable thickness**. Direct points use
+drawable pixels; the anchored overload takes a rectangle whose long axis
+defines the line. For the anchored overload, thickness is specified in
+reference-canvas pixels and multiplied by `UICanvas::ScaleFor()`:
+
+```cpp
+UI->Line({20.f, 100.f}, {260.f, 100.f}, Color{78, 85, 88, 255}, 2.f);
+
+const Rect panel = UI->Resolve(UIRectTransform::Center({690.f, 518.f}));
+UI->Line(UIRectTransform::TopLeft({598.f, 2.f}, {46.f, 87.f}),
+         Color{78, 85, 88, 255}, 2.f, &panel);
+```
+
+These commands share the normal UI draw queue. XEngine also supports numeric
+**UI layers** for every widget and draw command:
+
+```cpp
+UI->Panel(backgroundRect, Color{25, 30, 36, 255}); // default layer 0
+
+UI->PushLayer(10);
+if (UI->Button("popup.confirm", confirmRect, "Confirm")) {
+    // Button was pressed.
+}
+UI->Line({20.f, 100.f}, {260.f, 100.f}, Color{78, 85, 88, 255}, 2.f);
+UI->PopLayer(); // restores layer 0
+
+// Alternatively: UI->SetLayer(10); UI->SetLayer(0);
+```
+
+You can also set a layer **on one element**, without a surrounding scope.
+Pass the integer directly after its rectangle (or after both endpoints for
+`Line`); this applies to anchored, styled and pixel-based overloads:
+
+```cpp
+UI->Button("play", playRect, 10, "Play");
+UI->Slider("volume", volumeRect, 5, &volume, 0.f, 1.f, 0.05f);
+UI->Dropdown("resolution", dropdownLayout, 20, &selected, resolutions, 6, &panel);
+UI->Panel(panelRect, -2, Color{25, 30, 36, 255});
+UI->Line(lineLayout, 1, Color{78, 85, 88, 255}, 2.f, &panel);
+```
+
+Each call restores the surrounding layer automatically. This overload is
+available for `Button`, `InvisibleButton`, `ImageButton`, `Checkbox`, `Slider`,
+`Toggle`, `Dropdown`, `TextInput`, `Label`, `Panel`, `Line`, `Image` and
+`ProgressBar`. Existing calls without the layer parameter remain unchanged.
+
+Higher numeric layers (including positive and negative values) render above
+lower layers. Within **the same layer**, the later submitted element renders
+above earlier elements. The same rule applies to mouse hit testing of
+overlapping interactive controls: only the topmost control receives hover,
+press and click, even if both use layer 0. Because widgets return input events
+immediately, XEngine determines the pointer target using the complete hitbox
+list from the previous frame; a newly created or moved widget may need one
+frame to establish its mouse priority. Decorative panels and labels do not
+capture clicks; use `InvisibleButton` for an explicit interactive hitbox.
+Opened dropdown popups render last within their layer and block pointer
+interaction with controls of that or lower layers until dismissed; controls
+on higher layers remain interactive. Layers reset to 0 at each UI frame.
+The engine retains a minimum one-pixel rasterized line for positive
+subpixel thicknesses, such as 2 reference pixels scaled to 0.75 pixels.
 
 ```cpp
 Vec2I size = Window->drawableSize.get();
@@ -349,7 +449,7 @@ previous appearance until the new options are enabled.
 Every interactive widget participates in automatic focus navigation by
 default: arrows or a controller D-pad/stick move to a nearby control
 (except Left/Right while a slider has focus, which adjusts that slider),
-Tab/Shift+Tab cycle in draw order, and Enter / the controller South button
+Tab/Shift+Tab cycle by descending layer then registration order, and Enter / the controller South button
 activates the focused widget. The focused widget shows a blue outline.
 The keyboard/controller player is selected with `UI->SetNavigationPlayer(0)`;
 call `UI->SetNavigationEnabled(false)` when a particular screen must not
@@ -401,7 +501,8 @@ UI->ClearNavigation("menu.decorative_hotspot");
 // UI->ClearAllNavigation(); // Also available for a full menu rebuild.
 ```
 
-Tab/Shift+Tab traverse the registration order, skipping widgets marked `None`.
+Tab/Shift+Tab traverse higher-layer widgets first, then their registration
+order within each layer, skipping widgets marked `None`.
 Explicit directional rules apply only to the arrow keys and `UI/Navigate`;
 they do not override Tab order. Sliders still consume Left/Right to adjust
 their value, and an expanded dropdown consumes its own navigation until closed.

@@ -5,9 +5,18 @@
 
 #include "GameObject.h"
 
+/** @brief Deg to rad in Transform.cpp.
+ * @param d D supplied to Transform.cpp.
+ * @return Result of deg to rad in Transform.cpp.
+ */
 static inline float DegToRad(float d) noexcept { return d * 3.14159265358979323846f / 180.f; }
 
 // Rotate in the XY plane by the given angle (degrees) around Z.
+/** @brief Rot2 d in Transform.cpp.
+ * @param x Horizontal coordinate or component.
+ * @param y Vertical coordinate or component.
+ * @param degZ Deg z supplied to Transform.cpp.
+ */
 static inline void Rot2D(float& x, float& y, float degZ) noexcept {
     const float r = DegToRad(degZ);
     const float c = std::cos(r);
@@ -170,6 +179,10 @@ void Transform::Translate(const Vec3& delta) noexcept
                       current.z + delta.z});
 }
 
+/** @brief Rad to deg in Transform.cpp.
+ * @param r Target rectangle in the relevant coordinate space.
+ * @return Result of rad to deg in Transform.cpp.
+ */
 static inline float RadToDeg(float r) noexcept { return r * 180.f / 3.14159265358979323846f; }
 
 void Transform::LookAt(const Vec2& worldTarget, float offsetDeg) noexcept

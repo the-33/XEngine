@@ -10,6 +10,8 @@
 #include <stdexcept>
 #include <cctype>
 
+/** @brief Namespace collecting @003362144263366211111346352130244364314224043033 functionality for XEngine.
+ */
 namespace {
 using Json = nlohmann::json;
 

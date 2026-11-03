@@ -79,6 +79,17 @@ class BuildToolTests(unittest.TestCase):
         self.assertIn('-DXENGINE_DEBUG=1',mod.common_flags('linux','debug'))
         self.assertNotIn('-DNDEBUG',mod.common_flags('linux','debug'))
 
+    def test_windows_game_subsystem_keeps_debug_console_logs(self):
+        # SDL2's Windows pkg-config flags may include -mwindows. The explicit
+        # choice is appended last to ensure Debug inherits build.bat's console.
+        sdl_flags = ['-lmingw32', '-lSDL2main', '-lSDL2', '-mwindows']
+        debug_link = sdl_flags + mod.game_subsystem_flags('windows', 'debug')
+        release_link = sdl_flags + mod.game_subsystem_flags('windows', 'release')
+        self.assertEqual(debug_link[-1], '-mconsole')
+        self.assertEqual(release_link[-1], '-mwindows')
+        self.assertEqual(mod.game_subsystem_flags('linux', 'debug'), [])
+        self.assertEqual(mod.game_subsystem_flags('linux', 'release'), [])
+
     def test_reserved_defines(self):
         with self.assertRaises(mod.BuildError):
             mod.validate_defines(['XENGINE_DEBUG=1'])

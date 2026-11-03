@@ -13,7 +13,11 @@
 #include "SDL_ttf.h"
 
 
+/** @brief Define the is dir value used during compilation.
+ */
 #define IsDir IsDirectoryValid
+/** @brief Define the is file value used during compilation.
+ */
 #define IsFile IsFileValid
 
 namespace fs = std::filesystem;
@@ -22,10 +26,19 @@ namespace fs = std::filesystem;
 // Helpers internos
 // -----------------------
 
+/** @brief Make font key in AssetManager.cpp.
+ * @param path Filesystem path identifying the resource.
+ * @param ptSize Pt size used to bound or select the operation.
+ * @return Result of make font key in AssetManager.cpp.
+ */
 inline std::string MakeFontKey(const std::string& path, int ptSize) {
     return path + "#" + std::to_string(ptSize);
 }
 
+/** @brief Test whether AssetManager.cpp is file valid.
+ * @param path Filesystem path identifying the resource.
+ * @return True when is file valid; otherwise false.
+ */
 inline bool IsFileValid(const std::string& path) noexcept
 {
     if (path.empty())
@@ -39,6 +52,10 @@ inline bool IsFileValid(const std::string& path) noexcept
     }
 }
 
+/** @brief Test whether AssetManager.cpp is directory valid.
+ * @param path Filesystem path identifying the resource.
+ * @return True when is directory valid; otherwise false.
+ */
 inline bool IsDirectoryValid(const std::string& path) noexcept
 {
     if (path.empty())
@@ -64,7 +81,7 @@ bool AssetManager::Init(const std::string& assetsFolderPath) noexcept
     if (!IsDir(assetsFolderPath))
     {
         std::string wd = std::filesystem::current_path().string();
-        LogWarning("AssetManager", "Init(): Assets folder path does not exist or is not accessible.\nXEngine is running in: '" + wd + "'");
+        LogWarning("Engine - Assets", "Init(): Assets folder path does not exist or is not accessible.\nXEngine is running in: '" + wd + "'");
         return false;
     }
 
@@ -92,14 +109,14 @@ bool AssetManager::Init(const std::string& assetsFolderPath) noexcept
     const int wantImg = IMG_INIT_PNG | IMG_INIT_JPG;
     int gotImg = IMG_Init(wantImg);
     if ((gotImg & wantImg) != wantImg) {
-        LogError("AssetManager::Init()", "SDL_InitSubSystem(IMG_Init) failed.", IMG_GetError());
+        LogError("Engine - Assets", "Init(): SDL_InitSubSystem(IMG_Init) failed.", IMG_GetError());
         return false;
     }
 
     // SDL_ttf
     if (TTF_WasInit() == 0) {
         if (TTF_Init() != 0) {
-            LogError("AssetManager::Init()", "SDL_InitSubSystem(TTF_Init) failed.", TTF_GetError());
+            LogError("Engine - Assets", "Init(): SDL_InitSubSystem(TTF_Init) failed.", TTF_GetError());
             return false;
         }
     }
@@ -138,6 +155,10 @@ Font* AssetManager::GetEngineDefaultFont(bool bold) noexcept
 
 #include <SDL.h>
 
+/** @brief Retrieve the texture memory bytes from AssetManager.cpp.
+ * @param t Interpolation factor or elapsed time, according to this operation.
+ * @return Requested get texture memory bytes value or reference.
+ */
 size_t GetTextureMemoryBytes(const Texture* t)
 {
     if (!t)
@@ -169,7 +190,7 @@ Texture* AssetManager::LoadTexture(const std::string& path, float pixelsPerUnit)
 {
     if (pixelsPerUnit <= 0)
     {
-        LogWarning("AssetManager", 
+        LogWarning("Engine - Assets", 
             "LoadTexture(): Pixels per unit (PPP) can not be set to less than 1. Setting PPP to default value (100.0)");
         pixelsPerUnit = 100.f;
     }
@@ -181,7 +202,7 @@ Texture* AssetManager::LoadTexture(const std::string& path, float pixelsPerUnit)
         return it->second.get();
 
     if (!IsFileValid(fullPath)) {
-        LogWarning("AssetManager", "LoadTexture(): Texture path does not exist or is not accessible.");
+        LogWarning("Engine - Assets", "LoadTexture(): Texture path does not exist or is not accessible.");
         return nullptr;
     }
 
@@ -190,14 +211,14 @@ Texture* AssetManager::LoadTexture(const std::string& path, float pixelsPerUnit)
         : nullptr;
 
     if (!renderer) {
-        LogWarning("AssetManager", "LoadTexture(): Renderer not avaliable to load '" + fullPath + "'.");
+        LogWarning("Engine - Assets", "LoadTexture(): Renderer not avaliable to load '" + fullPath + "'.");
         return nullptr;
     }
 
     // Load directly to texture using SDL_image
     SDL_Texture* sdlTex = IMG_LoadTexture(renderer, fullPath.c_str());
     if (!sdlTex) {
-        LogError("AssetManager::LoadTexture()", "IMG_LoadTexture failed for '" + fullPath + "'.", IMG_GetError());
+        LogError("Engine - Assets", "LoadTexture(): IMG_LoadTexture failed for '" + fullPath + "'.", IMG_GetError());
         return nullptr;
     }
 
@@ -213,7 +234,7 @@ Texture* AssetManager::LoadTexture(const std::string& path, float pixelsPerUnit)
     }
     else {
         up->mW = up->mH = 0;
-        LogError("AssetManager::LoadTexture()", "SDL_QueryTexture failed for '" + fullPath + "'.", SDL_GetError());
+        LogError("Engine - Assets", "LoadTexture(): SDL_QueryTexture failed for '" + fullPath + "'.", SDL_GetError());
         return nullptr;
     }
 
@@ -265,7 +286,7 @@ Font* AssetManager::LoadFont(const std::string& path, int ptSize) noexcept
 {
     if (ptSize <= 0)
     {
-        LogWarning("AssetManager", "LoadFont(): ptSize can not be set to less than 1.");
+        LogWarning("Engine - Assets", "LoadFont(): ptSize can not be set to less than 1.");
         return nullptr;
     }
 
@@ -277,19 +298,20 @@ Font* AssetManager::LoadFont(const std::string& path, int ptSize) noexcept
         return it->second.get();
 
     if (!IsFileValid(fullPath)) {
-        LogWarning("AssetManager", "LoadFont(): Font path does not exist or is not accessible.");
+        LogWarning("Engine - Assets", "LoadFont(): Font path does not exist or is not accessible.");
         return nullptr;
     }
 
     TTF_Font* ttf = TTF_OpenFont(fullPath.c_str(), ptSize);
     if (!ttf) {
-        LogError("AssetManager::LoadFont()", "TTF_OpenFont failed for '" + fullPath + "' (" + std::to_string(ptSize) + " pt).", TTF_GetError());
+        LogError("Engine - Assets", "LoadFont(): TTF_OpenFont failed for '" + fullPath + "' (" + std::to_string(ptSize) + " pt).", TTF_GetError());
         return nullptr;
     }
 
     auto up = std::make_unique<Font>();
     up->mFont = ttf;
     up->mPointSize = ptSize;
+    up->mSourcePath = fullPath;
 
     Font* raw = up.get();
     try {
@@ -347,13 +369,13 @@ SoundEffect* AssetManager::LoadSFX(const std::string& path) noexcept
         return it->second.get();
 
     if (!IsFileValid(fullPath)) {
-        LogWarning("AssetManager", "LoadSFX(): SFX path does not exist or is not accessible.");
+        LogWarning("Engine - Assets", "LoadSFX(): SFX path does not exist or is not accessible.");
         return nullptr;
     }
 
     Mix_Chunk* chunk = Mix_LoadWAV(fullPath.c_str());
     if (!chunk) {
-        LogError("AssetManager::LoadSFX()", "Mix_LoadWAV failed for '" + fullPath + "'.", Mix_GetError());
+        LogError("Engine - Assets", "LoadSFX(): Mix_LoadWAV failed for '" + fullPath + "'.", Mix_GetError());
         return nullptr;
     }
 
@@ -366,6 +388,10 @@ SoundEffect* AssetManager::LoadSFX(const std::string& path) noexcept
     return raw;
 }
 
+/** @brief Retrieve the sfx memory bytes from AssetManager.cpp.
+ * @param s S supplied to AssetManager.cpp.
+ * @return Requested get sfx memory bytes value or reference.
+ */
 size_t GetSFXMemoryBytes(const SoundEffect* s) {
     Mix_Chunk* c = s->GetSDL();
     if (!c) return 0;
@@ -416,13 +442,13 @@ Music* AssetManager::LoadMusic(const std::string& path) noexcept
         return it->second.get();
 
     if (!IsFileValid(fullPath)) {
-        LogWarning("AssetManager", "LoadMusic(): Music path does not exist or is not accessible.");
+        LogWarning("Engine - Assets", "LoadMusic(): Music path does not exist or is not accessible.");
         return nullptr;
     }
 
     Mix_Music* mus = Mix_LoadMUS(fullPath.c_str());
     if (!mus) {
-        LogError("AssetManager::LoadMusic()", "Mix_LoadMUS failed for '" + fullPath + "'.", Mix_GetError());
+        LogError("Engine - Assets", "LoadMusic(): Mix_LoadMUS failed for '" + fullPath + "'.", Mix_GetError());
         return nullptr;
     }
 
@@ -465,6 +491,8 @@ Music* AssetManager::GetMusicByKey(const std::string& key) const noexcept
     return nullptr;
 }
 
+/** @brief Namespace collecting @305165161367027006360354333054041217127133356277 functionality for XEngine.
+ */
 namespace {
 std::string ReadAnimationText(const std::string& base, const std::string& relative)
 {
@@ -495,7 +523,7 @@ const AnimationClip* AssetManager::LoadAnimation(const std::string& path) noexce
         std::string error;
         auto loaded = AnimationClip::FromJson(ReadAnimationText(basePath, path), error);
         if (!loaded) {
-            Console.Warning("Animation '" + path + "': " + error, "Animation");
+            Console.Warning("Animation '" + path + "': " + error, "Engine - Animation");
             return nullptr;
         }
         auto clip = std::make_unique<AnimationClip>(std::move(*loaded));
@@ -503,7 +531,7 @@ const AnimationClip* AssetManager::LoadAnimation(const std::string& path) noexce
         mAnimations.emplace(path, std::move(clip));
         return result;
     } catch (const std::exception& error) {
-        Console.Warning("Animation '" + path + "': " + error.what(), "Animation");
+        Console.Warning("Animation '" + path + "': " + error.what(), "Engine - Animation");
         return nullptr;
     }
 }
@@ -516,7 +544,7 @@ const AnimatorController* AssetManager::LoadAnimatorController(const std::string
         std::string error;
         auto loaded = AnimatorController::FromJson(ReadAnimationText(basePath, path), error);
         if (!loaded) {
-            Console.Warning("Animator controller '" + path + "': " + error, "Animation");
+            Console.Warning("Animator controller '" + path + "': " + error, "Engine - Animation");
             return nullptr;
         }
         auto controller = std::make_unique<AnimatorController>(std::move(*loaded));
@@ -524,7 +552,7 @@ const AnimatorController* AssetManager::LoadAnimatorController(const std::string
         mAnimatorControllers.emplace(path, std::move(controller));
         return result;
     } catch (const std::exception& error) {
-        Console.Warning("Animator controller '" + path + "': " + error.what(), "Animation");
+        Console.Warning("Animator controller '" + path + "': " + error.what(), "Engine - Animation");
         return nullptr;
     }
 }

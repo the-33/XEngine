@@ -13,6 +13,18 @@
  */
 namespace xengine::detail::stats_overlay
 {
+    /** @brief Prevents an active profiler column from shrinking on value refresh.
+     * @details Call with zero as the previous width after a viewport change or
+     *          a new F3 session; add a safety margin to the measured width first.
+     * @param previousWidth Previous width supplied to stats_overlay.
+     * @param requestedWidth Requested width supplied to stats_overlay.
+     * @return Result of hold column width in stats_overlay.
+     */
+    inline float HoldColumnWidth(float previousWidth, float requestedWidth) noexcept
+    {
+        return std::max(previousWidth, requestedWidth);
+    }
+
     /** @brief One logical line's output position in the overlay.
      */
     struct Placement

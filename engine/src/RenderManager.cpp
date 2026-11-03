@@ -14,6 +14,7 @@
 #include "Camera2D.h"
 #include "XEngine/detail/RenderPreparation.h"
 #include "XEngine/detail/RendererBackendPolicy.h"
+#include "XEngine/detail/DebugOverlayProjection.h"
 #include <chrono>
 #include <algorithm>
 #include <array>
@@ -21,6 +22,12 @@
 #include "ErrorHandler.h"
 #include "TimeManager.h"
 
+/** @brief Sdl intersect in RenderManager.cpp.
+ * @param a First input operand.
+ * @param b Second input operand.
+ * @param out Caller-provided output destination.
+ * @return True if the operation succeeded or its condition holds; otherwise false.
+ */
 static inline bool SDL_Intersect(const SDL_Rect& a, const SDL_Rect& b, SDL_Rect& out) {
     const int x1 = std::max(a.x, b.x);
     const int y1 = std::max(a.y, b.y);
@@ -32,8 +39,10 @@ static inline bool SDL_Intersect(const SDL_Rect& a, const SDL_Rect& b, SDL_Rect&
     return out.w > 0 && out.h > 0;
 }
 
+/** @brief Namespace collecting @135161076207236321274265112362354261222357326134 functionality for XEngine.
+ */
 namespace {
-constexpr int kRoundedArcSteps_ = 10;
+constexpr int kRoundedArcSteps_ = 20;
 constexpr int kRoundedVertices_ = (kRoundedArcSteps_ + 1) * 4;
 
 void RoundedPath_(const Rect& rect, float radius,
@@ -61,14 +70,56 @@ SDL_Color VertexColor_(Color color) noexcept
             static_cast<Uint8>(color.b), static_cast<Uint8>(color.a)};
 }
 
+Rect InsetRoundedRect_(const Rect& rect, float inset) noexcept
+{
+    return {rect.x + inset, rect.y + inset,
+            rect.w - 2.f * inset, rect.h - 2.f * inset};
+}
+
+// Interpolating vertex alpha across a one-pixel ring provides coverage
+// antialiasing for SDL_RenderGeometry on backends without multisampling.
+void RoundedBand_(SDL_Renderer* renderer, const Rect& outside, float outerRadius,
+                  Color outerColor, const Rect& inside, float innerRadius,
+                  Color innerColor) noexcept
+{
+    if (outside.w <= 0.f || outside.h <= 0.f ||
+        inside.w <= 0.f || inside.h <= 0.f) return;
+    std::array<SDL_FPoint, kRoundedVertices_> outerPath{}, innerPath{};
+    RoundedPath_(outside, outerRadius, outerPath);
+    RoundedPath_(inside, innerRadius, innerPath);
+    std::array<SDL_Vertex, kRoundedVertices_ * 2> vertices{};
+    std::array<int, kRoundedVertices_ * 6> indices{};
+    const SDL_Color outsideTint = VertexColor_(outerColor);
+    const SDL_Color insideTint = VertexColor_(innerColor);
+    for (int i = 0; i < kRoundedVertices_; ++i) {
+        const int next = (i + 1) % kRoundedVertices_;
+        vertices[i * 2] = {outerPath[i], outsideTint, {0.f, 0.f}};
+        vertices[i * 2 + 1] = {innerPath[i], insideTint, {0.f, 0.f}};
+        const int first = i * 6;
+        indices[first] = i * 2;
+        indices[first + 1] = next * 2;
+        indices[first + 2] = i * 2 + 1;
+        indices[first + 3] = i * 2 + 1;
+        indices[first + 4] = next * 2;
+        indices[first + 5] = next * 2 + 1;
+    }
+    SDL_RenderGeometry(renderer, nullptr, vertices.data(),
+                       static_cast<int>(vertices.size()), indices.data(),
+                       static_cast<int>(indices.size()));
+}
+
 void FilledPolygon_(SDL_Renderer* renderer, const Rect& rect, float radius,
                     Color color) noexcept
 {
     if (color.a <= 0 || rect.w <= 0.f || rect.h <= 0.f) return;
+    constexpr float feather = 0.5f;
+    const bool antialias = rect.w > 2.f && rect.h > 2.f;
+    const Rect core = antialias ? InsetRoundedRect_(rect, feather) : rect;
+    const float coreRadius = std::max(0.f, radius - (antialias ? feather : 0.f));
     std::array<SDL_FPoint, kRoundedVertices_> path{};
-    RoundedPath_(rect, radius, path);
+    RoundedPath_(core, coreRadius, path);
     std::array<SDL_Vertex, kRoundedVertices_ + 1> vertices{};
-    vertices[0] = {{rect.x + rect.w * 0.5f, rect.y + rect.h * 0.5f},
+    vertices[0] = {{core.x + core.w * 0.5f, core.y + core.h * 0.5f},
                    VertexColor_(color), {0.f, 0.f}};
     for (int i = 0; i < kRoundedVertices_; ++i)
         vertices[i + 1] = {path[i], VertexColor_(color), {0.f, 0.f}};
@@ -81,6 +132,13 @@ void FilledPolygon_(SDL_Renderer* renderer, const Rect& rect, float radius,
     SDL_RenderGeometry(renderer, nullptr, vertices.data(),
                        static_cast<int>(vertices.size()), indices.data(),
                        static_cast<int>(indices.size()));
+    if (antialias) {
+        Color transparent = color;
+        transparent.a = 0;
+        RoundedBand_(renderer, InsetRoundedRect_(rect, -feather),
+                     radius + feather, transparent,
+                     core, coreRadius, color);
+    }
 }
 
 void RoundedOutline_(SDL_Renderer* renderer, const Rect& rect, float radius,
@@ -93,27 +151,24 @@ void RoundedOutline_(SDL_Renderer* renderer, const Rect& rect, float radius,
         FilledPolygon_(renderer, rect, radius, color);
         return;
     }
-    const Rect inner{rect.x + thickness, rect.y + thickness, innerWidth, innerHeight};
-    std::array<SDL_FPoint, kRoundedVertices_> outside{}, inside{};
-    RoundedPath_(rect, radius, outside);
-    RoundedPath_(inner, std::max(0.f, radius - thickness), inside);
-    std::array<SDL_Vertex, kRoundedVertices_ * 2> vertices{};
-    std::array<int, kRoundedVertices_ * 6> indices{};
-    for (int i = 0; i < kRoundedVertices_; ++i) {
-        const int next = (i + 1) % kRoundedVertices_;
-        vertices[i * 2] = {outside[i], VertexColor_(color), {0.f, 0.f}};
-        vertices[i * 2 + 1] = {inside[i], VertexColor_(color), {0.f, 0.f}};
-        const int first = i * 6;
-        indices[first] = i * 2;
-        indices[first + 1] = next * 2;
-        indices[first + 2] = i * 2 + 1;
-        indices[first + 3] = i * 2 + 1;
-        indices[first + 4] = next * 2;
-        indices[first + 5] = next * 2 + 1;
-    }
-    SDL_RenderGeometry(renderer, nullptr, vertices.data(),
-                       static_cast<int>(vertices.size()), indices.data(),
-                       static_cast<int>(indices.size()));
+    constexpr float feather = 0.5f;
+    const Rect outside = InsetRoundedRect_(rect, -feather);
+    const Rect outerCore = InsetRoundedRect_(rect, feather);
+    const float outerCoreRadius = std::max(0.f, radius - feather);
+    const Rect innerCore = InsetRoundedRect_(rect, thickness - feather);
+    const float innerCoreRadius = std::max(0.f, radius - thickness + feather);
+    const Rect inside = InsetRoundedRect_(rect, thickness + feather);
+    const float innerRadius = std::max(0.f, radius - thickness - feather);
+    Color transparent = color;
+    transparent.a = 0;
+    // Feather outside edge, opaque center, feather inside edge.
+    RoundedBand_(renderer, outside, radius + feather, transparent,
+                 outerCore, outerCoreRadius, color);
+    if (thickness > 1.f)
+        RoundedBand_(renderer, outerCore, outerCoreRadius, color,
+                     innerCore, innerCoreRadius, color);
+    RoundedBand_(renderer, innerCore, innerCoreRadius, color,
+                 inside, innerRadius, transparent);
 }
 }
 
@@ -190,11 +245,12 @@ std::vector<std::string> ReadMeasuredBackendOrder_(SDL_Window* window) noexcept 
                 throw std::runtime_error("invalid or duplicate renderer name");
             names.push_back(RendererBackendPolicy::Normalize(name));
         }
-        std::fprintf(stderr, "[RENDER-BACKEND] benchmark-priority=loaded platform=%s count=%zu first=%s\n",
-                     platform, names.size(), names.front().c_str());
+        Console.Log("[RENDER-BACKEND] benchmark-priority=loaded platform=" +
+                    std::string(platform) + " count=" + std::to_string(names.size()) +
+                    " first=" + names.front(), "Engine - Render");
     } catch (const std::exception& error) {
-        std::fprintf(stderr, "[RENDER-BACKEND] warning: ignoring local benchmark ranking: %s\n",
-                     error.what());
+        Console.Warning("[RENDER-BACKEND] ignoring local benchmark ranking: " +
+                        std::string(error.what()), "Engine - Render");
         names.clear();
     }
     return names;
@@ -240,16 +296,15 @@ bool RenderManager::ResolveRendererBackend_(const std::string& requested,
     if (!strictHint && allowFallback && mRequestedRendererBackend != "auto" &&
         (mRendererCandidates.empty() ||
          mRendererCandidates.front().name != mRequestedRendererBackend))
-        std::fprintf(stderr, "[RENDER-BACKEND] warning: requested=%s is not installed; trying fallback\n",
-                     mRequestedRendererBackend.c_str());
+        Console.Warning("[RENDER-BACKEND] requested=" + mRequestedRendererBackend +
+                        " is not installed; trying fallback", "Engine - Render");
     if (plan.allowSdlDefault) mRendererCandidates.push_back({-1, "SDL default"});
     if (!mRendererCandidates.empty()) return true;
 
     const std::string error = "Requested SDL renderer backend '" +
         requested + "' is unavailable on this platform. Available: " +
         (available.empty() ? "(none)" : available);
-    std::fprintf(stderr, "[RENDER-BACKEND] %s\n", error.c_str());
-    LogError("RenderManager::Init()", error);
+    LogError("Engine - Render", "[RENDER-BACKEND] Init(): " + error);
     return false;
 }
 
@@ -266,9 +321,9 @@ bool RenderManager::CreateInitialRenderer_(std::uint32_t flags) noexcept
                 mWindow->SDL(), candidate.index, attemptFlags);
             if (!candidateRenderer)
             {
-                std::fprintf(stderr,
-                    "[RENDER-BACKEND] warning: backend=%s flags=%u failed: %s\n",
-                    candidate.name.c_str(), attemptFlags, SDL_GetError());
+                Console.Warning("[RENDER-BACKEND] backend=" + candidate.name +
+                                " flags=" + std::to_string(attemptFlags) +
+                                " failed: " + SDL_GetError(), "Engine - Render");
                 continue;
             }
 
@@ -277,9 +332,8 @@ bool RenderManager::CreateInitialRenderer_(std::uint32_t flags) noexcept
                 (candidate.index >= 0 &&
                  RendererBackendPolicy::Normalize(info.name) != candidate.name))
             {
-                std::fprintf(stderr,
-                    "[RENDER-BACKEND] warning: cannot verify backend=%s: %s\n",
-                    candidate.name.c_str(), SDL_GetError());
+                Console.Warning("[RENDER-BACKEND] cannot verify backend=" +
+                                candidate.name + ": " + SDL_GetError(), "Engine - Render");
                 SDL_DestroyRenderer(candidateRenderer);
                 continue;
             }
@@ -305,9 +359,9 @@ bool RenderManager::CreateInitialRenderer_(std::uint32_t flags) noexcept
             if (pass != 0 || candidate.name != mRendererCandidates.front().name ||
                 (mFirstChoiceRendererBackend != "SDL default" &&
                  RendererBackendPolicy::Normalize(info.name) != mFirstChoiceRendererBackend))
-                std::fprintf(stderr,
-                    "[RENDER-BACKEND] warning: fallback from=%s to=%s flags=%u\n",
-                    mFirstChoiceRendererBackend.c_str(), info.name, attemptFlags);
+                Console.Warning("[RENDER-BACKEND] fallback from=" + mFirstChoiceRendererBackend +
+                                " to=" + info.name + " flags=" +
+                                std::to_string(attemptFlags), "Engine - Render");
             // Re-creation after a VSync change should retry the currently
             // working driver before visiting compatibility alternatives.
             auto active = std::find_if(mRendererCandidates.begin(), mRendererCandidates.end(),
@@ -352,21 +406,24 @@ bool RenderManager::Init(const Config& cfg) noexcept
 
     if (!CreateInitialRenderer_(flags))
     {
-        LogError("RenderManager::Init()", "SDL_CreateRenderer failed for all allowed backends (requested '" +
+        LogError("Engine - Render", "Init(): SDL_CreateRenderer failed for all allowed backends (requested '" +
                  mRequestedRendererBackend + "').", SDL_GetError());
         return false;
     }
     SDL_RendererInfo rendererInfo{};
     if (SDL_GetRendererInfo(mRenderer, &rendererInfo) != 0 || !rendererInfo.name)
     {
-        LogError("RenderManager::Init()", "SDL_GetRendererInfo() failed.", SDL_GetError());
+        LogError("Engine - Render", "Init(): SDL_GetRendererInfo() failed.", SDL_GetError());
         SDL_DestroyRenderer(mRenderer);
         mRenderer = nullptr;
         return false;
     }
-    std::printf("[RENDER-BACKEND] requested=%s source=%s actual=%s flags=%u driver_index=%d\n",
-                mRequestedRendererBackend.c_str(), hasHint ? "SDL_HINT_RENDER_DRIVER" : "config",
-                rendererInfo.name, rendererInfo.flags, mPreferredRendererDriverIndex);
+    Console.Log("[RENDER-BACKEND] requested=" + mRequestedRendererBackend +
+                " source=" + (hasHint ? "SDL_HINT_RENDER_DRIVER" : "config") +
+                " actual=" + rendererInfo.name +
+                " flags=" + std::to_string(rendererInfo.flags) +
+                " driver_index=" + std::to_string(mPreferredRendererDriverIndex),
+                "Engine - Render");
     mFirstChoiceRendererBackend = RendererBackendPolicy::Normalize(rendererInfo.name);
 
     // Alpha blending for DrawRect/DrawLine and alpha textures
@@ -411,13 +468,13 @@ bool RenderManager::SetRenderResolution(int width, int height) noexcept
         target = SDL_CreateTexture(mRenderer, SDL_PIXELFORMAT_RGBA8888,
                                    SDL_TEXTUREACCESS_TARGET, width, height);
         if (!target) {
-            LogError("RenderManager::SetRenderResolution()",
+            LogError("Engine - Render",
                      "Could not allocate an SDL render-target texture.", SDL_GetError());
             return false;
         }
         // Enlarging the finished low-resolution image must retain its pixels.
         if (SDL_SetTextureScaleMode(target, SDL_ScaleModeNearest) != 0) {
-            LogError("RenderManager::SetRenderResolution()",
+            LogError("Engine - Render",
                      "Could not configure nearest-neighbour upscaling.", SDL_GetError());
             SDL_DestroyTexture(target);
             return false;
@@ -476,18 +533,21 @@ Vec2 RenderManager::DisplayToRender(Vec2 displayPoint) const noexcept
 
 void RenderManager::BeginScreenPass_() noexcept
 {
-    if (!mRenderer || !mWorldTargetActive || !mRenderTarget) return;
-    mWorldTargetActive = false;
-    if (SDL_SetRenderTarget(mRenderer, nullptr) != 0) {
-        LogError("RenderManager::BeginScreenPass_()",
-                 "Could not restore the window render target.", SDL_GetError());
-        return;
+    if (!mRenderer) return;
+    if (mWorldTargetActive && mRenderTarget) {
+        mWorldTargetActive = false;
+        if (SDL_SetRenderTarget(mRenderer, nullptr) != 0) {
+            LogError("Engine - Render",
+                     "Could not restore the window render target.", SDL_GetError());
+            return;
+        }
+        SDL_SetRenderDrawColor(mRenderer, 0, 0, 0, 255);
+        SDL_RenderClear(mRenderer); // Black letterbox bars if aspect ratios differ.
+        const RectI fit = PresentationRect_();
+        const SDL_Rect dst{fit.x, fit.y, fit.w, fit.h};
+        if (dst.w > 0 && dst.h > 0)
+            (void)SDL_RenderCopy(mRenderer, mRenderTarget, nullptr, &dst);
     }
-    SDL_SetRenderDrawColor(mRenderer, 0, 0, 0, 255);
-    SDL_RenderClear(mRenderer); // Black letterbox bars if aspect ratios differ.
-    const RectI fit = PresentationRect_();
-    const SDL_Rect dst{fit.x, fit.y, fit.w, fit.h};
-    if (dst.w > 0 && dst.h > 0) (void)SDL_RenderCopy(mRenderer, mRenderTarget, nullptr, &dst);
 
     // El mundo usa la resolución interna; la UI se dibuja sobre la ventana real.
     int outputWidth = 0;
@@ -497,6 +557,76 @@ void RenderManager::BeginScreenPass_() noexcept
         mWinW = outputWidth;
         mWinH = outputHeight;
     }
+    // Debug lines are deliberately excluded from the internal render texture.
+    // They use this native-pixel pass, before screen-space UI widgets.
+    DrawDeferredDebugOnScreen_();
+}
+
+void RenderManager::DrawDeferredDebugOnScreen_() noexcept
+{
+    if (mDeferredDebugCmds.empty()) return;
+    if (!mRenderer || !mActiveCam) {
+        mDeferredDebugCmds.clear();
+        return;
+    }
+    const Vec2I virtualSize = GetRenderResolution();
+    const RectI output = mRenderTarget ? PresentationRect_()
+                                       : RectI{0, 0, mWinW, mWinH};
+    if (virtualSize.x <= 0 || virtualSize.y <= 0 ||
+        output.w <= 0 || output.h <= 0) {
+        mDeferredDebugCmds.clear();
+        return;
+    }
+
+    const auto start = std::chrono::steady_clock::now();
+    const DrawPhase savedPhase = mDrawPhase;
+    mDrawPhase = DrawPhase::Debug;
+    const auto toPhysical = [&](float x, float y) noexcept {
+        const Vec2 virtualPixel = mActiveCam->WorldToScreen(
+            x, y, virtualSize.x, virtualSize.y);
+        return XEngineDebugOverlay::ProjectToOutput(
+            {virtualPixel.x, virtualPixel.y}, virtualSize.x, virtualSize.y,
+            output.x, output.y, output.w, output.h);
+    };
+    const auto drawLine = [&](float x1, float y1, float x2, float y2,
+                              Color color) noexcept {
+        const auto a = toPhysical(x1, y1);
+        const auto b = toPhysical(x2, y2);
+        // Constant physical thickness, independent of the render texture and
+        // of UICanvas::ScaleWithScreenSize. The 2px quad avoids dropped edges.
+        DrawLineScreenImmediate_(a.x, a.y, b.x, b.y, color, 2.f);
+    };
+
+    for (const DebugCmd& c : mDeferredDebugCmds) {
+        if (c.type == DebugCmd::Type::Line) {
+            drawLine(c.x1, c.y1, c.x2, c.y2, c.color);
+            continue;
+        }
+        const auto a = toPhysical(c.rect.x, c.rect.y);
+        const auto b = toPhysical(c.rect.x + c.rect.w, c.rect.y + c.rect.h);
+        if (c.filled) {
+            const SDL_FRect rect{std::min(a.x, b.x), std::min(a.y, b.y),
+                                 std::fabs(b.x - a.x), std::fabs(b.y - a.y)};
+            SDL_SetRenderDrawBlendMode(mRenderer, SDL_BLENDMODE_BLEND);
+            SDL_SetRenderDrawColor(mRenderer, c.color.r, c.color.g,
+                                   c.color.b, c.color.a);
+            SDL_RenderFillRectF(mRenderer, &rect);
+            ++nDrawCallsThisFrame;
+            CountSubmission_();
+        } else {
+            drawLine(c.rect.x, c.rect.y, c.rect.x + c.rect.w, c.rect.y, c.color);
+            drawLine(c.rect.x + c.rect.w, c.rect.y,
+                     c.rect.x + c.rect.w, c.rect.y + c.rect.h, c.color);
+            drawLine(c.rect.x + c.rect.w, c.rect.y + c.rect.h,
+                     c.rect.x, c.rect.y + c.rect.h, c.color);
+            drawLine(c.rect.x, c.rect.y + c.rect.h,
+                     c.rect.x, c.rect.y, c.color);
+        }
+    }
+    mDeferredDebugCmds.clear();
+    mDrawPhase = savedPhase;
+    mDebugMs += std::chrono::duration<float, std::milli>(
+        std::chrono::steady_clock::now() - start).count();
 }
 
 void RenderManager::CreateWhiteTexture_() noexcept
@@ -528,8 +658,8 @@ void RenderManager::CreateWhiteTexture_() noexcept
             else SDL_SetTextureBlendMode(mWhite, SDL_BLENDMODE_BLEND);
         }
         if (!mWhite)
-            std::fprintf(stderr, "[RENDER-BACKEND] warning: white draw texture unavailable: %s\n",
-                         SDL_GetError());
+            Console.Warning("[RENDER-BACKEND] white draw texture unavailable: " +
+                            std::string(SDL_GetError()), "Engine - Render");
     }
 }
 
@@ -578,6 +708,8 @@ RenderManager::BackendDiagnostics RenderManager::QueryBackendDiagnostics() const
 void RenderManager::Shutdown() noexcept
 {
     ClearTextCache_();
+    mDebugCmds.clear();
+    mDeferredDebugCmds.clear();
     mTextureTintCache.clear();
     if (mPendingRenderTarget) SDL_DestroyTexture(mPendingRenderTarget);
     mPendingRenderTarget = nullptr;
@@ -594,6 +726,7 @@ void RenderManager::Shutdown() noexcept
 void RenderManager::Begin(const Camera2D& cam) noexcept
 {
     mFrameOpen = true;
+    mDeferredDebugCmds.clear();
     const auto phaseStart = std::chrono::steady_clock::now();
     mDrawPhase = DrawPhase::Background;
     mTextureTintCache.clear();
@@ -613,7 +746,7 @@ void RenderManager::Begin(const Camera2D& cam) noexcept
         mWorldTargetActive = mRenderTarget &&
             SDL_SetRenderTarget(mRenderer, mRenderTarget) == 0;
         if (mRenderTarget && !mWorldTargetActive) {
-            LogError("RenderManager::Begin()", "Could not bind world render target.", SDL_GetError());
+            LogError("Engine - Render", "Begin(): Could not bind world render target.", SDL_GetError());
             (void)SDL_SetRenderTarget(mRenderer, nullptr);
         }
         SDL_SetRenderDrawColor(mRenderer, mClearColor.r, mClearColor.g, mClearColor.b, mClearColor.a);
@@ -693,19 +826,21 @@ void RenderManager::SetVSync(bool enabled) noexcept
 
     if (!CreateInitialRenderer_(flags))
     {
-        LogError("RenderManager::SetVSync()", "Could not recreate any allowed renderer backend.",
+        LogError("Engine - Render", "SetVSync(): Could not recreate any allowed renderer backend.",
                  SDL_GetError());
         return;
     }
     SDL_SetRenderDrawBlendMode(mRenderer, SDL_BLENDMODE_BLEND);
     CreateWhiteTexture_();
     if (renderWidth > 0 && !SetRenderResolution(renderWidth, renderHeight))
-        LogError("RenderManager::SetVSync()", "World render resolution could not be restored.");
+        LogError("Engine - Render", "SetVSync(): World render resolution could not be restored.");
     SDL_RendererInfo info{};
     if (SDL_GetRendererInfo(mRenderer, &info) == 0 && info.name)
     {
-        std::printf("[RENDER-BACKEND] recreated actual=%s flags=%u driver_index=%d\n",
-                    info.name, info.flags, mPreferredRendererDriverIndex);
+        Console.Log("[RENDER-BACKEND] recreated actual=" + std::string(info.name) +
+                    " flags=" + std::to_string(info.flags) +
+                    " driver_index=" + std::to_string(mPreferredRendererDriverIndex),
+                    "Engine - Render");
         mFirstChoiceRendererBackend = RendererBackendPolicy::Normalize(info.name);
     }
 }
@@ -723,6 +858,12 @@ inline SDL_FRect RenderManager::WorldRectToScreen(const Camera2D& cam, int winW,
     return r;
 }
 
+/** @brief Rotated aabb in RenderManager.cpp.
+ * @param dst Dst supplied to RenderManager.cpp.
+ * @param center Center supplied to RenderManager.cpp.
+ * @param deg Deg supplied to RenderManager.cpp.
+ * @return Result of rotated aabb in RenderManager.cpp.
+ */
 static inline Rect RotatedAABB_(const SDL_FRect& dst, const SDL_FPoint& center, float deg) noexcept
 {
     const float rad = deg * 3.14159265f / 180.f;
@@ -792,7 +933,7 @@ void RenderManager::DrawTextureImmediate_(const Texture& tex,
 {
     if ((tint.r < 0 || tint.r > 255) || (tint.g < 0 || tint.g > 255) || (tint.b < 0 || tint.b > 255) || (tint.a < 0 || tint.a > 255))
     {
-        LogWarning("RenderManager", "DrawTexture(): Tint color not valid.");
+        LogWarning("Engine - Render", "DrawTexture(): Tint color not valid.");
         return;
     }
 
@@ -961,6 +1102,20 @@ void RenderManager::RenderSnapshot(const Snapshot& snap) noexcept
         if (index == snap.uiStartIndex)
             BeginScreenPass_();
         const auto& c = snap.cmds[index];
+        // Gizmos were recorded with the world, but must not be rasterized
+        // into its low-resolution texture. Replay them at native output size
+        // at the world/UI boundary, preserving their camera-space alignment.
+        if (c.debugDraw && c.type == DrawCmd::Type::WorldLine) {
+            mDeferredDebugCmds.push_back(DebugCmd{
+                DebugCmd::Type::Line, {}, c.x1, c.y1, c.x2, c.y2, c.color, false});
+            continue;
+        }
+        if (c.debugDraw && c.type == DrawCmd::Type::WorldRect) {
+            mDeferredDebugCmds.push_back(DebugCmd{
+                DebugCmd::Type::RectI, c.worldRect, 0.f, 0.f, 0.f, 0.f,
+                c.color, c.filled});
+            continue;
+        }
         mDrawPhase = c.debugDraw ? DrawPhase::Debug :
             (c.type == DrawCmd::Type::ScreenRect ||
              c.type == DrawCmd::Type::ScreenRoundedRect ||
@@ -1017,6 +1172,8 @@ void RenderManager::RenderSnapshot(const Snapshot& snap) noexcept
             break;
         }
     }
+    // No UI commands is valid: the world/UI boundary can be at cmd.size().
+    if (!mDeferredDebugCmds.empty()) BeginScreenPass_();
     mDrawPhase = DrawPhase::World;
 }
 
@@ -1348,23 +1505,82 @@ void RenderManager::ClearTextCache_() noexcept
     for (auto& entry : mTextCache)
         if (entry.second.texture) SDL_DestroyTexture(entry.second.texture);
     mTextCache.clear();
+    for (auto& variant : mScaledFonts)
+        if (variant.second) TTF_CloseFont(variant.second);
+    mScaledFonts.clear();
+}
+
+TTF_Font* RenderManager::FontForScreenScale_(const Font& font, float scale) noexcept
+{
+    TTF_Font* original = font.GetSDL();
+    if (!original || !std::isfinite(scale) || scale <= 0.f ||
+        font.mPointSize <= 0 || font.mSourcePath.empty()) return original;
+
+    const int pointSize = std::clamp(
+        static_cast<int>(std::lround(static_cast<double>(font.mPointSize) * scale)),
+        1, 512);
+    if (pointSize == font.mPointSize) return original;
+    const std::string key = std::to_string(
+        reinterpret_cast<std::uintptr_t>(original)) + ":" +
+        std::to_string(pointSize);
+    if (const auto found = mScaledFonts.find(key); found != mScaledFonts.end())
+        return found->second;
+
+    TTF_Font* scaled = TTF_OpenFont(font.mSourcePath.c_str(), pointSize);
+    if (!scaled) return original; // Keep embedded/unavailable-font fallback usable.
+    TTF_SetFontStyle(scaled, TTF_GetFontStyle(original));
+    TTF_SetFontOutline(scaled, TTF_GetFontOutline(original));
+    TTF_SetFontHinting(scaled, TTF_GetFontHinting(original));
+    TTF_SetFontKerning(scaled, TTF_GetFontKerning(original));
+    if (mScaledFonts.size() >= 32) {
+        for (auto& variant : mScaledFonts) TTF_CloseFont(variant.second);
+        mScaledFonts.clear();
+    }
+    mScaledFonts.emplace(key, scaled);
+    return scaled;
+}
+
+Vec2I RenderManager::MeasureTextScreen(const Font& font, const std::string& text,
+                                      float scale) noexcept
+{
+    if (!font.GetSDL() || text.empty()) return {0, 0};
+    const float safeScale = std::clamp(
+        std::isfinite(scale) ? scale : 1.f, 0.05f, 8.f);
+    TTF_Font* scaled = FontForScreenScale_(font, safeScale);
+    int width = 0, height = 0;
+    if (!scaled || TTF_SizeUTF8(scaled, text.c_str(), &width, &height) != 0)
+        return {0, 0};
+    if (scaled != font.GetSDL()) return {width, height};
+    return {static_cast<int>(std::lround(width * safeScale)),
+            static_cast<int>(std::lround(height * safeScale))};
 }
 
 void RenderManager::DrawTextScreenImmediate_(const Font& font, const std::string& text,
                                               float x, float y, Color color, float scale) noexcept
 {
     if (!mRenderer || !mWindow || !font.GetSDL() || text.empty()) return;
-    const Vec2I size = mWindow->GetDrawableSize(); // UI stays at native output resolution.
+    // The screen pass uses the actual SDL renderer output, not the internal
+    // world render target or a DPI-virtualized logical window size.
+    const Vec2I size{mWinW, mWinH};
     if (size.x <= 0 || size.y <= 0) return;
-    const auto scaledExtent = [scale](int pixels) -> int {
-        return std::max(1, static_cast<int>(std::lround(static_cast<double>(pixels) * scale)));
+    const float safeScale = std::clamp(
+        std::isfinite(scale) ? scale : 1.f, 0.05f, 8.f);
+    TTF_Font* rasterFont = FontForScreenScale_(font, safeScale);
+    if (!rasterFont) return;
+    const bool rasterAtOutputSize = rasterFont != font.GetSDL();
+    const auto outputExtent = [&](int pixels) -> int {
+        return std::max(1, rasterAtOutputSize ? pixels :
+            static_cast<int>(std::lround(static_cast<double>(pixels) * safeScale)));
     };
+    const int drawX = static_cast<int>(std::lround(x));
+    const int drawY = static_cast<int>(std::lround(y));
     // Cache only bounded-size text to avoid retaining arbitrarily large content.
     const bool cacheable = text.size() <= 160;
     std::string key;
     if (cacheable)
     {
         key = std::to_string(reinterpret_cast<std::uintptr_t>(font.GetSDL())) + ":" +
+              std::to_string(static_cast<int>(std::lround(safeScale * 1024.f))) + ":" +
               std::to_string(color.r) + "," + std::to_string(color.g) + "," +
               std::to_string(color.b) + "," + std::to_string(color.a) + ":" + text;
         auto found = mTextCache.find(key);
@@ -1372,11 +1588,11 @@ void RenderManager::DrawTextScreenImmediate_(const Font& font, const std::string
         {
             found->second.lastUsed = mTextCacheFrame;
             const auto& e = found->second;
-            const int scaledWidth = scaledExtent(e.width);
-            const int scaledHeight = scaledExtent(e.height);
-            if ((int)x >= size.x || (int)y >= size.y ||
-                (int)x + scaledWidth <= 0 || (int)y + scaledHeight <= 0) return;
-            SDL_Rect dst{(int)x, (int)y, scaledWidth, scaledHeight};
+            const int drawnWidth = outputExtent(e.width);
+            const int drawnHeight = outputExtent(e.height);
+            if (drawX >= size.x || drawY >= size.y ||
+                drawX + drawnWidth <= 0 || drawY + drawnHeight <= 0) return;
+            SDL_Rect dst{drawX, drawY, drawnWidth, drawnHeight};
             SDL_RenderCopy(mRenderer, e.texture, nullptr, &dst);
             ++nUIDrawCallsThisFrame;
             CountSubmission_();
@@ -1384,13 +1600,13 @@ void RenderManager::DrawTextScreenImmediate_(const Font& font, const std::string
         }
     }
     int width = 0, height = 0;
-    if (TTF_SizeUTF8(font.GetSDL(), text.c_str(), &width, &height) == 0)
+    if (TTF_SizeUTF8(rasterFont, text.c_str(), &width, &height) == 0)
     {
-        if ((int)x >= size.x || (int)y >= size.y ||
-            (int)x + scaledExtent(width) <= 0 ||
-            (int)y + scaledExtent(height) <= 0) return;
+        if (drawX >= size.x || drawY >= size.y ||
+            drawX + outputExtent(width) <= 0 ||
+            drawY + outputExtent(height) <= 0) return;
     }
-    SDL_Surface* surface = TTF_RenderUTF8_Blended(font.GetSDL(), text.c_str(),
+    SDL_Surface* surface = TTF_RenderUTF8_Blended(rasterFont, text.c_str(),
         SDL_Color{color.r,color.g,color.b,color.a});
     if (!surface) return;
     SDL_Texture* texture = SDL_CreateTextureFromSurface(mRenderer, surface);
@@ -1398,7 +1614,9 @@ void RenderManager::DrawTextScreenImmediate_(const Font& font, const std::string
     height = surface->h;
     SDL_FreeSurface(surface);
     if (!texture) return;
-    SDL_Rect dst{(int)x, (int)y, scaledExtent(width), scaledExtent(height)};
+    if (!rasterAtOutputSize && std::fabs(safeScale - 1.f) > 0.001f)
+        (void)SDL_SetTextureScaleMode(texture, SDL_ScaleModeLinear);
+    SDL_Rect dst{drawX, drawY, outputExtent(width), outputExtent(height)};
     SDL_RenderCopy(mRenderer, texture, nullptr, &dst);
     ++nUIDrawCallsThisFrame;
     CountSubmission_();
@@ -1420,7 +1638,7 @@ void RenderManager::DrawRectImmediate_(const Rect& worldRect,
 
     if ((color.r < 0 || color.r > 255) || (color.g < 0 || color.g > 255) || (color.b < 0 || color.b > 255) || (color.a < 0 || color.a > 255))
     {
-        LogWarning("RenderManager", "DrawRect(): Color not valid.");
+        LogWarning("Engine - Render", "DrawRect(): Color not valid.");
         return;
     }
 
@@ -1474,7 +1692,7 @@ void RenderManager::DrawLineImmediate_(float x1, float y1, float x2, float y2, C
 {
     if ((color.r < 0 || color.r > 255) || (color.g < 0 || color.g > 255) || (color.b < 0 || color.b > 255) || (color.a < 0 || color.a > 255))
     {
-        LogWarning("RenderManager", "DrawLine(): Color not valid.");
+        LogWarning("Engine - Render", "DrawLine(): Color not valid.");
         return;
     }
 
@@ -1490,6 +1708,12 @@ void RenderManager::DrawLineImmediate_(float x1, float y1, float x2, float y2, C
     SDL_SetRenderDrawColor(mRenderer, color.r, color.g, color.b, color.a);
 
     SDL_RenderDrawLineF(mRenderer, s1.x, s1.y, s2.x, s2.y);
+    // Adjacent rounded-collider segments share vertices, but SDL backends can
+    // leave a pixel-sized hole where independently rasterized lines meet.
+    if (mDrawPhase == DrawPhase::Debug) {
+        SDL_RenderDrawPointF(mRenderer, s1.x, s1.y);
+        SDL_RenderDrawPointF(mRenderer, s2.x, s2.y);
+    }
 	nDrawCallsThisFrame++;
     CountSubmission_();
 }
@@ -1498,7 +1722,7 @@ void RenderManager::DrawRectScreenImmediate_(const Rect& r, Color color, bool fi
 {
     if ((color.r < 0 || color.r > 255) || (color.g < 0 || color.g > 255) || (color.b < 0 || color.b > 255) || (color.a < 0 || color.a > 255))
     {
-        LogWarning("RenderManager", "DrawRectScreen(): Color not valid.");
+        LogWarning("Engine - Render", "DrawRectScreen(): Color not valid.");
         return;
     }
 
@@ -1533,13 +1757,24 @@ void RenderManager::DrawRoundedRectScreenImmediate_(const Rect& r, Color fill,
     if (r.x >= float(mWinW) || r.y >= float(mWinH) ||
         r.x + r.w <= 0.f || r.y + r.h <= 0.f) return;
 
-    const float radius = std::clamp(std::isfinite(cornerRadius) ? cornerRadius : 0.f,
-                                    0.f, std::min(r.w, r.h) * 0.5f);
-    const float stroke = std::clamp(std::isfinite(borderWidth) ? borderWidth : 0.f,
-                                    0.f, std::min(r.w, r.h) * 0.5f);
+    // Align shape edges with physical pixels. Fractional canvas scales (e.g.
+    // 1.5x) otherwise put one-pixel borders between pixel columns/rows.
+    const float left = std::round(r.x);
+    const float top = std::round(r.y);
+    const Rect snapped{left, top,
+                       std::max(1.f, std::round(r.x + r.w) - left),
+                       std::max(1.f, std::round(r.y + r.h) - top)};
+    const float radius = std::clamp(
+        std::round(std::isfinite(cornerRadius) ? cornerRadius : 0.f),
+        0.f, std::min(snapped.w, snapped.h) * 0.5f);
+    const float requestedStroke = std::isfinite(borderWidth) ? borderWidth : 0.f;
+    const float stroke = requestedStroke > 0.f
+        ? std::clamp(std::max(1.f, std::round(requestedStroke)),
+                     0.f, std::min(snapped.w, snapped.h) * 0.5f)
+        : 0.f;
     SDL_SetRenderDrawBlendMode(mRenderer, SDL_BLENDMODE_BLEND);
-    if (filled) FilledPolygon_(mRenderer, r, radius, fill);
-    RoundedOutline_(mRenderer, r, radius, stroke, outline);
+    if (filled) FilledPolygon_(mRenderer, snapped, radius, fill);
+    RoundedOutline_(mRenderer, snapped, radius, stroke, outline);
     ++nUIDrawCallsThisFrame;
     CountSubmission_();
 }
@@ -1565,17 +1800,23 @@ void RenderManager::DrawLineScreenImmediate_(float x1, float y1, float x2, float
         if (length <= 0.001f) return;
         const float nx = -dy * half / length;
         const float ny = dx * half / length;
+        const float cap = mDrawPhase == DrawPhase::Debug ? 1.f : 0.f;
+        const float ax = x1 - dx * cap / length;
+        const float ay = y1 - dy * cap / length;
+        const float bx = x2 + dx * cap / length;
+        const float by = y2 + dy * cap / length;
         const SDL_Color tint = VertexColor_(color);
         const SDL_Vertex vertices[4]{
-            {{x1 + nx, y1 + ny}, tint, {0.f, 0.f}},
-            {{x1 - nx, y1 - ny}, tint, {0.f, 0.f}},
-            {{x2 + nx, y2 + ny}, tint, {0.f, 0.f}},
-            {{x2 - nx, y2 - ny}, tint, {0.f, 0.f}},
+            {{ax + nx, ay + ny}, tint, {0.f, 0.f}},
+            {{ax - nx, ay - ny}, tint, {0.f, 0.f}},
+            {{bx + nx, by + ny}, tint, {0.f, 0.f}},
+            {{bx - nx, by - ny}, tint, {0.f, 0.f}},
         };
         const int triangles[6]{0, 1, 2, 1, 3, 2};
         SDL_RenderGeometry(mRenderer, nullptr, vertices, 4, triangles, 6);
     }
-    ++nUIDrawCallsThisFrame;
+    if (mDrawPhase == DrawPhase::Debug) ++nDrawCallsThisFrame;
+    else ++nUIDrawCallsThisFrame;
     CountSubmission_();
 }
 
@@ -1583,7 +1824,7 @@ void RenderManager::DrawImageScreenImmediate_(const Texture& tex, const Rect& ds
 {
     if ((tint.r < 0 || tint.r > 255) || (tint.g < 0 || tint.g > 255) || (tint.b < 0 || tint.b > 255) || (tint.a < 0 || tint.a > 255))
     {
-        LogWarning("RenderManager", "DrawImageScreen(): Tint not valid.");
+        LogWarning("Engine - Render", "DrawImageScreen(): Tint not valid.");
         return;
     }
 
@@ -1686,7 +1927,8 @@ void RenderManager::DrawDebugRect(const Rect& worldRect, const Color color, bool
 
 void RenderManager::FlushDebug() noexcept
 {
-    // Debug commands are recorded as ordinary world commands when recording.
+    // Recording retains world-space debug commands in the snapshot. Immediate
+    // mode defers them to BeginScreenPass_, after the world texture is scaled.
     if (!mRenderer) return;
     if (!mActiveCam && !snapRecord) return;
     const auto start = std::chrono::steady_clock::now();
@@ -1694,7 +1936,17 @@ void RenderManager::FlushDebug() noexcept
     mDrawPhase = DrawPhase::Debug;
     nDebugDrawCallsThisFrame = 0;
 
-    // Draw debug commands last (always on top)
+    if (!snapRecord) {
+        mDeferredDebugCmds.insert(mDeferredDebugCmds.end(),
+                                  mDebugCmds.begin(), mDebugCmds.end());
+        nDebugDrawCallsThisFrame = static_cast<int>(mDebugCmds.size());
+        mDebugCmds.clear();
+        mDrawPhase = saved;
+        mDebugMs = std::chrono::duration<float, std::milli>(
+            std::chrono::steady_clock::now() - start).count();
+        return;
+    }
+
     for (const auto& c : mDebugCmds) {
         switch (c.type) {
         case DebugCmd::Type::Line:

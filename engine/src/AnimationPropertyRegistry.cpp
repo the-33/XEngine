@@ -15,6 +15,8 @@
 #include <cstdint>
 #include <unordered_map>
 
+/** @brief Namespace collecting @007226376234012073234340277225102051130077235030 functionality for XEngine.
+ */
 namespace {
 struct PropertyEntry {
     std::function<AnimationValue(Component&)> read;

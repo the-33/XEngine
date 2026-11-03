@@ -7,6 +7,9 @@
 #include "GameObject.h"
 #include "TimeManager.h"
 
+/** @brief Now sec in PhysicsManager.cpp.
+ * @return Result of now sec in PhysicsManager.cpp.
+ */
 static inline double NowSec_() noexcept
 {
     if (auto* t = TimeManager::GetInstancePtr())

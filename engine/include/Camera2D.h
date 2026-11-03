@@ -21,41 +21,103 @@
  */
 class Camera2D
 {
+    /** @brief Grant Scene access to the internal state of Camera2D.
+     */
     friend class Scene;
     // Scene can construct a camera; only the unique_ptr deleter may destroy it.
     /** @brief Grants the standard deleter access to the scene-owned camera destructor.
      * @note This is an ownership implementation detail, not a gameplay factory.
      */
     friend struct std::default_delete<Camera2D>;
+	/** @brief Grant InputManager access to the internal state of Camera2D.
+	 */
 	friend class InputManager;
+	/** @brief Grant RenderManager access to the internal state of Camera2D.
+	 */
 	friend class RenderManager;
 
 private:
+    /** @brief Stored center x value used by Camera2D.
+     */
     float mCenterX = 0.f, mCenterY = 0.f;
+    /** @brief Stored base view width value used by Camera2D.
+     */
     float mBaseViewWidth = 20.f, mBaseViewHeight = 11.25f;
+    /** @brief Stored zoom value used by Camera2D.
+     */
     float mZoom = 1.f;
+    /** @brief Stored match window aspect value used by Camera2D.
+     */
     bool mMatchWindowAspect = true;
 
+    /** @brief Construct a Camera2D instance.
+     */
     Camera2D() = default;
+    /** @brief Destroy a Camera2D instance and release owned resources.
+     */
     ~Camera2D() = default;
 
     // --- Setters ---
+    /** @brief Set center in Camera2D.
+     * @param center Center supplied to Camera2D.
+     */
     void SetCenter(Vec2 center) noexcept;
+    /** @brief Move in Camera2D.
+     * @param delta Delta supplied to Camera2D.
+     */
     void Move(Vec2 delta) noexcept;
+    /** @brief Set zoom in Camera2D.
+     * @param zoom Zoom supplied to Camera2D.
+     */
     void SetZoom(float zoom) noexcept;
+    /** @brief Set view base in Camera2D.
+     * @param viewBase View base supplied to Camera2D.
+     */
     void SetViewBase(Vec2 viewBase) noexcept;
 
     // --- Getters ---
+    /** @brief Retrieve the center from Camera2D.
+     * @return Requested get center value or reference.
+     */
     Vec2 GetCenter() const noexcept;
+    /** @brief Retrieve the zoom from Camera2D.
+     * @return Requested get zoom value or reference.
+     */
     float GetZoom() const noexcept;
+    /** @brief Retrieve the view base from Camera2D.
+     * @return Requested get view base value or reference.
+     */
     Vec2 GetViewBase() const noexcept;
+    /** @brief Retrieve the match window aspect from Camera2D.
+     * @return Requested get match window aspect value or reference.
+     */
     bool GetMatchWindowAspect() const noexcept { return mMatchWindowAspect; }
+    /** @brief Set match window aspect in Camera2D.
+     * @param enabled Whether the corresponding feature should be active.
+     */
     void SetMatchWindowAspect(bool enabled) noexcept { mMatchWindowAspect = enabled; }
+    /** @brief View rect in Camera2D.
+     * @return Result of view rect in Camera2D.
+     */
     Rect ViewRect() const noexcept;
 
     // --- Conversiones ---
+    /** @brief World to screen in Camera2D.
+     * @param wx Wx supplied to Camera2D.
+     * @param wy Wy supplied to Camera2D.
+     * @param winW Win w supplied to Camera2D.
+     * @param winH Win h supplied to Camera2D.
+     * @return Result of world to screen in Camera2D.
+     */
     Vec2 WorldToScreen(float wx, float wy,
         int winW, int winH) const noexcept;
+    /** @brief Screen to world in Camera2D.
+     * @param sx Sx supplied to Camera2D.
+     * @param sy Sy supplied to Camera2D.
+     * @param winW Win w supplied to Camera2D.
+     * @param winH Win h supplied to Camera2D.
+     * @return Result of screen to world in Camera2D.
+     */
     Vec2 ScreenToWorld(float sx, float sy,
         int winW, int winH) const noexcept;
 
@@ -139,6 +201,19 @@ public:
 	Vec2 WorldToScreen(const Vec2& worldPos) const noexcept;
 	/** @brief Converts a drawable-framebuffer pixel position to world coordinates.
 	 * @param screenPos Point in drawable pixels (not logical window points on HiDPI).
+	 * @return Result of screen to world in Camera2D.
 	 */
 	Vec2 ScreenToWorld(const Vec2& screenPos) const noexcept;
 };
+
+/** @name Co-declared engine member descriptions
+ * @brief Members sharing declarations with other fields.
+ * @{ */
+/** @var float Camera2D::mCenterY
+ * @brief Stored center y state owned by Camera2D.
+ */
+
+/** @var float Camera2D::mBaseViewHeight
+ * @brief Stored base view height state owned by Camera2D.
+ */
+/** @} */

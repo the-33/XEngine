@@ -462,6 +462,16 @@ def build(doxygen: str) -> int:
                 raise RuntimeError(f'{profile}: grouped guide navigation is missing')
             print(f'[DOCS] Recovered {recovered} {profile} navigation entries')
         versioned = version_navigation_assets(output / 'html', version)
+        # Doxygen 1.18 can regenerate some search shards while the navigation
+        # post-processing is running. Do a final idempotent pass and fail
+        # visibly if any empty Markdown File Reference is still searchable.
+        duplicates += prune_duplicate_markdown_search(output / 'html')
+        stale_search = [p for p in (output / 'html' / 'search').glob('*.js')
+                        if p.name.startswith(('all_', 'files_'))
+                        and '_8md.html' in p.read_text(encoding='utf-8')]
+        if stale_search:
+            raise RuntimeError(f'{profile}: unfiltered Markdown File Reference in '
+                               f'{stale_search[0].name}')
         print(f"[DOCS] Linked {references} empty Markdown File Reference pages; "
               f"filtered {duplicates} duplicate search hits")
         print(f"[DOCS] Versioned assets on {versioned} pages to prevent stale navigation trees")

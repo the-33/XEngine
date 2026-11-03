@@ -26,7 +26,11 @@ using LayerBits = uint32_t;
  */
 class Collider2D : public Behaviour
 {
+	/** @brief Grant CollisionManager access to the internal state of Collider2D.
+	 */
 	friend class CollisionManager;
+	/** @brief Grant PhysicsManager access to the internal state of Collider2D.
+	 */
 	friend class PhysicsManager;
 
 public:
@@ -49,55 +53,150 @@ public:
 
 private:
     friend class CollisionManager;
+	/** @brief Grant GameObject access to the internal state of Collider2D.
+	 */
 	friend class GameObject;
 
     // --- General configuration ---
+    /** @brief Stored shape value used by Collider2D.
+     */
     Shape      shape_ = Shape::Box;
+    /** @brief Stored is trigger value used by Collider2D.
+     */
     bool       isTrigger_ = false;
+    /** @brief Stored layer value used by Collider2D.
+     */
     LayerBits  layer_ = 1u << 0;
+    /** @brief Stored mask value used by Collider2D.
+     */
     LayerBits  mask_ = 0xFFFFFFFFu;
 
+    /** @brief Stored draw collider value used by Collider2D.
+     */
     bool drawCollider_ = false;
+    /** @brief Stored draw color value used by Collider2D.
+     */
     Color drawColor_ = { 0, 255, 0, 100 };
+    /** @brief Configured custom gizmo color value used by Collider2D.
+     */
     bool CustomGizmoColor = false;
 
     // --- LOCAL-SPACE geometry (world units BEFORE scaling/rotation) ---
     // For Box: sizeLocal = {w, h}. For Circle: use radiusLocal.
+    /** @brief Stored size local value used by Collider2D.
+     */
     Vec2      sizeLocal_{ 1.f, 1.f };
+    /** @brief Stored radius local value used by Collider2D.
+     */
     float      radiusLocal_ = 0.5f;
 
     // LOCAL-SPACE offset (scaled and rotated with the Transform).
+    /** @brief Stored offset local value used by Collider2D.
+     */
     Vec2      offsetLocal_{ 0.f, 0.f };
 
     // Rotation: by default the collider inherits the Transform rotation.
     // An additional angular offset can be applied.
+    /** @brief Stored inherit rotation value used by Collider2D.
+     */
     bool       inheritRotation_ = true;
+    /** @brief Stored local angle offset deg value used by Collider2D.
+     */
     float      localAngleOffsetDeg_ = 0.f;
 
+    /** @brief Set layer in Collider2D.
+     * @param l L supplied to Collider2D.
+     */
     void SetLayer(LayerBits l) noexcept { layer_ = l; }
+    /** @brief Set mask in Collider2D.
+     * @param m M supplied to Collider2D.
+     */
     void SetMask(LayerBits m) noexcept { mask_ = m; }
+    /** @brief Set offset local in Collider2D.
+     * @param off Off supplied to Collider2D.
+     */
     void SetOffsetLocal(Vec2 off) noexcept { offsetLocal_ = off; }
+	/** @brief Set inherit rotation in Collider2D.
+	 * @param inherit Inherit supplied to Collider2D.
+	 */
 	void SetInheritRotation(bool inherit) noexcept { inheritRotation_ = inherit; }
+	/** @brief Set local angle offset deg in Collider2D.
+	 * @param angleDeg Angle deg supplied to Collider2D.
+	 */
 	void SetLocalAngleOffsetDeg(float angleDeg) noexcept { localAngleOffsetDeg_ = angleDeg; }
+	/** @brief Set is trigger in Collider2D.
+	 * @param trigger Trigger supplied to Collider2D.
+	 */
 	void SetIsTrigger(bool trigger) noexcept { isTrigger_ = trigger; }
+	/** @brief Set shape in Collider2D.
+	 * @param s S supplied to Collider2D.
+	 */
 	void SetShape(Shape s) noexcept { shape_ = s; }
+	/** @brief Set radius local in Collider2D.
+	 * @param r Target rectangle in the relevant coordinate space.
+	 */
 	void SetRadiusLocal(float r) noexcept { radiusLocal_ = r; }
+	/** @brief Set size local in Collider2D.
+	 * @param s S supplied to Collider2D.
+	 */
 	void SetSizeLocal(Vec2 s) noexcept { sizeLocal_ = s; }
+    /** @brief Set draw collider in Collider2D.
+     * @param active Active supplied to Collider2D.
+     */
     void SetDrawCollider(bool active) noexcept { drawCollider_ = active; }
+    /** @brief Set draw color in Collider2D.
+     * @param color RGBA color used by the operation.
+     */
     void SetDrawColor(const Color color) noexcept { drawColor_ = color; CustomGizmoColor = true; }
 
+	/** @brief Retrieve the layer from Collider2D.
+	 * @return Requested get layer value or reference.
+	 */
 	LayerBits GetLayer() const noexcept { return layer_; }
+    /** @brief Retrieve the mask from Collider2D.
+     * @return Requested get mask value or reference.
+     */
     LayerBits GetMask() const noexcept { return mask_; }
+    /** @brief Retrieve the is trigger from Collider2D.
+     * @return Requested get is trigger value or reference.
+     */
     bool      GetIsTrigger() const noexcept { return isTrigger_; }
+    /** @brief Retrieve the offset local from Collider2D.
+     * @return Requested get offset local value or reference.
+     */
     Vec2     GetOffsetLocal() const noexcept { return offsetLocal_; }
+    /** @brief Retrieve the inherit rotation from Collider2D.
+     * @return Requested get inherit rotation value or reference.
+     */
     bool      GetInheritRotation() const noexcept { return inheritRotation_; }
+    /** @brief Retrieve the local angle offset deg from Collider2D.
+     * @return Requested get local angle offset deg value or reference.
+     */
     float     GetLocalAngleOffsetDeg() const noexcept { return localAngleOffsetDeg_; }
+    /** @brief Retrieve the shape from Collider2D.
+     * @return Requested get shape value or reference.
+     */
     Shape     GetShape() const noexcept { return shape_; }
+    /** @brief Retrieve the radius local from Collider2D.
+     * @return Requested get radius local value or reference.
+     */
     float     GetRadiusLocal() const noexcept { return radiusLocal_; }
+    /** @brief Retrieve the size local from Collider2D.
+     * @return Requested get size local value or reference.
+     */
     Vec2     GetSizeLocal() const noexcept { return sizeLocal_; }
+    /** @brief Retrieve the draw collider from Collider2D.
+     * @return Requested get draw collider value or reference.
+     */
     bool      GetDrawCollider() const noexcept { return drawCollider_; }
+	/** @brief Retrieve the draw color from Collider2D.
+	 * @return Requested get draw color value or reference.
+	 */
 	Color     GetDrawColor() const noexcept { return drawColor_; }
 
+    /** @brief Retrieve the attached body from Collider2D.
+     * @return Requested get attached body value or reference.
+     */
     RigidBody2D* GetAttachedBody() const noexcept;
 
 protected:
@@ -156,20 +255,24 @@ protected:
     };
 
     /** @brief Calculates the collider’s oriented box in world coordinates.
+     * @return Result of world obb in Collider2D.
      */
     OrientedBox2D WorldOBB() const noexcept;     // valid when shape == Box
     /** @brief Calculates the collider’s circle in world coordinates.
+     * @return Result of world circle in Collider2D.
      */
     Circle2D      WorldCircle() const noexcept;  // valid when shape == Circle
 
     /** @brief Builds the capsule from total local size, world scale and Z rotation.
      * @note The longer scaled dimension determines its longitudinal axis;
      *       nonuniform scale still produces circular, not elliptical, end caps.
+     * @return Result of world capsule in Collider2D.
      */
     Capsule2D WorldCapsule() const noexcept; // valid when shape == Capsule
 
     // World-space shape AABB (useful for broad-phase collision checks)
     /** @brief Calculates the axis-aligned world bounds of the collider.
+     * @return Result of world aabb in Collider2D.
      */
     Rect          WorldAABB() const noexcept;
 
@@ -202,10 +305,17 @@ public:
      */
     bool FitToSprite(FitMode mode, float widthFactor, float heightFactor) noexcept;
 
-    /** @brief Fits both axes using one size multiplier (e.g. 0.9 = 90%). */
+    /** @brief Fits both axes using one size multiplier (e.g. 0.9 = 90%).
+     * @param factor Multiplier applied to the computed result.
+     * @return True if the operation succeeded or its condition holds; otherwise false.
+     */
     bool FitToSprite(float factor) noexcept { return FitToSprite(FitMode::Both, factor); }
 
-    /** @brief Fits width and height independently (e.g. 0.9, 0.8). */
+    /** @brief Fits width and height independently (e.g. 0.9, 0.8).
+     * @param widthFactor Width factor supplied to Collider2D.
+     * @param heightFactor Height factor supplied to Collider2D.
+     * @return True if the operation succeeded or its condition holds; otherwise false.
+     */
     bool FitToSprite(float widthFactor, float heightFactor) noexcept {
         return FitToSprite(FitMode::Both, widthFactor, heightFactor);
     }

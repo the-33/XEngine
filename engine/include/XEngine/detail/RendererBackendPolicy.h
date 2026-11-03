@@ -23,6 +23,8 @@ namespace xengine::detail::renderer_backend_policy
     };
 
     /** @brief Lowercases an SDL driver name for case-insensitive matching.
+     * @param name Name of the resource, property or element to access.
+     * @return Result of normalize in renderer_backend_policy.
      */
     inline std::string Normalize(std::string name)
     {

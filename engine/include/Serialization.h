@@ -37,26 +37,78 @@ class JsonReadArchive;
 class BinaryWriteArchive;
 class BinaryReadArchive;
 
+/** @brief Namespace collecting serialization functionality for XEngine.
+ */
 namespace xengine::detail::serialization {
 /** @brief Compile-time failure marker for unsupported serialization types. */
 template<class T> inline constexpr bool kFalse = false;
+/** @brief Vector data and utilities used by xengine::detail::serialization.
+ */
 template<class T> struct Vector : std::false_type {};
-template<class T, class A> struct Vector<std::vector<T,A>> : std::true_type { using Value = T; };
+/** @brief Vector data and utilities used by xengine::detail::serialization::Vector< std.
+ */
+template<class T, class A> struct Vector<std::vector<T,A>> : std::true_type {
+    /** @brief Element type stored in the matched standard vector. */
+    using Value = T;
+};
+/** @brief List data and utilities used by xengine::detail::serialization.
+ */
 template<class T> struct List : std::false_type {};
-template<class T, class A> struct List<std::list<T,A>> : std::true_type { using Value = T; };
+/** @brief List data and utilities used by xengine::detail::serialization::List< std.
+ */
+template<class T, class A> struct List<std::list<T,A>> : std::true_type {
+    /** @brief Element type stored in the matched standard list. */
+    using Value = T;
+};
+/** @brief Array data and utilities used by xengine::detail::serialization.
+ */
 template<class T> struct Array : std::false_type {};
-template<class T, std::size_t N> struct Array<std::array<T,N>> : std::true_type { using Value = T; };
+/** @brief Array data and utilities used by xengine::detail::serialization::Array< std.
+ */
+template<class T, std::size_t N> struct Array<std::array<T,N>> : std::true_type {
+    /** @brief Element type stored in the matched fixed-size array. */
+    using Value = T;
+};
+/** @brief Map data and utilities used by xengine::detail::serialization.
+ */
 template<class T> struct Map : std::false_type {};
+/** @brief Map data and utilities used by xengine::detail::serialization::Map< std.
+ */
 template<class K, class V, class C, class A> struct Map<std::map<K,V,C,A>> : std::true_type {
-    using Key = K; using Value = V;
+    /** @brief Key type of the matched ordered map. */
+    using Key = K;
+    /** @brief Mapped value type of the matched ordered map. */
+    using Value = V;
 };
 template<class K, class V, class H, class E, class A>
-struct Map<std::unordered_map<K,V,H,E,A>> : std::true_type { using Key = K; using Value = V; };
+/** @brief Type alias for key used by unordered_map< K, V, H, E, A > >.
+ */
+struct Map<std::unordered_map<K,V,H,E,A>> : std::true_type {
+    /** @brief Key type of the matched unordered map. */
+    using Key = K;
+    /** @brief Mapped value type of the matched unordered map. */
+    using Value = V;
+};
+/** @brief Optional data and utilities used by xengine::detail::serialization.
+ */
 template<class T> struct Optional : std::false_type {};
-template<class T> struct Optional<std::optional<T>> : std::true_type { using Value = T; };
+/** @brief Type alias for value used by optional< T > >.
+ */
+template<class T> struct Optional<std::optional<T>> : std::true_type {
+    /** @brief Contained value type of the matched optional. */
+    using Value = T;
+};
+/** @brief Vec2 type data and utilities used by xengine::detail::serialization.
+ */
 template<class T> struct Vec2Type : std::false_type {};
+/** @brief Vec2 type data and utilities used by xengine::detail::serialization.
+ */
 template<math::Arithmetic T> struct Vec2Type<TVec2<T>> : std::true_type {};
+/** @brief Vec3 type data and utilities used by xengine::detail::serialization.
+ */
 template<class T> struct Vec3Type : std::false_type {};
+/** @brief Vec3 type data and utilities used by xengine::detail::serialization.
+ */
 template<math::Arithmetic T> struct Vec3Type<TVec3<T>> : std::true_type {};
 
 template<class T, class A>
@@ -66,6 +118,7 @@ concept RegisteredMutable = requires(T& value, A& archive) { value.Serialize(arc
 
 /** @brief Splits the serialized field-name list used by the archive visitor.
  * @param csv Comma-separated field names.
+ * @return Result of split names in serialization.
  */
 inline std::vector<std::string> SplitNames(std::string_view csv) {
     std::vector<std::string> names;
@@ -87,6 +140,7 @@ template<class Archive, class... Values>
  * @param archive Serialization archive receiving or providing field values.
  * @param namesCsv Comma-separated serialized field names.
  * @param values User-selected fields or values visited by the archive.
+ * @tparam Values Template type or value used by Fields.
  */
 void Fields(Archive& archive, std::string_view namesCsv, Values&&... values) {
     auto names = SplitNames(namesCsv);
@@ -105,7 +159,11 @@ template<class T> void ReadBinary(BinaryReader& reader, T& value, unsigned depth
  * @ingroup xengine_serialization
  */
 class JsonWriteArchive final {
+    /** @brief Stored object value used by JsonWriteArchive.
+     */
     nlohmann::json object_ = nlohmann::json::object();
+    /** @brief Stored depth value used by JsonWriteArchive.
+     */
     unsigned depth_ = 0;
 public:
     /** @brief Constructs a JsonWriteArchive instance.
@@ -122,11 +180,13 @@ public:
     /** @brief Visits or converts developer-selected data fields in the active archive.
      * @param csv Comma-separated field names.
      * @param values User-selected fields or values visited by the archive.
+     * @tparam Values Template type or value used by Fields.
      */
     template<class... Values> void Fields(std::string_view csv, const Values&... values) {
         xengine::detail::serialization::Fields(*this, csv, values...);
     }
     /** @brief Transfers the serialized value out of the archive.
+     * @return Result of take in JsonWriteArchive.
      */
     nlohmann::json Take() && { return std::move(object_); }
 };
@@ -135,7 +195,11 @@ public:
  * @ingroup xengine_serialization
  */
 class JsonReadArchive final {
+    /** @brief Stored object value used by JsonReadArchive.
+     */
     const nlohmann::json& object_;
+    /** @brief Stored depth value used by JsonReadArchive.
+     */
     unsigned depth_ = 0;
 public:
     /** @brief Constructs a JsonReadArchive instance.
@@ -156,6 +220,7 @@ public:
     /** @brief Visits or converts developer-selected data fields in the active archive.
      * @param csv Comma-separated field names.
      * @param values User-selected fields or values visited by the archive.
+     * @tparam Values Template type or value used by Fields.
      */
     template<class... Values> void Fields(std::string_view csv, Values&... values) {
         xengine::detail::serialization::Fields(*this, csv, values...);
@@ -166,7 +231,11 @@ public:
  * @ingroup xengine_serialization
  */
 class BinaryWriteArchive final {
+    /** @brief Stored writer value used by BinaryWriteArchive.
+     */
     BinaryWriter& writer_;
+    /** @brief Stored depth value used by BinaryWriteArchive.
+     */
     unsigned depth_ = 0;
 public:
     /** @brief Constructs a BinaryWriteArchive instance.
@@ -177,13 +246,15 @@ public:
         : writer_(writer), depth_(depth) {}
     /** @brief Visits or converts developer-selected data fields in the active archive.
      * @param value Value to store, convert, draw or compare.
+     * @param fieldName Optional field name; ignored in positional binary serialization.
      */
-    template<class T> void Field(std::string_view, const T& value) {
+    template<class T> void Field(std::string_view fieldName, const T& value) {
         xengine::detail::serialization::WriteBinary(writer_, value, depth_ + 1);
     }
     /** @brief Visits or converts developer-selected data fields in the active archive.
      * @param csv Comma-separated field names.
      * @param values User-selected fields or values visited by the archive.
+     * @tparam Values Template type or value used by Fields.
      */
     template<class... Values> void Fields(std::string_view csv, const Values&... values) {
         xengine::detail::serialization::Fields(*this, csv, values...);
@@ -194,7 +265,11 @@ public:
  * @ingroup xengine_serialization
  */
 class BinaryReadArchive final {
+    /** @brief Stored reader value used by BinaryReadArchive.
+     */
     BinaryReader& reader_;
+    /** @brief Stored depth value used by BinaryReadArchive.
+     */
     unsigned depth_ = 0;
 public:
     /** @brief Constructs a BinaryReadArchive instance.
@@ -205,13 +280,15 @@ public:
         : reader_(reader), depth_(depth) {}
     /** @brief Visits or converts developer-selected data fields in the active archive.
      * @param value Value to store, convert, draw or compare.
+     * @param fieldName Optional field name; ignored in positional binary serialization.
      */
-    template<class T> void Field(std::string_view, T& value) {
+    template<class T> void Field(std::string_view fieldName, T& value) {
         xengine::detail::serialization::ReadBinary(reader_, value, depth_ + 1);
     }
     /** @brief Visits or converts developer-selected data fields in the active archive.
      * @param csv Comma-separated field names.
      * @param values User-selected fields or values visited by the archive.
+     * @tparam Values Template type or value used by Fields.
      */
     template<class... Values> void Fields(std::string_view csv, Values&... values) {
         xengine::detail::serialization::Fields(*this, csv, values...);
@@ -223,6 +300,7 @@ template<class T>
 /** @brief Converts the selected data into a JSON value.
  * @param value Value to store, convert, draw or compare.
  * @param depth Current nesting depth used for bounded recursive serialization.
+ * @return Result of to json in serialization.
  */
 nlohmann::json ToJson(const T& value, unsigned depth) {
     if (depth > 64) throw std::length_error("Serialization exceeds maximum depth");
@@ -433,6 +511,7 @@ public:
     /** @brief Writes a supported value or registered class into a binary field stream, without a file header.
      * @param value Value to store, convert, draw or compare.
      * @param order Bit order within each byte.
+     * @return Result of serialize in BinarySerializer.
      */
     template<class T> static std::vector<std::byte> Serialize(const T& value,
                                                               BitOrder order = BitOrder::LSBFirst) {
@@ -444,6 +523,7 @@ public:
      * @param input Input sequence to parse or consume.
      * @param limits Safety bounds applied while parsing the input.
      * @param order Bit order within each byte.
+     * @return Result of deserialize in BinarySerializer.
      */
     template<class T> static T Deserialize(std::span<const std::byte> input,
                                             BinaryLimits limits = {}, BitOrder order = BitOrder::LSBFirst) {

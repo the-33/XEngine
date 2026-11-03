@@ -27,11 +27,15 @@ namespace xengine::detail {
  */
 template<class T>
 struct ServiceAccess final {
-    /** @brief Looks up the current manager pointer (or null if unavailable). */
+    /** @brief Looks up the current manager pointer (or null if unavailable).
+     * @return Result of get in ServiceAccess.
+     */
     [[nodiscard]] T* get() const noexcept { return T::GetInstancePtr(); }
     /** @brief Converts to a manager pointer without transferring ownership. */
     [[nodiscard]] operator T*() const noexcept { return get(); }
-    /** @brief Allows conventional shorthand such as Input->KeyDown(...). */
+    /** @brief Allows conventional shorthand such as Input->KeyDown(...).
+     * @return Result of applying the overloaded operator.
+     */
     [[nodiscard]] T* operator->() const noexcept { return get(); }
     /** @brief True while the corresponding manager exists. */
     [[nodiscard]] explicit operator bool() const noexcept {
@@ -41,20 +45,26 @@ struct ServiceAccess final {
 
 /** @brief Read-only view of the active scene camera, null during scene construction. */
 struct CameraAccess final {
-    /** @brief Gets the active camera or null before activation, during transitions or shutdown. */
+    /** @brief Gets the active camera or null before activation, during transitions or shutdown.
+     * @return Result of get in CameraAccess.
+     */
     [[nodiscard]] Camera2D* get() const noexcept {
         Engine* engine = Engine::GetInstancePtr_NO_ERROR_MSG();
         return engine ? engine->camera.get() : nullptr;
     }
     /** @brief Converts to the current camera pointer. */
     [[nodiscard]] operator Camera2D*() const noexcept { return get(); }
-    /** @brief Allows CurrentCamera->... with an active camera. */
+    /** @brief Allows CurrentCamera->... with an active camera.
+     * @return Result of applying the overloaded operator.
+     */
     [[nodiscard]] Camera2D* operator->() const noexcept { return get(); }
 };
 
 /** @brief Read-only view of the current physics fixed timestep. */
 struct FixedDeltaAccess final {
-    /** @brief Gets the configured fixed timestep, or zero without an engine. */
+    /** @brief Gets the configured fixed timestep, or zero without an engine.
+     * @return Result of get in FixedDeltaAccess.
+     */
     [[nodiscard]] float get() const noexcept {
         Engine* engine = Engine::GetInstancePtr_NO_ERROR_MSG();
         return engine ? engine->fixedDelta.get() : 0.f;

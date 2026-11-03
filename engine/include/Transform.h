@@ -18,57 +18,141 @@
  */
 class Transform final : public Component
 {
+	/** @brief Grant GameObject access to the internal state of Transform.
+	 */
 	friend class GameObject;
 
 private:
     // Local (relative to parent)
+    /** @brief Configured local x value used by Transform.
+     */
     float localX = 0.f, localY = 0.f, localZ = 0.f;
+    /** @brief Configured local sx value used by Transform.
+     */
     float localSX = 1.f, localSY = 1.f;
+    /** @brief Configured local rot x value used by Transform.
+     */
     float localRotX = 0.f, localRotY = 0.f, localRotZ = 0.f;
 
     // Accesores world (calculados)
     // Implementation: compose along the parent chain (accumulate scale/rotation/translation)
     // Cache using a dirty flag to avoid unnecessary recalculations.
+    /** @brief Set local position in Transform.
+     * @param newPos New pos supplied to Transform.
+     */
     void  SetLocalPosition(Vec3 newPos) noexcept;
+    /** @brief Set local scale in Transform.
+     * @param newSc New sc supplied to Transform.
+     */
     void  SetLocalScale(Vec2 newSc) noexcept;
+    /** @brief Set local rotation in Transform.
+     * @param newRot New rot supplied to Transform.
+     */
     void  SetLocalRotation(Vec3 newRot) noexcept;
     // Sets world pose; calculates local pose relative to the parent
+    /** @brief Set world position in Transform.
+     * @param newPos New pos supplied to Transform.
+     */
     void  SetWorldPosition(Vec3 newPos) noexcept;
+    /** @brief Set world scale in Transform.
+     * @param newSc New sc supplied to Transform.
+     */
     void  SetWorldScale(Vec2 newSc) noexcept;
+    /** @brief Set world rotation in Transform.
+     * @param newRot New rot supplied to Transform.
+     */
     void  SetWorldRotation(Vec3 newRot) noexcept;
     
     // Getters privados
+    /** @brief Retrieve the local position from Transform.
+     * @return Requested get local position value or reference.
+     */
     Vec3  GetLocalPosition() const noexcept;
+    /** @brief Retrieve the local scale from Transform.
+     * @return Requested get local scale value or reference.
+     */
     Vec2  GetLocalScale() const noexcept;
+    /** @brief Retrieve the local rotation from Transform.
+     * @return Requested get local rotation value or reference.
+     */
     Vec3  GetLocalRotation() const noexcept;
     // Lecturas mundo
+    /** @brief Retrieve the world position from Transform.
+     * @return Requested get world position value or reference.
+     */
     Vec3  GetWorldPosition() const noexcept;
+    /** @brief Retrieve the world scale from Transform.
+     * @return Requested get world scale value or reference.
+     */
     Vec2  GetWorldScale() const noexcept;
+    /** @brief Retrieve the world rotation from Transform.
+     * @return Requested get world rotation value or reference.
+     */
     Vec3 GetWorldRotation() const noexcept;
 
+    /** @brief Stored dirty value used by Transform.
+     */
     mutable bool mDirty = true;
     // Cache mundo
+    /** @brief Stored world x value used by Transform.
+     */
     mutable float mWorldX = 0.f, mWorldY = 0.f, mWorldZ = 0.f;
+    /** @brief Stored world sx value used by Transform.
+     */
     mutable float mWorldSX = 1.f, mWorldSY = 1.f;
+    /** @brief Stored world rot x value used by Transform.
+     */
     mutable float mWorldRotX = 0.f, mWorldRotY = 0.f, mWorldRotZ = 0.f;
     // Recalculate when dirty (accumulate parent-to-child transforms)
+    /** @brief Recalc world in Transform.
+     */
     void RecalcWorld_() const noexcept;
 
     // Dirty flag
+    /** @brief Mark dirty in Transform.
+     */
     void  MarkDirty() noexcept;
 
     // Ciclo
-    void FixedUpdate(float) override {}
-    void Update(float) override {}
+    /** @brief Keep the transform unchanged during fixed-rate component updates.
+     * @param dt Fixed-step elapsed time in seconds; unused for transform state.
+     */
+    void FixedUpdate(float dt) override {}
+    /** @brief Keep the transform unchanged during per-frame component updates.
+     * @param dt Frame delta time in seconds; unused for transform state.
+     */
+    void Update(float dt) override {}
+    /** @brief Transform has no independent rendering pass. */
     void Render() override {}
 
+    /** @brief Configured unique value used by Transform.
+     */
     static constexpr bool kUnique = true;
 
-    Transform(const Transform&) = delete;
-    Transform& operator=(const Transform&) = delete;
-    Transform(Transform&&) = delete;
-    Transform& operator=(Transform&&) = delete;
+    /** @brief Construct a Transform instance.
+     * @param other Source object whose copy, move or equality is being requested.
+     */
+    Transform(const Transform& other) = delete;
+    /** @brief Implement the operator= operation for Transform.
+     * @return Result of applying the overloaded operator.
+     * @param other Source object whose copy, move or equality is being requested.
+     */
+    Transform& operator=(const Transform& other) = delete;
+    /** @brief Construct a Transform instance.
+     * @param other Source object whose copy, move or equality is being requested.
+     */
+    Transform(Transform&& other) = delete;
+    /** @brief Implement the operator= operation for Transform.
+     * @return Result of applying the overloaded operator.
+     * @param other Source object whose copy, move or equality is being requested.
+     */
+    Transform& operator=(Transform&& other) = delete;
 
+    /** @brief Rotate in Transform.
+     * @param v Input vector or value to process.
+     * @param deg Deg supplied to Transform.
+     * @return Result of rotate in Transform.
+     */
     static inline Vec2 Rotate(const Vec2& v, float deg) noexcept
     {
         const float rad = deg * 3.14159265f / 180.f;
@@ -80,13 +164,20 @@ private:
         };
     }
 
+    /** @brief Retrieve the right from Transform.
+     * @return Requested get right value or reference.
+     */
     Vec3 GetRight() const noexcept;
+    /** @brief Retrieve the up from Transform.
+     * @return Requested get up value or reference.
+     */
     Vec3 GetUp() const noexcept;
 
 protected:
 
     // Componente unico
     /** @brief Reports whether unique is currently true.
+     * @return True when is unique; otherwise false.
      */
     bool IsUnique() const noexcept override { return kUnique; }
 
@@ -209,3 +300,47 @@ public:
      */
     RightProp right{ this };
 };
+
+/** @name Co-declared engine member descriptions
+ * @brief Members sharing declarations with other fields.
+ * @{ */
+/** @var float Transform::localY
+ * @brief Local y used by Transform.
+ */
+
+/** @var float Transform::localZ
+ * @brief Local z used by Transform.
+ */
+
+/** @var float Transform::localSY
+ * @brief Local sy used by Transform.
+ */
+
+/** @var float Transform::localRotY
+ * @brief Local rot y used by Transform.
+ */
+
+/** @var float Transform::localRotZ
+ * @brief Local rot z used by Transform.
+ */
+
+/** @var float Transform::mWorldY
+ * @brief Stored world y state owned by Transform.
+ */
+
+/** @var float Transform::mWorldZ
+ * @brief Stored world z state owned by Transform.
+ */
+
+/** @var float Transform::mWorldSY
+ * @brief Stored world sy state owned by Transform.
+ */
+
+/** @var float Transform::mWorldRotY
+ * @brief Stored world rot y state owned by Transform.
+ */
+
+/** @var float Transform::mWorldRotZ
+ * @brief Stored world rot z state owned by Transform.
+ */
+/** @} */

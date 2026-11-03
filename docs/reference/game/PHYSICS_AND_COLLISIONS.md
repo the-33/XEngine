@@ -68,9 +68,19 @@ the capsule retains circular world-space end caps. `radius` applies only to
 helpers calculate the two cap centers, radius and rotated broadphase bounds;
 gameplay code should configure colliders using the public properties instead.
 
-In Debug, press **F3** to open the statistics overlay and see the actual
-collider outlines, including capsules (green for colliders, yellow for triggers).
-You can also enable an individual collider's `showGizmo` property.
+In Debug, press **F3** to enable the statistics overlay and actual collider
+outlines, including capsules (green for colliders, yellow for triggers).
+Press **F2** to hide or restore just the statistics overlay, leaving the
+outlines visible. Press **F3** again to close the overlay and its debug
+draw mode. You can also enable an individual collider's `showGizmo` property
+independently of these keys.
+Capsule gizmos use one closed contour with 32 segments per rounded end.
+All collider gizmos (Box, Circle and Capsule) are projected through the world
+camera but drawn **after the world render texture is scaled**, directly at
+the native output resolution with a fixed two-pixel stroke. This keeps full
+outlines visible at reduced internal resolutions and on mixed-DPI monitors,
+without using the UI canvas scale. Gizmos remain aligned when the world image
+is letterboxed. This changes only Debug drawing, not collision geometry.
 
 For trigger volumes, set `isTrigger=true`. `layer` and `mask` are bitfields:
 the collision system checks the layer/mask relationship before evaluating

@@ -4,7 +4,7 @@
   <h1>XEngine</h1>
   <p><strong>A lightweight, cross-platform 2D game engine built with C++20 and SDL2.</strong></p>
   <p><em>Build 2D games in C++. Understand the engine. Own your code.</em></p>
-  <p><small>Engine release: <strong>2.0.1</strong> · <a href="docs/VERSIONING.md">Version policy</a></small></p>
+  <p><small>Engine release: <strong>0.3.0</strong> · <a href="docs/VERSIONING.md">Version policy</a></small></p>
   <p><small>Modern successor to <a href="https://github.com/the-33/XEngine-Legacy">XEngine-Legacy</a> (Visual Studio / MSVC)</small></p>
   <p>
     <a href="https://en.cppreference.com/w/cpp/20"><img alt="C++20" src="https://img.shields.io/badge/C%2B%2B-20-00599C?logo=cplusplus&amp;logoColor=white" /></a>
@@ -46,7 +46,7 @@ The project includes a portable build tool, a ready-to-use game template and an 
 | **Input, audio & assets** | Keyboard/mouse and multiple hot-plugged gamepads, player-specific Input Actions, JSON action maps, callbacks, bindings and controls, plus textures, fonts, sound and UI |
 | **Persistence & data formats** | Direct FileSystem API, atomic single-file writes with inspectable backups, binary/bit I/O, JSON and custom-object serializers, PlayerPrefs |
 | **Runtime resolution** | Window size/fullscreen properties, aspect-aware camera and responsive UI anchors with optional canvas scaling |
-| **Performance tools** | Optional collision workers, render-command preparation workers, adaptive collision broadphase, CSV profiling and F3/F4 overlays |
+| **Performance tools** | Optional collision workers, render-command preparation workers, adaptive collision broadphase, CSV profiling and F2/F3/F4 debug controls |
 | **Build & distribution** | Windows/Linux native builds, optional cross-build SDK tooling and packaged Release archives |
 
 To learn the engine from the beginning, follow
@@ -280,7 +280,21 @@ Existing `~/.xengine/sdk` installations continue working; use
 
 `games/XEngine Benchmark/` contains an SDL2 game for repeatable comparisons of collisions, threading and render workloads (including rotation, tint, culling and composite scenes). It is checked into Git; the results generated locally are ignored.
 
-For an interactive overview, toggle the **F3** debug profiler and use **F4** to change pages. When `Engine.profileCsv` is enabled, frame and subsystem timings can be exported for analysis.
+For an interactive overview in Debug builds, press **F3** to enable the profiler
+and collider debug draws, **F2** to hide/show only the profiler panel, and
+**F4** to change pages. **F3** closes both the panel and its debug draw mode.
+When `Engine.profileCsv` is enabled, frame and subsystem timings can be exported
+for analysis.
+Profiler columns include a small safety margin and keep their widest width
+while F3 is active, preventing constant resizing as FPS and counters change.
+Collider debug outlines are projected through the world camera but drawn as
+fixed-width strokes at the **physical output resolution**, after the world
+render texture is scaled. Their visibility and thickness no longer depend on
+the internal render resolution or the UI canvas scaler.
+In Windows, SDL2 now requests **per-monitor V2 DPI awareness** before video
+initialization, so a 1920×1080 display at 125% scaling is not mistaken for a
+1536×864 rendering surface. Scaled UI fonts are rasterized at their final
+pixel size, and rounded widget borders use pixel-aligned antialiased geometry.
 
 ```bash
 python tools/compare_profiles.py --game "XEngine Benchmark"

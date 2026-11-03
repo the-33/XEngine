@@ -29,6 +29,7 @@ enum class Path : std::uint8_t {
 };
 /** @brief Converts a diagnostic enum value into a stable, human-readable identifier.
  * @param path Diagnostic route value to convert into a readable identifier.
+ * @return Result of name in RenderDiagnostics.
  */
 inline constexpr const char* Name(Path path) noexcept {
     switch (path) {
@@ -189,6 +190,7 @@ inline bool DefinitelyOffscreenSprite(const View& v,
 /** @brief Calculates estimated effective rendering work for the specified draw call.
  * @param units Estimated number of rendering-work units.
  * @param definitelyOffscreen Whether the geometry is known to be outside the current view.
+ * @return Result of effective units in RenderDiagnostics.
  */
 inline constexpr std::uint64_t EffectiveUnits(std::uint64_t units,
                                               bool definitelyOffscreen) noexcept {
@@ -210,6 +212,7 @@ inline constexpr std::uint64_t EntryBoundary(std::size_t threshold) noexcept {
  * @param current Running accumulated work units.
  * @param next Units contributed by the next candidate command.
  * @param boundary Maximum units that affect the selection decision.
+ * @return Result of capped effective sum in RenderDiagnostics.
  */
 inline constexpr std::uint64_t CappedEffectiveSum(std::uint64_t current,
     std::uint64_t next, std::uint64_t boundary) noexcept {
@@ -225,6 +228,7 @@ enum class Selection : std::uint8_t {
 };
 /** @brief Converts a diagnostic enum value into a stable, human-readable identifier.
  * @param mode Selection policy whose stable text label is requested.
+ * @return Result of name in RenderDiagnostics.
  */
 inline constexpr const char* Name(Selection mode) noexcept {
     return mode == Selection::Adaptive ? "adaptive" : "fixed";
@@ -251,6 +255,7 @@ enum class RouteOverride : std::uint8_t {
  * @param tilted Whether an X/Y sprite tilt requires extra preparation.
  * @param rotated Whether the sprite has a nonzero Z rotation.
  * @param offset Whether the sprite has a non-default local offset.
+ * @return Result of sprite units in RenderDiagnostics.
  */
 inline constexpr std::uint64_t SpriteUnits(bool tilted, bool rotated, bool offset) noexcept {
     return kUnit + (tilted ? kXYZTiltExtra : 0) +
@@ -258,6 +263,7 @@ inline constexpr std::uint64_t SpriteUnits(bool tilted, bool rotated, bool offse
 }
 /** @brief Estimates rendering work attributable to a rectangle.
  * @param rotated Whether the rectangle requires rotation preparation.
+ * @return Result of rectangle units in RenderDiagnostics.
  */
 inline constexpr std::uint64_t RectangleUnits(bool rotated) noexcept {
     return kUnit + (rotated ? kRotationExtra : 0);

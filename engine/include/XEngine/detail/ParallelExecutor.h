@@ -51,6 +51,8 @@ public:
         }
     }
 
+    /** @brief Destroy a ParallelExecutor instance and release owned resources.
+     */
     ~ParallelExecutor()
     {
         {
@@ -63,14 +65,23 @@ public:
             if (thread.joinable()) thread.join();
     }
 
-    ParallelExecutor(const ParallelExecutor&) = delete;
-    ParallelExecutor& operator=(const ParallelExecutor&) = delete;
+    /** @brief Construct a ParallelExecutor instance.
+     * @param other Source object whose copy, move or equality is being requested.
+     */
+    ParallelExecutor(const ParallelExecutor& other) = delete;
+    /** @brief Implement the operator= operation for ParallelExecutor.
+     * @return Result of applying the overloaded operator.
+     * @param other Source object whose copy, move or equality is being requested.
+     */
+    ParallelExecutor& operator=(const ParallelExecutor& other) = delete;
 
     /** @brief Number of background threads, excluding the caller.
+     * @return Result of worker count in ParallelExecutor.
      */
     unsigned WorkerCount() const noexcept { return static_cast<unsigned>(threads_.size()); }
     /** @brief Time the caller spent waiting after processing its own jobs, in milliseconds.
      * @note This is **not** total dispatch or execution time.
+     * @return Result of last wait ms in ParallelExecutor.
      */
     float LastWaitMs() const noexcept { return lastWaitMs_; }
 
@@ -107,6 +118,10 @@ public:
     }
 
 private:
+    /** @brief Process in ParallelExecutor.
+     * @param task Task supplied to ParallelExecutor.
+     * @param count Number of elements to process.
+     */
     void Process_(const std::function<void(std::size_t)>& task, std::size_t count)
     {
         for (;;)
@@ -117,6 +132,8 @@ private:
         }
     }
 
+    /** @brief Worker loop in ParallelExecutor.
+     */
     void WorkerLoop_()
     {
         std::uint64_t observedGeneration = 0;
@@ -140,19 +157,43 @@ private:
         }
     }
 
+    /** @brief Stored threads value used by ParallelExecutor.
+     */
     std::vector<std::thread> threads_;
+    /** @brief Stored mutex value used by ParallelExecutor.
+     */
     std::mutex mutex_;
+    /** @brief Stored ready value used by ParallelExecutor.
+     */
     std::condition_variable ready_;
+    /** @brief Stored finished value used by ParallelExecutor.
+     */
     std::condition_variable finished_;
+    /** @brief Stored next value used by ParallelExecutor.
+     */
     std::atomic<std::size_t> next_{0};
+    /** @brief Stored task value used by ParallelExecutor.
+     */
     const std::function<void(std::size_t)>* task_ = nullptr;
+    /** @brief Stored count value used by ParallelExecutor.
+     */
     std::size_t count_ = 0;
+    /** @brief Stored remaining value used by ParallelExecutor.
+     */
     std::size_t remaining_ = 0;
+    /** @brief Stored generation value used by ParallelExecutor.
+     */
     std::uint64_t generation_ = 0;
+    /** @brief Stored stopping value used by ParallelExecutor.
+     */
     bool stopping_ = false;
+    /** @brief Stored last wait ms value used by ParallelExecutor.
+     */
     float lastWaitMs_ = 0.f;
 };
 
 } // namespace xengine::detail
+/** @brief Type alias for parallel executor used by XEngine/detail/ParallelExecutor.h.
+ */
 using ParallelExecutor = xengine::detail::ParallelExecutor;
 

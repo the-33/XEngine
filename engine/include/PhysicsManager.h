@@ -1,3 +1,5 @@
+/** @brief Grant Singleton< PhysicsManager > access to the internal state of PhysicsManager.
+ */
 #pragma once
 /** @file PhysicsManager.h
  * @brief Fixed-step physics simulation settings and runtime diagnostics.
@@ -28,24 +30,52 @@ class SceneManager;
  */
 class PhysicsManager : public Singleton<PhysicsManager>
 {
+    /** @brief Permit the singleton base to construct and release the PhysicsManager manager.
+     */
     friend class Singleton<PhysicsManager>;
+    /** @brief Grant Engine access to the internal state of PhysicsManager.
+     */
     friend class Engine;
+    /** @brief Grant SceneManager access to the internal state of PhysicsManager.
+     */
     friend class SceneManager;
+    /** @brief Grant RigidBody2D access to the internal state of PhysicsManager.
+     */
     friend class RigidBody2D;
 
+    /** @brief Internal configuration values for PhysicsManager.
+     */
     struct Config
     {
+        /** @brief Configured base gravity value used by Config.
+         */
         Vec2 baseGravity = { 0.f, 9.81f };
+        /** @brief Configured penetration slop value used by Config.
+         */
         float penetrationSlop = 0.01f;
+        /** @brief Configured penetration percent value used by Config.
+         */
         float penetrationPercent = 0.8f;
+        /** @brief Stored max substeps value used by Config.
+         */
         int maxSubsteps = 8;
+        /** @brief Configured ccd min size factor value used by Config.
+         */
         float ccdMinSizeFactor = 0.5f;
     };
 
 private:
+    /** @brief Construct a PhysicsManager instance.
+     */
     PhysicsManager() = default;
+    /** @brief Destroy a PhysicsManager instance and release owned resources.
+     */
     ~PhysicsManager() = default;
 
+    /** @brief Initialize the PhysicsManager subsystem.
+     * @param cfg Cfg supplied to PhysicsManager.
+     * @return True if the operation succeeded or its condition holds; otherwise false.
+     */
     bool Init(const Config& cfg) noexcept 
     { 
         gravity = cfg.baseGravity;
@@ -56,62 +86,161 @@ private:
 
         mBodies.clear(); return true; 
     }
+    /** @brief Release resources managed by PhysicsManager.
+     */
     void Shutdown() noexcept { mBodies.clear(); }
 
+    /** @brief Register body in PhysicsManager.
+     * @param b Second input operand.
+     */
     void RegisterBody(RigidBody2D* b) noexcept;
+    /** @brief Remove body in PhysicsManager.
+     * @param b Second input operand.
+     */
     void RemoveBody(RigidBody2D* b) noexcept;
+    /** @brief Set body active in PhysicsManager.
+     * @param b Second input operand.
+     * @param active Active supplied to PhysicsManager.
+     */
     void SetBodyActive(RigidBody2D* b, bool active) noexcept;
 
     // Call from Engine::DoFixedUpdates_
+    /** @brief Step in PhysicsManager.
+     * @param fixedDt Fixed dt supplied to PhysicsManager.
+     */
     void Step(float fixedDt) noexcept;
 
 private:
+    /** @brief Configured gravity value used by PhysicsManager.
+     */
     Vec2 gravity{ 0.f, 9.81f };    // {0,0} for top-down games
 
     // penetration correction
+    /** @brief Configured penetration slop value used by PhysicsManager.
+     */
     float penetrationSlop = 0.01f;
+    /** @brief Configured penetration percent value used by PhysicsManager.
+     */
     float penetrationPercent = 0.8f;
 
     // Continuous: substeps
+    /** @brief Stored max substeps value used by PhysicsManager.
+     */
     int maxSubsteps = 8;
+    /** @brief Configured ccd min size factor value used by PhysicsManager.
+     */
     float ccdMinSizeFactor = 0.5f; // lower values produce more substeps (safer)
 
+    /** @brief Retrieve the gravity from PhysicsManager.
+     * @return Requested get gravity value or reference.
+     */
     inline Vec2 GetGravity() const noexcept { return gravity; }
+    /** @brief Retrieve the penetration slop from PhysicsManager.
+     * @return Requested get penetration slop value or reference.
+     */
     inline float GetPenetrationSlop() const noexcept { return penetrationSlop; }
+    /** @brief Retrieve the penetration percent from PhysicsManager.
+     * @return Requested get penetration percent value or reference.
+     */
     inline float GetPenetrationPercent() const noexcept { return penetrationPercent; }
+    /** @brief Retrieve the max substeps from PhysicsManager.
+     * @return Requested get max substeps value or reference.
+     */
     inline int   GetMaxSubsteps() const noexcept { return maxSubsteps; }
+    /** @brief Retrieve the ccd min size factor from PhysicsManager.
+     * @return Requested get ccd min size factor value or reference.
+     */
     inline float GetCCDMinSizeFactor() const noexcept { return ccdMinSizeFactor; }
 
+    /** @brief Set gravity in PhysicsManager.
+     * @param g G supplied to PhysicsManager.
+     */
     inline void SetGravity(const Vec2 g) noexcept { gravity = g; }
+    /** @brief Set penetration slop in PhysicsManager.
+     * @param slop Slop supplied to PhysicsManager.
+     */
     inline void SetPenetrationSlop(float slop) noexcept { penetrationSlop = slop; }
+    /** @brief Set penetration percent in PhysicsManager.
+     * @param percent Percent supplied to PhysicsManager.
+     */
     inline void SetPenetrationPercent(float percent) noexcept { penetrationPercent = percent; }
+    /** @brief Set max substeps in PhysicsManager.
+     * @param substeps Substeps supplied to PhysicsManager.
+     */
     inline void SetMaxSubsteps(int substeps) noexcept { maxSubsteps = (substeps < 1) ? 1 : substeps; }
+    /** @brief Set ccd min size factor in PhysicsManager.
+     * @param factor Multiplier applied to the computed result.
+     */
     inline void SetCCDMinSizeFactor(float factor) noexcept { ccdMinSizeFactor = (factor < 0.0f) ? 0.0f : factor; }
 
 private:
+    /** @brief Stored bodies value used by PhysicsManager.
+     */
     std::unordered_map<RigidBody2D*, bool> mBodies;
 
+    /** @brief Collider center world in PhysicsManager.
+     * @param c C supplied to PhysicsManager.
+     * @return Result of collider center world in PhysicsManager.
+     */
     inline Vec2 ColliderCenterWorld_(const Collider2D* c) noexcept;
 
+    /** @brief Compute substeps in PhysicsManager.
+     * @param dt Elapsed simulation time for the update, in seconds.
+     * @return Result of compute substeps in PhysicsManager.
+     */
     int ComputeSubsteps_(float dt) noexcept;
+    /** @brief Integrate in PhysicsManager.
+     * @param dt Elapsed simulation time for the update, in seconds.
+     */
     void Integrate_(float dt) noexcept;
+    /** @brief Solve contacts in PhysicsManager.
+     * @param contacts Contacts supplied to PhysicsManager.
+     * @param dt Elapsed simulation time for the update, in seconds.
+     */
     void SolveContacts_(const std::vector<NarrowContact>& contacts, float dt) noexcept;
+    /** @brief Positional correction in PhysicsManager.
+     * @param contacts Contacts supplied to PhysicsManager.
+     */
     void PositionalCorrection_(const std::vector<NarrowContact>& contacts) noexcept;
 
     // helpers 2D
+    /** @brief Cross in PhysicsManager.
+     * @param a First input operand.
+     * @param b Second input operand.
+     * @return Result of cross in PhysicsManager.
+     */
     static inline float Cross(const Vec2& a, const Vec2& b) noexcept { return a.x * b.y - a.y * b.x; }
+    /** @brief Perp in PhysicsManager.
+     * @param wRad W rad supplied to PhysicsManager.
+     * @param r Target rectangle in the relevant coordinate space.
+     * @return Result of perp in PhysicsManager.
+     */
     static inline Vec2 Perp(float wRad, const Vec2& r) noexcept {
         return { -wRad * r.y, wRad * r.x };
     }
 
     // Stats
+    /** @brief Configured step time sec value used by PhysicsManager.
+     */
     double stepTimeSec = 0.0;
+    /** @brief Configured integrate time sec value used by PhysicsManager.
+     */
     double integrateTimeSec = 0.0;
+    /** @brief Configured build contacts time sec value used by PhysicsManager.
+     */
     double buildContactsTimeSec = 0.0;
+    /** @brief Configured solve time sec value used by PhysicsManager.
+     */
     double solveTimeSec = 0.0;
 
+    /** @brief Configured n substeps this frame value used by PhysicsManager.
+     */
     int nSubstepsThisFrame = 0;
+    /** @brief Configured solver iterations value used by PhysicsManager.
+     */
     int solverIterations = 0;
+    /** @brief Configured n contacts processed this frame value used by PhysicsManager.
+     */
     std::uint64_t nContactsProcessedThisFrame = 0;
 
 public:

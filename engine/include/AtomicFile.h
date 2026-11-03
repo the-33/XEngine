@@ -70,6 +70,7 @@ struct AtomicReadResult {
      */
     std::vector<std::byte> data;
     /** @brief Returns true if the selected file could be read without a filesystem error.
+     * @return True if the selected file could be read without a filesystem error.
      */
     bool Ok() const noexcept { return error == FileError::None; }
 };
@@ -83,21 +84,27 @@ struct AtomicReadResult {
  */
 class AtomicFile final {
 public:
-    /** Appended suffixes; e.g. score.dat -> score.dat.tmp / score.dat.bak. */
+    /** Appended suffixes; e.g. score.dat -> score.dat.tmp / score.dat.bak.
+     * @param target Target path or object for this operation.
+     * @return Result of temporary path in AtomicFile.
+     */
     static std::filesystem::path TemporaryPath(const std::filesystem::path& target);
     /** @brief Returns the target filename with a .bak suffix appended, regardless of its existing extension.
      * @param target Target filesystem path; file extension is application-defined.
+     * @return The target filename with a .bak suffix appended, regardless of its existing extension.
      */
     static std::filesystem::path BackupPath(const std::filesystem::path& target);
 
     /** @brief Reports candidate presence and inspection errors without deciding which save is valid.
      * @param target Target filesystem path; file extension is application-defined.
+     * @return Result of inspect in AtomicFile.
      */
     static AtomicFileInspection Inspect(const std::filesystem::path& target) noexcept;
     /** @brief Reads exactly the selected primary/backup/temporary candidate with a maximum byte count.
      * @param target Target filesystem path; file extension is application-defined.
      * @param source Candidate or source location selected by the caller.
      * @param maxBytes Maximum number of bytes the caller permits reading.
+     * @return Requested read value or reference.
      */
     static AtomicReadResult Read(const std::filesystem::path& target,
                                  AtomicFileSource source = AtomicFileSource::Primary,
@@ -109,6 +116,10 @@ public:
      * Returns RecoveryRequired if .tmp exists.
      * A failed operation may leave candidates; inspect and validate before the next write.
      * Only a single cooperative writer per path is supported.
+     * @param target Target path or object for this operation.
+     * @param data Input data to consume or write.
+     * @param keepBackup Keep backup supplied to AtomicFile.
+     * @return Result of write in AtomicFile.
      */
     static FileError Write(const std::filesystem::path& target, std::span<const std::byte> data,
                            bool keepBackup = true) noexcept;

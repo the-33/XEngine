@@ -18,46 +18,114 @@ class SpriteRenderer : public Behaviour
 {
 private:
     // --- Resource / crop rectangle (texture pixels) ---
+    /** @brief Configured texture value used by SpriteRenderer.
+     */
     const Texture* texture = nullptr;
+    /** @brief Configured src x value used by SpriteRenderer.
+     */
     int  srcX = 0;
+    /** @brief Configured src y value used by SpriteRenderer.
+     */
     int  srcY = 0;
+    /** @brief Configured src w value used by SpriteRenderer.
+     */
     int  srcW = 0;   // 0 => Texture::Width()
+    /** @brief Configured src h value used by SpriteRenderer.
+     */
     int  srcH = 0;   // 0 => Texture::Height()
 
     // --- Apariencia ---
+    /** @brief Stored tint value used by SpriteRenderer.
+     */
     Color tint_ = { 255, 255, 255, 255 };
+    /** @brief Stored flip x value used by SpriteRenderer.
+     */
     bool  flipX_ = false;
+    /** @brief Stored flip y value used by SpriteRenderer.
+     */
     bool  flipY_ = false;
 
     // --- Posicionamiento avanzado ---
     // Sprite LOCAL-SPACE offset (world units BEFORE rotation).
     // This offset rotates with the Transform (rotation applied in Render()).
+    /** @brief Stored offset value used by SpriteRenderer.
+     */
     Vec2 offset_{ 0.f, 0.f };
 
     // Rotation/scaling pivot relative to the sprite rectangle (0..1).
     // (0,0)=esquina superior izq, (0.5,0.5)=centro, (1,1)=inferior dcha.
+    /** @brief Stored pivot01 value used by SpriteRenderer.
+     */
     Vec2 pivot01_{ 0.5f, 0.5f };
 
     // Temporary second sprite used to blend animation transitions.
+    /** @brief Stored animation previous texture value used by SpriteRenderer.
+     */
     const Texture* animationPreviousTexture_ = nullptr;
+    /** @brief Stored animation previous source value used by SpriteRenderer.
+     */
     RectI animationPreviousSource_{};
+    /** @brief Stored animation blend value used by SpriteRenderer.
+     */
     float animationBlend_ = 1.f;
 
     // Conveniencia
+    /** @brief Set texture in SpriteRenderer.
+     * @param tex Texture asset to read or draw.
+     */
     void SetTexture(const Texture* tex) noexcept;
+    /** @brief Set source in SpriteRenderer.
+     * @param src Src supplied to SpriteRenderer.
+     */
     void SetSource(RectI src) noexcept;
+    /** @brief Set tint in SpriteRenderer.
+     * @param tint RGBA tint applied to the rendered sprite or text.
+     */
     void SetTint(Color tint) noexcept;
+	/** @brief Set flip x in SpriteRenderer.
+	 * @param fx Fx supplied to SpriteRenderer.
+	 */
 	void SetFlipX(bool fx) noexcept { flipX_ = fx; }
+	/** @brief Set flip y in SpriteRenderer.
+	 * @param fy Fy supplied to SpriteRenderer.
+	 */
 	void SetFlipY(bool fy) noexcept { flipY_ = fy; }
+    /** @brief Set offset in SpriteRenderer.
+     * @param off Off supplied to SpriteRenderer.
+     */
     void SetOffset(Vec2 off) noexcept { offset_ = off; }
+    /** @brief Set pivot01 in SpriteRenderer.
+     * @param p P supplied to SpriteRenderer.
+     */
     void SetPivot01(Vec2 p) noexcept { pivot01_ = p; }
 
+	/** @brief Retrieve the tint from SpriteRenderer.
+	 * @return Requested get tint value or reference.
+	 */
 	Color GetTint() const noexcept { return tint_; }
+	/** @brief Retrieve the offset from SpriteRenderer.
+	 * @return Requested get offset value or reference.
+	 */
 	Vec2 GetOffset() const noexcept { return offset_; }
+	/** @brief Test whether SpriteRenderer is flip x.
+	 * @return True when is flip x; otherwise false.
+	 */
 	bool IsFlipX() const noexcept { return flipX_; }
+	/** @brief Test whether SpriteRenderer is flip y.
+	 * @return True when is flip y; otherwise false.
+	 */
 	bool IsFlipY() const noexcept { return flipY_; }
+	/** @brief Retrieve the pivot01 from SpriteRenderer.
+	 * @return Requested get pivot01 value or reference.
+	 */
 	Vec2 GetPivot01() const noexcept { return pivot01_; }
+	/** @brief Retrieve the texture from SpriteRenderer.
+	 * @return Requested get texture value or reference.
+	 */
 	const Texture* GetTexture() const noexcept { return texture; }
+	/** @brief Retrieve the source from SpriteRenderer.
+	 * @return Requested get source value or reference.
+	 */
 	RectI GetSource() const noexcept { return { srcX, srcY, srcW, srcH }; }
 
 protected:

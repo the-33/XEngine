@@ -65,6 +65,7 @@
 #include "AssetManager.h"
 #include "CollisionManager.h"
 #include "UIRectTransform.h"
+#include "UILayoutValidation.h"
 #include "UIManager.h"
 #include "SceneManager.h"
 #include "PhysicsManager.h"

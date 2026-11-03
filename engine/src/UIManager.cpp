@@ -7,23 +7,40 @@
 #include <cmath>
 #include <string_view>
 #include <utility>
+#include <limits>
 
 #include "RenderManager.h"
 #include "InputManager.h"
 #include "WindowManager.h"
 #include "AssetManager.h"
 #include "ErrorHandler.h"
+#include "XEngine/detail/UIWidgetSize.h"
+#include "XEngine/detail/UILayerOrder.h"
 #include "SDL.h"
 #include "SDL_ttf.h"
 
 // State global IMGUI (tu estilo actual)
+/** @brief Configured g hot id value used by UIManager.cpp.
+ */
 static std::string gHotID;
+/** @brief Configured g active id value used by UIManager.cpp.
+ */
 static std::optional<std::string> gActiveID;
+/** @brief Configured g mouse down value used by UIManager.cpp.
+ */
 static bool        gMouseDown = false;
+/** @brief Configured g mouse pressed value used by UIManager.cpp.
+ */
 static bool        gMousePressed = false;
+/** @brief Configured g mouse released value used by UIManager.cpp.
+ */
 static bool        gMouseReleased = false;
+/** @brief Configured g mouse pos value used by UIManager.cpp.
+ */
 static Vec2I        gMousePos{ 0,0 };
 
+/** @brief Namespace collecting @244020170030236035346324346335257204177150076102 functionality for XEngine.
+ */
 namespace {
 struct ScopedCanvasTextScale {
     float& current;
@@ -85,13 +102,6 @@ bool InsertUtf8_(std::string& text, size_t& cursor, std::string_view input,
     return changed;
 }
 
-int TextWidth_(TTF_Font* font, std::string_view value) noexcept {
-    if (!font || value.empty()) return 0;
-    int width = 0;
-    // TTF_SizeUTF8 needs a NUL-terminated string; the temporary owns it.
-    const std::string measured(value);
-    return TTF_SizeUTF8(font, measured.c_str(), &width, nullptr) == 0 ? width : 0;
-}
 }
 
 bool UIManager::Init(const UIStyle& defaultStyle) noexcept
@@ -100,7 +110,7 @@ bool UIManager::Init(const UIStyle& defaultStyle) noexcept
     mStyleStack.clear();
     ApplyStyle_(defaultStyle);
     if (!mDefaultFont && !defaultStyle.defaultFontKey.empty()) {
-        LogWarning("UIManager",
+        LogWarning("Engine - UI",
             std::string("Init(): Could not find font asset '") + defaultStyle.defaultFontKey +
             "'. Labels/Buttons without explicit font will not show text.");
     }
@@ -110,8 +120,14 @@ bool UIManager::Init(const UIStyle& defaultStyle) noexcept
     gMouseDown = gMousePressed = gMouseReleased = false;
     gMousePos = { 0,0 };
     mCmds.clear();
+    mLayer = 0;
+    mLayerStack.clear();
     mFocusableCurrent.clear();
     mFocusablePrevious.clear();
+    mHitRegionsCurrent.clear();
+    mHitRegionsPrevious.clear();
+    mTopPointerId.clear();
+    mTopPointerLayer = 0;
     mFocusedId.clear();
     mPendingFocusId.clear();
     StopEditing_();
@@ -137,6 +153,10 @@ void UIManager::Shutdown() noexcept
     StopEditing_();
     mFocusableCurrent.clear();
     mFocusablePrevious.clear();
+    mHitRegionsCurrent.clear();
+    mHitRegionsPrevious.clear();
+    mTopPointerId.clear();
+    mTopPointerLayer = 0;
     mFocusedId.clear();
     mPendingFocusId.clear();
     mNavigationRules.clear();
@@ -146,6 +166,8 @@ void UIManager::Shutdown() noexcept
     mDropdownOverlayCmds.clear();
     mDropdownPressedRow = -1;
     mCmds.clear();
+    mLayer = 0;
+    mLayerStack.clear();
     mDefaultFont = nullptr;
 
     gHotID.clear();
@@ -157,9 +179,17 @@ void UIManager::Shutdown() noexcept
 void UIManager::Begin() noexcept
 {
     gHotID.clear();
+    mLayer = 0;
+    mLayerStack.clear();
     mTextScale = 1.f;
     mFocusablePrevious.swap(mFocusableCurrent);
     mFocusableCurrent.clear();
+    std::stable_sort(mFocusablePrevious.begin(), mFocusablePrevious.end(),
+        [](const Focusable& a, const Focusable& b) { return a.layer > b.layer; });
+    mHitRegionsPrevious.swap(mHitRegionsCurrent);
+    mHitRegionsCurrent.clear();
+    mTopPointerId.clear();
+    mTopPointerLayer = std::numeric_limits<int>::min();
     mMouseHitSelectable = false;
     mSubmitPressed = false;
     mCancelPressed = false;
@@ -189,6 +219,26 @@ void UIManager::Begin() noexcept
         gMouseDown = input->MouseDown(MouseButton::Left);
         gMousePressed = input->MousePressed(MouseButton::Left);
         gMouseReleased = input->MouseReleased(MouseButton::Left);
+
+        // Immediate-mode widgets return events while submitted. Resolve the
+        // topmost hit from LAST frame's completed widget list so a lower
+        // widget cannot consume an overlap before a later widget is called.
+        int topLayer = std::numeric_limits<int>::min();
+        std::size_t topSequence = 0;
+        for (std::size_t index = 0; index < mHitRegionsPrevious.size(); ++index) {
+            const HitRegion& hit = mHitRegionsPrevious[index];
+            if (!PointInRect_(gMousePos, hit.bounds)) continue;
+            const std::size_t sequence = hit.overlay
+                ? std::numeric_limits<std::size_t>::max() : index;
+            if (mTopPointerId.empty() ||
+                xengine::detail::ui::IsAbove(hit.layer, sequence,
+                                            topLayer, topSequence)) {
+                mTopPointerId = hit.id;
+                mTopPointerLayer = hit.layer;
+                topLayer = hit.layer;
+                topSequence = sequence;
+            }
+        }
 
         if (!mFocusedId.empty()) {
             const bool stillPresent = std::any_of(mFocusablePrevious.begin(),
@@ -292,6 +342,19 @@ void UIManager::Begin() noexcept
     mCmds.clear();
 }
 
+void UIManager::PushLayer(int layer) noexcept
+{
+    mLayerStack.push_back(mLayer);
+    mLayer = layer;
+}
+
+void UIManager::PopLayer() noexcept
+{
+    if (mLayerStack.empty()) return;
+    mLayer = mLayerStack.back();
+    mLayerStack.pop_back();
+}
+
 // --------------------------
 // Responsive canvas and anchors
 // --------------------------
@@ -387,6 +450,26 @@ void UIManager::Panel(const UIRectTransform& layout, Color fill,
                       const Rect* parent) noexcept
 {
     Panel(Resolve(layout, parent), fill);
+}
+
+void UIManager::Line(const UIRectTransform& layout, Color color,
+                     float thickness, const Rect* parent) noexcept
+{
+    if (!std::isfinite(thickness) || thickness <= 0.f) return;
+    const Rect r = Resolve(layout, parent);
+    if (!std::isfinite(r.x) || !std::isfinite(r.y) ||
+        !std::isfinite(r.w) || !std::isfinite(r.h) ||
+        r.w <= 0.f || r.h <= 0.f) return;
+
+    const float scaledThickness = thickness * CanvasScale();
+    if (!std::isfinite(scaledThickness) || scaledThickness <= 0.f) return;
+    if (r.w >= r.h) {
+        const float y = r.y + r.h * 0.5f;
+        Line({r.x, y}, {r.x + r.w, y}, color, scaledThickness);
+    } else {
+        const float x = r.x + r.w * 0.5f;
+        Line({x, r.y}, {x, r.y + r.h}, color, scaledThickness);
+    }
 }
 
 void UIManager::Image(const Texture& tex, const UIRectTransform& layout,
@@ -557,7 +640,8 @@ void UIManager::RegisterFocusable_(const char* id, const Rect& r, bool horizonta
     if (!id || !*id) return;
     const auto existing = std::find_if(mFocusableCurrent.begin(), mFocusableCurrent.end(),
         [id](const Focusable& item) { return item.id == id; });
-    if (existing == mFocusableCurrent.end()) mFocusableCurrent.push_back({id, r, horizontalAdjust});
+    if (existing == mFocusableCurrent.end())
+        mFocusableCurrent.push_back({id, r, horizontalAdjust, mLayer});
     else existing->horizontalAdjust = existing->horizontalAdjust || horizontalAdjust;
     if (mPendingFocusId == id) {
         Focus(id);
@@ -668,13 +752,16 @@ UIManager::ButtonState UIManager::ButtonBehavior_(const char* id, const Rect& r)
     if (!id) return st;
 
     RegisterFocusable_(id, r);
+    mHitRegionsCurrent.push_back({id, r, mLayer, false});
 
     // An expanded dropdown is modal for pointer/submit input. An outside click
     // dismisses it first; the same press must not activate a covered button.
-    if ((!mOpenDropdownId.empty() && mOpenDropdownId != id) || mDropdownSuppressMouse)
+    if ((!mOpenDropdownId.empty() && mOpenDropdownId != id &&
+         mLayer <= mOpenDropdownLayer) || mDropdownSuppressMouse)
         return st;
 
-    st.hovered = PointInRect_(gMousePos, r);
+    st.hovered = PointInRect_(gMousePos, r) &&
+                 (mTopPointerId.empty() || mTopPointerId == id);
     if (st.hovered) gHotID = id;
 
     if (st.hovered && gMousePressed) {
@@ -703,6 +790,12 @@ UIManager::ButtonState UIManager::ButtonBehavior_(const char* id, const Rect& r)
     return st;
 }
 
+void UIManager::QueueCmd_(DrawCmd command) noexcept
+{
+    command.layer = mLayer;
+    mCmds.push_back(std::move(command));
+}
+
 void UIManager::PushPanel_(const Rect& r, Color fill, Color outline, bool filled,
                            float radiusOverride) noexcept
 {
@@ -721,7 +814,7 @@ void UIManager::PushPanel_(const Rect& r, Color fill, Color outline, bool filled
         command.filled = filled;
         command.cornerRadius = radius;
         command.borderWidth = border;
-        mCmds.push_back(std::move(command));
+        QueueCmd_(std::move(command));
         return;
     }
 
@@ -732,7 +825,7 @@ void UIManager::PushPanel_(const Rect& r, Color fill, Color outline, bool filled
         a.r = r;
         a.color = fill;
         a.filled = true;
-        mCmds.push_back(std::move(a));
+        QueueCmd_(std::move(a));
     }
 
     // Contorno
@@ -741,7 +834,7 @@ void UIManager::PushPanel_(const Rect& r, Color fill, Color outline, bool filled
     b.r = r;
     b.color = outline;
     b.filled = false;
-    mCmds.push_back(std::move(b));
+    QueueCmd_(std::move(b));
 }
 
 void UIManager::PushChevron_(const Rect& r, bool upward) noexcept
@@ -763,7 +856,7 @@ void UIManager::PushChevron_(const Rect& r, bool upward) noexcept
         command.to = segment.second;
         command.color = mActiveStyle.dropdownArrow;
         command.lineWidth = std::max(1.5f, 2.f * scale);
-        mCmds.push_back(std::move(command));
+        QueueCmd_(std::move(command));
     }
 }
 
@@ -779,7 +872,7 @@ void UIManager::PushText_(const std::string& text, const Rect& r, Font* font, Co
     c.font = font;
     c.textScale = mTextScale;
     c.filled = false;
-    mCmds.push_back(std::move(c));
+    QueueCmd_(std::move(c));
 }
 
 void UIManager::PushImage_(const Texture& tex, const Rect& dst, const Rect* srcPixels, Color tint, bool flipX, bool flipY) noexcept
@@ -796,7 +889,7 @@ void UIManager::PushImage_(const Texture& tex, const Rect& dst, const Rect* srcP
         c.src = *srcPixels;
         c.hasSrc = true;
     }
-    mCmds.push_back(std::move(c));
+    QueueCmd_(std::move(c));
 }
 
 void UIManager::PushTextInRect_(const Rect& r, Font* font, const std::string& text,
@@ -816,7 +909,7 @@ void UIManager::PushTextInRect_(const Rect& r, Font* font, const std::string& te
     cmd.vAlign = v;
     cmd.padding = padding * mTextScale;
 
-    mCmds.push_back(std::move(cmd));
+    QueueCmd_(std::move(cmd));
 }
 
 // --------------------------
@@ -953,7 +1046,22 @@ void UIManager::Panel(const Rect& r, Color fill) noexcept
     c.r = r;
     c.color = fill;
     c.filled = true;
-    mCmds.push_back(std::move(c));
+    QueueCmd_(std::move(c));
+}
+
+void UIManager::Line(Vec2 start, Vec2 end, Color color, float thickness) noexcept
+{
+    if (!std::isfinite(start.x) || !std::isfinite(start.y) ||
+        !std::isfinite(end.x) || !std::isfinite(end.y) ||
+        !std::isfinite(thickness) || thickness <= 0.f ||
+        (start.x == end.x && start.y == end.y)) return;
+    DrawCmd cmd;
+    cmd.type = CmdType::Line;
+    cmd.from = start;
+    cmd.to = end;
+    cmd.color = color;
+    cmd.lineWidth = thickness;
+    QueueCmd_(std::move(cmd));
 }
 
 // --------------------------
@@ -1095,7 +1203,8 @@ bool UIManager::Checkbox(const char* id, const Rect& r, bool* value, const std::
 bool UIManager::Slider(const char* id, const Rect& r, float* value,
                        float minValue, float maxValue, float step) noexcept
 {
-    if (!id || !*id || !value || r.w <= 14.f || r.h <= 8.f ||
+    if (!id || !*id || !value ||
+        !xengine::detail::ui::ControlHasRoom(r.w, r.h, mTextScale, 14.f, 8.f) ||
         !std::isfinite(minValue) || !std::isfinite(maxValue) ||
         !std::isfinite(step) || maxValue <= minValue || step <= 0.f)
         return false;
@@ -1160,7 +1269,9 @@ bool UIManager::Slider(const char* id, const Rect& r, float* value,
 bool UIManager::Toggle(const char* id, const Rect& r, bool* value,
                        const std::string& label) noexcept
 {
-    if (!id || !*id || !value || r.w <= 20.f || r.h <= 12.f) return false;
+    if (!id || !*id || !value ||
+        !xengine::detail::ui::ControlHasRoom(r.w, r.h, mTextScale, 20.f, 12.f))
+        return false;
     const bool minimal = !mActiveStyle.toggleShowBackground;
     const float margin = minimal ? 0.f : std::min(7.f, r.h * 0.16f);
     const float switchWidth = std::min(r.w - margin * 2.f,
@@ -1197,7 +1308,8 @@ bool UIManager::Dropdown(const char* id, const Rect& r, int* selectedIndex,
                          const std::vector<std::string>& options, int maxVisibleItems) noexcept
 {
     if (!id || !*id || !selectedIndex || options.empty() ||
-        r.w <= 24.f || r.h <= 12.f) return false;
+        !xengine::detail::ui::ControlHasRoom(r.w, r.h, mTextScale, 24.f, 12.f))
+        return false;
 
     const int count = static_cast<int>(options.size());
     const ButtonState state = ButtonBehavior_(id, r);
@@ -1211,6 +1323,7 @@ bool UIManager::Dropdown(const char* id, const Rect& r, int* selectedIndex,
             StopEditing_();
             Focus(id);
             mOpenDropdownId = id;
+            mOpenDropdownLayer = mLayer;
             mDropdownHighlighted = std::clamp(*selectedIndex, 0, count - 1);
             mDropdownFirstVisible = 0;
             mDropdownPressedRow = -1;
@@ -1251,7 +1364,8 @@ bool UIManager::Dropdown(const char* id, const Rect& r, int* selectedIndex,
     if (mDropdownHighlighted >= mDropdownFirstVisible + visible)
         mDropdownFirstVisible = mDropdownHighlighted - visible + 1;
 
-    if (PointInRect_(gMousePos, popup)) {
+    if (PointInRect_(gMousePos, popup) &&
+        (mTopPointerId.empty() || mTopPointerId == id)) {
         if (auto* input = InputManager::GetInstancePtr_NO_ERROR_MSG()) {
             const int scroll = input->GetMouseWheel().y;
             if (scroll != 0) {
@@ -1273,7 +1387,8 @@ bool UIManager::Dropdown(const char* id, const Rect& r, int* selectedIndex,
         return changed;
     }
 
-    const bool inPopup = PointInRect_(gMousePos, popup);
+    const bool inPopup = PointInRect_(gMousePos, popup) &&
+        (mTopPointerId.empty() || mTopPointerId == id);
     const int hovered = inPopup ? std::clamp(
         static_cast<int>((gMousePos.y - popup.y) / rowHeight), 0, visible - 1) : -1;
     if (inPopup && gMousePressed) {
@@ -1290,12 +1405,17 @@ bool UIManager::Dropdown(const char* id, const Rect& r, int* selectedIndex,
         mDropdownPressedRow = -1;
         mDropdownSuppressMouse = true;
     }
-    if (gMousePressed && !inPopup && !PointInRect_(gMousePos, r)) {
+    if (gMousePressed && !inPopup && !PointInRect_(gMousePos, r) &&
+        mTopPointerLayer <= mOpenDropdownLayer) {
         mOpenDropdownId.clear();
         mDropdownPressedRow = -1;
         mDropdownSuppressMouse = true;
     }
     if (mOpenDropdownId != id) return changed;
+
+    // A dropdown popup is drawn after other commands at its layer. It must
+    // also win same-layer hit tests, even if its field was submitted earlier.
+    mHitRegionsCurrent.push_back({id, popup, mLayer, true});
 
     const std::size_t firstCommand = mCmds.size();
     PushPanel_(popup, mActiveStyle.dropdownBackground, mFocusColor);
@@ -1338,25 +1458,33 @@ bool UIManager::TextInput(const char* id, const Rect& r, std::string* value,
     const float pad = std::max(3.f, mBtnDefaultPadding * drawScale);
     TTF_Font* ttf = mDefaultFont ? mDefaultFont->GetSDL() : nullptr;
     const float available = std::max(0.f, r.w - pad * 2.f);
+    const auto textWidth = [&](std::string_view value) noexcept -> float {
+        if (!ttf || value.empty() || !mDefaultFont) return 0.f;
+        auto* renderer = RenderManager::GetInstancePtr();
+        if (!renderer) return 0.f;
+        const Vec2I measured = renderer->MeasureTextScreen(
+            *mDefaultFont, std::string(value), drawScale);
+        return static_cast<float>(measured.x);
+    };
 
     // La ventana visible sigue al cursor, pero los índices siempre pertenecen
     // a la cadena UTF-8 completa.
     const auto visibleRange = [&]() {
         size_t from = 0;
         size_t to = value->size();
-        if (ttf && !value->empty() && TextWidth_(ttf, *value) * drawScale > available) {
+        if (ttf && !value->empty() && textWidth(*value) > available) {
             from = std::min(mTextCursorByte, value->size());
             to = from;
             while (from > 0) {
                 const size_t previous = PrevUtf8_(*value, from);
-                if (TextWidth_(ttf, std::string_view(*value).substr(previous, to - previous)) *
-                    drawScale > available) break;
+                if (textWidth(std::string_view(*value).substr(previous, to - previous)) >
+                    available) break;
                 from = previous;
             }
             while (to < value->size()) {
                 const size_t next = NextUtf8_(*value, to);
-                if (TextWidth_(ttf, std::string_view(*value).substr(from, next - from)) *
-                    drawScale > available) break;
+                if (textWidth(std::string_view(*value).substr(from, next - from)) >
+                    available) break;
                 to = next;
             }
         }
@@ -1369,9 +1497,9 @@ bool UIManager::TextInput(const char* id, const Rect& r, std::string* value,
         size_t nearest = from;
         for (size_t at = from; at < to;) {
             const size_t next = NextUtf8_(*value, at);
-            const float left = ttf ? TextWidth_(ttf, std::string_view(*value).substr(from, at - from)) * drawScale :
+            const float left = ttf ? textWidth(std::string_view(*value).substr(from, at - from)) :
                 static_cast<float>(Utf8Count_(std::string_view(*value).substr(from, at - from))) * 8.f;
-            const float right = ttf ? TextWidth_(ttf, std::string_view(*value).substr(from, next - from)) * drawScale :
+            const float right = ttf ? textWidth(std::string_view(*value).substr(from, next - from)) :
                 left + 8.f;
             if (x < (left + right) * 0.5f) return nearest;
             nearest = next;
@@ -1495,8 +1623,8 @@ bool UIManager::TextInput(const char* id, const Rect& r, std::string* value,
         const size_t begin = std::max(from, std::min(mTextCursorByte, mTextSelectionAnchorByte));
         const size_t end = std::min(to, std::max(mTextCursorByte, mTextSelectionAnchorByte));
         if (begin < end) {
-            const float left = TextWidth_(ttf, std::string_view(full).substr(from, begin - from)) * drawScale;
-            const float right = TextWidth_(ttf, std::string_view(full).substr(from, end - from)) * drawScale;
+            const float left = textWidth(std::string_view(full).substr(from, begin - from));
+            const float right = textWidth(std::string_view(full).substr(from, end - from));
             Panel({r.x + pad + left, r.y + pad, right - left,
                    std::max(2.f, r.h - 2.f * pad)}, mActiveStyle.textSelection);
         }
@@ -1508,8 +1636,8 @@ bool UIManager::TextInput(const char* id, const Rect& r, std::string* value,
     }
     if (editing) {
         const size_t caret = std::clamp(mTextCursorByte, from, to);
-        const float offset = ttf ? TextWidth_(ttf,
-            std::string_view(full).substr(from, caret - from)) * drawScale : 0.f;
+        const float offset = ttf ? textWidth(
+            std::string_view(full).substr(from, caret - from)) : 0.f;
         const float x = std::clamp(r.x + pad + offset, r.x + pad,
                                    std::max(r.x + pad, r.x + r.w - pad - 2.f));
         const float h = std::max(2.f, r.h - pad * 2.f);
@@ -1545,6 +1673,11 @@ void UIManager::End() noexcept
         mCmds.push_back(std::move(command));
     mDropdownOverlayCmds.clear();
 
+    // Stable ordering preserves normal submission order at equal layers;
+    // dropdown popups were appended above, so they remain above those peers.
+    std::stable_sort(mCmds.begin(), mCmds.end(),
+        [](const DrawCmd& a, const DrawCmd& b) { return a.layer < b.layer; });
+
     for (const auto& c : mCmds) {
         switch (c.type) {
         case CmdType::Rect:
@@ -1574,11 +1707,11 @@ void UIManager::End() noexcept
             break;
         case CmdType::TextInRect:
             if (c.font && !c.text.empty()) {
-                int tw = 0, th = 0;
-                auto* ttf = c.font->GetSDL();
-                if (ttf && TTF_SizeUTF8(ttf, c.text.c_str(), &tw, &th) == 0) {
-                    const float textWidth = static_cast<float>(tw) * c.textScale;
-                    const float textHeight = static_cast<float>(th) * c.textScale;
+                const Vec2I measured = render->MeasureTextScreen(
+                    *c.font, c.text, c.textScale);
+                if (measured.x > 0 && measured.y > 0) {
+                    const float textWidth = static_cast<float>(measured.x);
+                    const float textHeight = static_cast<float>(measured.y);
 
                     float x = c.r.x;
                     float y = c.r.y;

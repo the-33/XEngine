@@ -17,16 +17,34 @@ namespace xengine::detail::spatial_hash {
 /** @brief Inclusive world AABB edges (touching boundaries may be candidates). */
 struct Bounds { double minX, minY, maxX, maxY; };
 
+/** @var double xengine::detail::spatial_hash::Bounds::minX
+ * @brief Left edge of the world-space axis-aligned bounds.
+ */
+/** @var double xengine::detail::spatial_hash::Bounds::minY
+ * @brief Upper edge of the world-space axis-aligned bounds.
+ */
+/** @var double xengine::detail::spatial_hash::Bounds::maxX
+ * @brief Right edge of the world-space axis-aligned bounds.
+ */
+/** @var double xengine::detail::spatial_hash::Bounds::maxY
+ * @brief Lower edge of the world-space axis-aligned bounds.
+ */
+
 /** @brief Hash-grid accumulator retaining oversized/invalid bounds globally.
  * @note Query candidate lists are sorted/unique; callers still perform
  *       actual narrow-phase tests. Not a public scene or collider container.
  */
 class Grid {
 public:
+    /** @brief Construct a Grid instance.
+     * @param cellSize Cell size used to bound or select the operation.
+     */
     explicit Grid(double cellSize = 2.0) noexcept
         : mCellSize(std::isfinite(cellSize) && cellSize > 0.0 ? cellSize : 2.0) {}
 
-    /** @brief Rebuilds cell occupancy from a snapshot of collider AABBs. */
+    /** @brief Rebuilds cell occupancy from a snapshot of collider AABBs.
+     * @param bounds Bounding rectangle of the object or region.
+     */
     void Build(const std::vector<Bounds>& bounds) {
         mCells.clear(); mGlobal.clear(); mRanges.clear();
         mRanges.resize(bounds.size());
@@ -69,11 +87,25 @@ public:
     }
 
 private:
+    /** @brief Key data and utilities used by xengine::detail::spatial_hash::Grid.
+     */
     struct Key {
+        /** @brief Configured x value used by Key.
+         */
         std::int64_t x, y;
-        bool operator==(const Key&) const noexcept = default;
+        /** @brief Implement the operator== operation for Key.
+         * @return Result of applying the overloaded operator.
+         * @param other Source object whose copy, move or equality is being requested.
+         */
+        bool operator==(const Key& other) const noexcept = default;
     };
+    /** @brief Hash data and utilities used by xengine::detail::spatial_hash::Grid.
+     */
     struct Hash {
+        /** @brief Implement the operator() operation for Hash.
+         * @param k K supplied to Hash.
+         * @return Result of applying the overloaded operator.
+         */
         std::size_t operator()(const Key& k) const noexcept {
             auto a=static_cast<std::uint64_t>(k.x);
             auto b=static_cast<std::uint64_t>(k.y);
@@ -82,9 +114,20 @@ private:
             return static_cast<std::size_t>(a ^ (b + 0x9e3779b97f4a7c15ULL + (a<<6) + (a>>2)));
         }
     };
+    /** @brief Configured x0 value used by Range.
+     */
     struct Range { std::int64_t x0=0, y0=0, x1=0, y1=0; bool valid=false; };
+    /** @brief Configured limit value used by Grid.
+     */
     static constexpr double kLimit = 1000000000.0;
+    /** @brief Configured max occupied cells value used by Grid.
+     */
     static constexpr std::uint64_t kMaxOccupiedCells = 128;
+    /** @brief Make range in Grid.
+     * @param b Second input operand.
+     * @param out Caller-provided output destination.
+     * @return True if the operation succeeded or its condition holds; otherwise false.
+     */
     bool MakeRange(const Bounds& b, Range& out) const noexcept {
         if (!std::isfinite(b.minX) || !std::isfinite(b.maxX) ||
             !std::isfinite(b.minY) || !std::isfinite(b.maxY) ||
@@ -99,9 +142,17 @@ private:
                static_cast<std::int64_t>(x1),static_cast<std::int64_t>(y1),true};
         return true;
     }
+    /** @brief Stored cell size value used by Grid.
+     */
     double mCellSize;
+    /** @brief Stored cells value used by Grid.
+     */
     std::unordered_map<Key,std::vector<std::size_t>,Hash> mCells;
+    /** @brief Stored global value used by Grid.
+     */
     std::vector<std::size_t> mGlobal;
+    /** @brief Stored ranges value used by Grid.
+     */
     std::vector<Range> mRanges;
 };
 } // namespace SpatialHashBroadphase
@@ -109,3 +160,31 @@ private:
 // Compatibility namespace: existing engine code and internal tests may still
 // include the historical forwarding header and use its original spelling.
 namespace SpatialHashBroadphase = xengine::detail::spatial_hash;
+
+/** @name Co-declared engine member descriptions
+ * @brief Members sharing declarations with other fields.
+ * @{ */
+/** @var std::int64_t xengine::detail::spatial_hash::Grid::Key::y
+ * @brief Y used by Key.
+ */
+
+/** @var std::int64_t xengine::detail::spatial_hash::Grid::Range::x0
+ * @brief X0 used by Range.
+ */
+
+/** @var std::int64_t xengine::detail::spatial_hash::Grid::Range::y0
+ * @brief Y0 used by Range.
+ */
+
+/** @var std::int64_t xengine::detail::spatial_hash::Grid::Range::x1
+ * @brief X1 coordinate of the line endpoint.
+ */
+
+/** @var std::int64_t xengine::detail::spatial_hash::Grid::Range::y1
+ * @brief Y1 coordinate of the line endpoint.
+ */
+
+/** @var bool xengine::detail::spatial_hash::Grid::Range::valid
+ * @brief Valid used by Range.
+ */
+/** @} */

@@ -85,6 +85,12 @@ int main() {
     assert(eq(canvas.ScaleFor({960.f, 1080.f}), 1.f));
     canvas.matchWidthOrHeight = 0.5f;
     assert(eq(canvas.ScaleFor({960.f, 1080.f}), std::sqrt(0.5f)));
+    canvas.referenceResolution = {1280.f, 720.f};
+    // A 125% Windows DPI monitor is still physically 1920x1080; the canvas
+    // must use physical framebuffer pixels, not logical 1536x864 coordinates.
+    assert(eq(canvas.ScaleFor({1920.f, 1080.f}), 1.5f));
+    assert(eq(canvas.ScaleFor({1536.f, 864.f}), 1.2f));
+    canvas.referenceResolution = {1920.f, 1080.f};
     const float doubleScale = canvas.ScaleFor({3840.f, 2160.f});
     assert(eq(doubleScale, 2.f));
     check(topRight.Resolve({0.f, 0.f, 3840.f, 2160.f}, doubleScale),
@@ -134,10 +140,12 @@ int main() {
         self.assertIn('ProgressBar(value01, Resolve(layout, parent), back, fill, outline);', source)
         self.assertIn('ScopedCanvasTextScale scale(mTextScale, CanvasScale());', source)
         self.assertIn('cmd.textScale = mTextScale;', source)
-        self.assertIn('static_cast<float>(tw) * c.textScale', source)
+        self.assertIn('render->MeasureTextScreen(', source)
+        self.assertIn('static_cast<float>(measured.x)', source)
         self.assertIn('c.color, c.textScale);', source)
         self.assertIn('c.textScale = scale;', renderer)
-        self.assertIn('scaledExtent(e.width)', renderer)
+        self.assertIn('outputExtent(e.width)', renderer)
+        self.assertIn('rasterFont != font.GetSDL()', renderer)
 
 
 if __name__ == '__main__':

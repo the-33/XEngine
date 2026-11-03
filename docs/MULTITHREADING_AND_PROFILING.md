@@ -148,12 +148,24 @@ added twice. `render_present_ms` includes VSync waiting, when enabled; it is not
 pure CPU work. The onscreen Debug overlay (F3) reports frame median (p50) and
 p95 from a rolling 512-frame window using the same clock.
 
-### On-screen Debug profiler (F3 / F4)
+### On-screen Debug profiler (F2 / F3 / F4)
 
-**F3** toggles the profiler overlay in Debug builds. **F4** advances to the
-next profiler page while the overlay is visible. A page counter is displayed
+In Debug builds, **F3** enables the profiler overlay and collider debug draws.
+While this mode is active, **F2** hides/shows only the profiler panel so collider
+outlines stay visible. Press **F3** again to close both the panel and the
+mode-controlled debug draws, even if the panel is currently hidden. **F2** does
+nothing when F3 mode is off. Explicit `Collider2D.showGizmo` remains independently
+controlled by game code. **F4** advances to the next profiler page only while the
+overlay is visible. A page counter is displayed
 at the top; all sections are accessible even at lower resolutions. Both
 single-threaded and multithreaded measurements use the same layout.
+
+To avoid the panel visibly expanding and shrinking as FPS, timing values and
+counters change, its text columns include 32 pixels of extra safety room.
+Within an F3 session, each column keeps the largest width it has needed so
+far instead of shrinking on the next 0.25-second refresh. The width can still
+grow for a genuinely longer value, and it resets when F3 is reopened or the
+window/font metrics change. Columns remain constrained to the viewport.
 
 The **Active Configuration** section distinguishes requested settings from
 what is actually available or selected during the last frame:

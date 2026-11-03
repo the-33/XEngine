@@ -77,7 +77,7 @@ Windows PowerShell equivalent:
 & '.\build\windows-x86_64\debug\games\XEngine Benchmark\XEngine Benchmark.exe' --scenario balanced --mode parallel --frames 360 --warmup 90 --seed 12345
 ```
 
-In Debug, the game sets the working directory to its `assets` directory; its own `config/{mode}.json` files choose the CPU worker and render-preparation configuration **before** the engine starts. Nothing is rebuilt when changing `--mode`. Changing the mode **while the same game process is running is intentionally not supported** because persistent workers and timing histories should be reset. Every mode is a clean process restart. The game closes itself via an SDL quit event after the requested number of frames plus warmup, so the engine can flush the profile CSV normally. Use F3 for the compact stats panel and F4 to advance its pages.
+In Debug, the game sets the working directory to its `assets` directory; its own `config/{mode}.json` files choose the CPU worker and render-preparation configuration **before** the engine starts. Nothing is rebuilt when changing `--mode`. Changing the mode **while the same game process is running is intentionally not supported** because persistent workers and timing histories should be reset. Every mode is a clean process restart. The game closes itself via an SDL quit event after the requested number of frames plus warmup, so the engine can flush the profile CSV normally. Use F3 to activate the stats panel and collider debug draws; F2 hides/shows just the panel, F4 advances pages, and F3 again closes the mode.
 
 ## Scenarios
 

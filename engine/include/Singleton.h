@@ -14,20 +14,25 @@ public:
     /** @brief Returns the active singleton instance by reference.
      * @warning If no instance exists this implementation logs an error and
      *          dereferences a null dummy pointer. Check GetInstancePtr first.
+     * @return The active singleton instance by reference.
      */
     inline static T& GetInstance();
     /** @brief Returns the active singleton pointer, or logs and returns nullptr.
+     * @return The active singleton pointer, or logs and returns nullptr.
      */
     inline static T* GetInstancePtr();
     /** @brief Returns the active singleton pointer without logging on failure.
+     * @return The active singleton pointer without logging on failure.
      */
     inline static T* GetInstancePtr_NO_ERROR_MSG();
 
 protected:
     /** @brief Creates create singleton for the current scene or service.
+     * @return True if the operation succeeded or its condition holds; otherwise false.
      */
     inline static bool CreateSingleton();
     /** @brief Deletes the active singleton and clears its pointer; false if missing.
+     * @return True if the operation succeeded or its condition holds; otherwise false.
      */
     inline static bool DestroySingleton();
 
@@ -39,19 +44,27 @@ protected:
     ~Singleton() = default;
 
     /** @brief Constructs a Singleton instance.
+     * @param other Source object whose copy, move or equality is being requested.
      */
-    Singleton(const Singleton&) = delete;
+    Singleton(const Singleton& other) = delete;
     /** @brief Implements operator= for this value or property type.
+     * @return Result of applying the overloaded operator.
+     * @param other Source object whose copy, move or equality is being requested.
      */
-    Singleton& operator=(const Singleton&) = delete;
+    Singleton& operator=(const Singleton& other) = delete;
     /** @brief Constructs a Singleton instance.
+     * @param other Source object whose copy, move or equality is being requested.
      */
-    Singleton(Singleton&&) = delete;
+    Singleton(Singleton&& other) = delete;
     /** @brief Implements operator= for this value or property type.
+     * @return Result of applying the overloaded operator.
+     * @param other Source object whose copy, move or equality is being requested.
      */
-    Singleton& operator=(Singleton&&) = delete;
+    Singleton& operator=(Singleton&& other) = delete;
 
 private:
+    /** @brief Stored singleton value used by Singleton.
+     */
     static T* mSingleton;
 };
 
@@ -65,7 +78,7 @@ template<class T> inline bool Singleton<T>::CreateSingleton() {
         return true;
     }
     else {
-        LogWarning("Singleton", "CreateSingleton(): Singleton already created. FIX IMMEDIATELY.");
+        LogWarning("Engine - Singleton", "CreateSingleton(): Singleton already created. FIX IMMEDIATELY.");
         return false;
     }
 }
@@ -77,7 +90,7 @@ template<class T> inline bool Singleton<T>::DestroySingleton() {
         return true;
     }
     else {
-        LogWarning("Singleton", "DestroySingleton(): Singleton already destroyed or never created. FIX IMMEDIATELY.");
+        LogWarning("Engine - Singleton", "DestroySingleton(): Singleton already destroyed or never created. FIX IMMEDIATELY.");
         return false;
     }
 }
@@ -87,7 +100,7 @@ template<class T> inline T& Singleton<T>::GetInstance() {
         return *mSingleton;
     }
     else {
-        LogWarning("Singleton", "GetInstance(): Singleton not created, Call CreateSingleton().");
+        LogWarning("Engine - Singleton", "GetInstance(): Singleton not created, Call CreateSingleton().");
         static T* dummy = nullptr;
         return *dummy;
     }
@@ -98,7 +111,7 @@ template<class T> inline T* Singleton<T>::GetInstancePtr() {
         return mSingleton;
     }
     else {
-        LogWarning("Singleton", "GetInstancePtr(): Singleton not created, Call CreateSingleton().");
+        LogWarning("Engine - Singleton", "GetInstancePtr(): Singleton not created, Call CreateSingleton().");
         return nullptr;
     }
 }

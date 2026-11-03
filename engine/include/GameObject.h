@@ -63,74 +63,202 @@ struct CollisionInfo2D {
  */
 class GameObject
 {
+	/** @brief Grant Transform access to the internal state of GameObject.
+	 */
 	friend class Transform;
+	/** @brief Grant CollisionManager access to the internal state of GameObject.
+	 */
 	friend class CollisionManager;
+    /** @brief Grant Scene access to the internal state of GameObject.
+     */
     friend class Scene;
 
 private:
+    /** @brief Construct a GameObject instance.
+     * @param name Name of the resource, property or element to access.
+     * @param id Stable identifier associated with the requested object or control.
+     * @param scene Scene to create, load, or inspect.
+     */
     explicit GameObject(const std::string& name, EntityID id, Scene* scene) noexcept;
 
+    /** @brief Create in GameObject.
+     * @param name Name of the resource, property or element to access.
+     * @param id Stable identifier associated with the requested object or control.
+     * @param scene Scene to create, load, or inspect.
+     * @return Result of create in GameObject.
+     */
     static std::unique_ptr<GameObject> Create(const std::string& name, EntityID id, Scene* scene);
 
+    /** @brief Parent in GameObject.
+     * @return Result of parent in GameObject.
+     */
     GameObject* Parent() const noexcept { return mParent; }
+    /** @brief Children in GameObject.
+     * @return Result of children in GameObject.
+     */
     const std::vector<GameObject*>& Children() const noexcept { return mChildren; }
 
     // --- Lifecycle ---
+    /** @brief Awake in GameObject.
+     */
     void Awake();       // Propaga a componentes + hijos
+    /** @brief Start in GameObject.
+     */
     void Start();
+    /** @brief On enable in GameObject.
+     */
     void OnEnable();
+    /** @brief On disable in GameObject.
+     */
     void OnDisable();
+    /** @brief On destroy in GameObject.
+     */
     void OnDestroy();
 
+    /** @brief Register in GameObject.
+     */
     void Register();
 
     // --- Bucle principal ---
+    /** @brief Fixed update in GameObject.
+     * @param dt Elapsed simulation time for the update, in seconds.
+     */
     void FixedUpdate(float dt);
+    /** @brief Update the GameObject state for the current frame.
+     * @param dt Elapsed simulation time for the update, in seconds.
+     */
     void Update(float dt);
+    /** @brief Late update in GameObject.
+     * @param dt Elapsed simulation time for the update, in seconds.
+     */
     void LateUpdate(float dt);
+    /** @brief Render in GameObject.
+     */
     void Render();
 
-    void OnCollisionEnter(const CollisionInfo2D&);
-    void OnCollisionStay(const CollisionInfo2D&);
-    void OnCollisionExit(const CollisionInfo2D&);
+    /** @brief On collision enter in GameObject.
+     * @param info Info supplied to GameObject.
+     */
+    void OnCollisionEnter(const CollisionInfo2D& info);
+    /** @brief On collision stay in GameObject.
+     * @param info Info supplied to GameObject.
+     */
+    void OnCollisionStay(const CollisionInfo2D& info);
+    /** @brief On collision exit in GameObject.
+     * @param info Info supplied to GameObject.
+     */
+    void OnCollisionExit(const CollisionInfo2D& info);
 
-    void OnTriggerEnter(const CollisionInfo2D&);
-    void OnTriggerStay(const CollisionInfo2D&);
-    void OnTriggerExit(const CollisionInfo2D&);
+    /** @brief On trigger enter in GameObject.
+     * @param info Info supplied to GameObject.
+     */
+    void OnTriggerEnter(const CollisionInfo2D& info);
+    /** @brief On trigger stay in GameObject.
+     * @param info Info supplied to GameObject.
+     */
+    void OnTriggerStay(const CollisionInfo2D& info);
+    /** @brief On trigger exit in GameObject.
+     * @param info Info supplied to GameObject.
+     */
+    void OnTriggerExit(const CollisionInfo2D& info);
 
     // Add/remove children (called from SetParent)
+    /** @brief Add child in GameObject.
+     * @param child Child supplied to GameObject.
+     */
     void AddChild(GameObject* child) noexcept;      // no transfiere ownership
+    /** @brief Remove child in GameObject.
+     * @param child Child supplied to GameObject.
+     */
     void RemoveChild(GameObject* child) noexcept;
 
+    /** @brief Test whether GameObject is active in hierarchy.
+     * @return True when is active in hierarchy; otherwise false.
+     */
     bool IsActiveInHierarchy() const noexcept { return mActive && mParentActive; }
+    /** @brief Test whether GameObject is active.
+     * @return True when is active; otherwise false.
+     */
     bool IsActive() const noexcept { return mActive; }
 
+    /** @brief Awake transform in GameObject.
+     */
     void AwakeTransform();
+	/** @brief Start transform in GameObject.
+	 */
 	void StartTransform();
+    /** @brief Retrieve the transform from GameObject.
+     * @return Requested get transform value or reference.
+     */
     inline Transform* GetTransform() const noexcept { return mTransform; }
 
+    /** @brief Retrieve the id from GameObject.
+     * @return Requested get id value or reference.
+     */
     inline EntityID GetID() const noexcept { return id; }
+    /** @brief Retrieve the scene from GameObject.
+     * @return Requested get scene value or reference.
+     */
     inline Scene* GetScene() const noexcept { return mScene; }
+    /** @brief Retrieve the name from GameObject.
+     * @return Requested get name value or reference.
+     */
     inline std::string GetName() const noexcept { return mName; }
+    /** @brief Set name in GameObject.
+     * @param name Name of the resource, property or element to access.
+     */
     void SetName(std::string name) noexcept;
+    /** @brief Retrieve the tag from GameObject.
+     * @return Requested get tag value or reference.
+     */
     inline std::string GetTag() const noexcept { return mTag; }
+    /** @brief Set tag in GameObject.
+     * @param tag Tag supplied to GameObject.
+     */
     inline void SetTag(std::string tag) noexcept { mTag = tag; }
+    /** @brief Retrieve the parent from GameObject.
+     * @return Requested get parent value or reference.
+     */
     inline GameObject* GetParent() const noexcept { return mParent; }
 
+    /** @brief Stored name value used by GameObject.
+     */
     std::string mName;
+    /** @brief Stored tag value used by GameObject.
+     */
     std::string mTag;
 
+    /** @brief Stored parent value used by GameObject.
+     */
     GameObject* mParent = nullptr;
+    /** @brief Stored children value used by GameObject.
+     */
     std::vector<GameObject*> mChildren;
 
+    /** @brief Configured id value used by GameObject.
+     */
     EntityID id = 0;
+    /** @brief Stored scene value used by GameObject.
+     */
     Scene* mScene = nullptr;
+    /** @brief Configured components value used by GameObject.
+     */
     std::vector<std::unique_ptr<Component>> components;
+    /** @brief Stored transform value used by GameObject.
+     */
     Transform* mTransform;
 
+    /** @brief Stored active value used by GameObject.
+     */
     bool mActive = true;
+    /** @brief Stored parent active value used by GameObject.
+     */
     bool mParentActive = true;
+    /** @brief Stored awoken value used by GameObject.
+     */
     bool mAwoken = false;
+    /** @brief Stored started value used by GameObject.
+     */
     bool mStarted = false;
 
 public:
@@ -164,16 +292,19 @@ public:
      * @param args Constructor arguments forwarded to T.
      * @return Non-owning pointer, invalid after object/scene destruction.
      * @note A component added after Awake/Start may have its lifecycle hooks run immediately.
+     * @tparam Args Template type or value used by AddComponent.
      */
     T* AddComponent(Args &&...args);
 
     template <class T>
     /** @brief Finds the first component compatible with T, or returns nullptr.
+     * @return Requested get component value or reference.
      */
     T* GetComponent() noexcept;
 
     template<class T>
     /** @brief Returns all components compatible with T as non-owning pointers.
+     * @return All components compatible with t as non-owning pointers.
      */
     std::vector<T*> GetComponents() noexcept;
 

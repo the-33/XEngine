@@ -22,7 +22,7 @@ bool RandomManager::Init(uint64_t* seed) noexcept
     }
     else
     {
-        LogError("RandomManager error", "Init(): TimeManager was not initialisated, aborting.");
+        LogError("Engine - Random", "Init(): TimeManager was not initialisated, aborting.");
         return false;
     }
 

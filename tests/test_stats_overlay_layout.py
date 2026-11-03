@@ -46,6 +46,24 @@ int main() {
     }
     auto shortLayout = XEngineStatsOverlay::Pack({}, 800.f, 600.f, 500.f, 25.f);
     assert(shortLayout.pages.size() == 1);
+
+    // Frame-to-frame values may get narrower without moving the whole panel.
+    float held = XEngineStatsOverlay::HoldColumnWidth(0.f, 522.f);
+    const auto first = XEngineStatsOverlay::Pack(blocks, 1536.f, 864.f, held, 27.f);
+    held = XEngineStatsOverlay::HoldColumnWidth(held, 505.f);
+    const auto narrower = XEngineStatsOverlay::Pack(blocks, 1536.f, 864.f, held, 27.f);
+    assert(first.columnWidth == narrower.columnWidth);
+    assert(first.columnsPerPage == narrower.columnsPerPage);
+    assert(first.pages.size() == narrower.pages.size());
+
+    // An unusually long value can expand the panel once, then stays stable.
+    held = XEngineStatsOverlay::HoldColumnWidth(held, 550.f);
+    assert(held == 550.f);
+    assert(XEngineStatsOverlay::HoldColumnWidth(held, 510.f) == 550.f);
+
+    // F3 reopening or changing viewport/font starts a fresh width baseline.
+    held = XEngineStatsOverlay::HoldColumnWidth(0.f, 450.f);
+    assert(held == 450.f);
 }
 '''
         with tempfile.TemporaryDirectory() as directory:
@@ -65,6 +83,10 @@ int main() {
         self.assertIn('TTF_SizeUTF8(font, text.c_str()', engine)
         self.assertIn('Key::F4', engine)
         self.assertIn('XEngineStatsOverlay::Pack(', engine)
+        self.assertIn('constexpr float widthSafetyPadding = 32.f;', engine)
+        self.assertIn('mStatsHeldColumnWidth = XEngineStatsOverlay::HoldColumnWidth(', engine)
+        self.assertIn('if (viewportOrFontChanged) mStatsHeldColumnWidth = 0.f;', engine)
+        self.assertIn('if (mShowStatsOverlay) mStatsHeldColumnWidth = 0.f;', engine)
         self.assertNotIn('biggestLineSizeInLastRow', engine)
         self.assertNotIn('blockSizes.push_back', engine)
 

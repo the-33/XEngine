@@ -69,9 +69,82 @@ pixels**, so lay out UI rectangles with `GetDrawableSize()`/
 `Window->drawableSize`. `InputManager::GetMousePos()` returns logical window
 coordinates; `UIManager` scales its hit testing to drawable pixels internally.
 
+On Windows, XEngine requests SDL2 **Per-Monitor V2 DPI awareness** before the
+SDL video subsystem starts, unless the application has explicitly overridden
+the `SDL_WINDOWS_DPI_AWARENESS` hint. It leaves SDL's logical-point scaling
+disabled by default. Thus a physical 1920×1080 laptop monitor at Windows 125%
+scaling should still report a 1920×1080 drawable, rather than the virtualized
+1536×864 logical equivalent. In Debug, inspect the `[DPI]` startup entry under
+`Engine - Window` to compare window, drawable, renderer and desktop dimensions.
+
 Apply SDL/window changes on the main thread, where the engine owns its event
 processing and renderer. Let XEngine process resize events; do not try to
 force the previous size every frame.
+
+### Reject a resize if required UI would disappear
+
+`UILayoutValidation.h` (included by `XEngine.h`) provides explicit checks for
+required UI elements. `UILayoutValidation::RequireVisible()` rejects a rectangle
+that is outside the drawable viewport, nonfinite or too small **after snapping
+to physical pixels**. This matches the rounded UI renderer: a positive
+0.75-pixel divider becomes one drawable pixel and must not be rejected.
+`RequireControlVisible()` additionally checks the scaled minimum size
+of a `Slider`, `Toggle` or `Dropdown`. Both throw `UILayoutException`, which
+exposes `ElementId()`, `FailureReason()` and `RequestedDrawableSize()`.
+
+Perform the checks **before** committing settings and again against the actual
+`Window->GetDrawableSize()` afterward (DPI, the OS or the backend might
+adjust the requested size). Keep a snapshot of the previous windowed size,
+fullscreen state and internal render size; on failure, restore all three,
+write a warning and catch/rethrow the typed exception as appropriate:
+
+```cpp
+const Vec2I previousWindowed = Window->GetWindowedSize();
+const bool previousFullscreen = Window->IsFullscreen();
+const Vec2I previousRender = Renderer->GetRenderResolution();
+
+try {
+    const Rect proposed{0.f, 0.f, 640.f, 360.f}; // Requested drawable extent.
+    const float scale = UI->GetCanvas().ScaleFor(proposed.Size());
+    const Rect required = UIRectTransform::Center({340.f, 60.f})
+                              .Resolve(proposed, scale);
+    UILayoutValidation::RequireVisible("menu.continue", required, proposed);
+
+    if (!Window->SetSize(640, 360))
+        throw std::runtime_error("SDL rejected the requested window size");
+    const Vec2I actual = Window->GetDrawableSize();
+    const Rect viewport{0.f, 0.f, float(actual.x), float(actual.y)};
+    const Rect actualButton = UIRectTransform::Center({340.f, 60.f})
+                                  .Resolve(viewport, UI->GetCanvas().ScaleFor(viewport.Size()));
+    UILayoutValidation::RequireVisible("menu.continue", actualButton, viewport);
+} catch (const std::exception& error) {
+    Window->SetFullscreen(previousFullscreen);
+    Window->SetSize(previousWindowed.x, previousWindowed.y);
+    Renderer->SetRenderResolution(previousRender.x, previousRender.y);
+    Console.Warning(error.what(), "Engine - UI");
+    throw; // Catch UILayoutException at your Options UI to show a nonfatal error.
+}
+```
+
+XEngine is **immediate-mode** and does not retain a tree of undisplayed
+controls: the game must explicitly declare *all* elements required by the
+current screen. It can share the exact `UIRectTransform`s between rendering
+and preflight validation, as in the practice game's `OptionsPanelLayout.hpp`.
+For decorative separators, use `UI->Line(layout, color, thickness, &parent)`
+with `UIRectTransform`; its thickness is automatically scaled by the canvas
+and the command retains its position within the UI draw order.
+
+`UI->SetLayer(int)` or the paired `UI->PushLayer(int)` / `UI->PopLayer()`
+assign numeric layers to UI draw commands and interactive controls. Higher
+layers draw above lower layers; at the same layer, later elements draw above
+earlier ones and win overlapping pointer hit tests. The current layer resets
+to zero each UI frame.
+The overloads also accept an integer per element immediately after the Rect or
+UIRectTransform, e.g. `UI->Button("play", bounds, 10, "Play")`, without a layer
+scope. The surrounding layer is automatically restored after the call.
+The ordinary draw methods remain `noexcept`; exceptions come only from these
+opt-in checks. The practice game restores the old settings and shows a
+nonfatal warning when a proposed resolution hides a required Options element.
 
 ## Detect a changed window size
 

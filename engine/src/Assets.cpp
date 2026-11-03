@@ -1,5 +1,6 @@
 #include "Assets.h"
 #include "RenderManager.h"
+#include <utility>
 
 #include "SDL.h"
 #include "SDL_image.h"
@@ -83,12 +84,14 @@ Font::~Font() noexcept
 		mFont = nullptr;
 	}
 	mPointSize = 0;
+	mSourcePath.clear();
 }
 
 Font::Font(Font&& other) noexcept
 {
 	mFont = other.mFont;
 	mPointSize = other.mPointSize;
+	mSourcePath = std::move(other.mSourcePath);
 
 	other.mFont = nullptr;
 	other.mPointSize = 0;
@@ -103,6 +106,7 @@ Font& Font::operator=(Font&& other) noexcept
 		}
 		mFont = other.mFont;
 		mPointSize = other.mPointSize;
+		mSourcePath = std::move(other.mSourcePath);
 
 		other.mFont = nullptr;
 		other.mPointSize = 0;

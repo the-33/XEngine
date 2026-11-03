@@ -26,6 +26,7 @@ public:
     /** @brief Converts a supported value or registered class into JSON text without touching the filesystem.
      * @param value Object to convert; custom types need serialization support.
      * @param indent Pretty-printing indentation width.
+     * @return Result of serialize in JsonSerializer.
      */
     template<class T> static std::string Serialize(const T& value, int indent = 2) {
         return xengine::detail::serialization::ToJson(value).dump(indent);
@@ -33,6 +34,7 @@ public:
     /** @brief Parses bounded JSON text and recursively fills registered fields; throws on malformed input.
      * @param input UTF-8 JSON text (not a filesystem path).
      * @param maxBytes Maximum number of bytes the caller permits reading.
+     * @return Result of deserialize in JsonSerializer.
      */
     template<class T> static T Deserialize(std::string_view input,
                                             std::size_t maxBytes = 64u * 1024u * 1024u) {
@@ -46,6 +48,7 @@ public:
      * @param input UTF-8 JSON text (not a filesystem path).
      * @param result Replaced only if parsing and conversion succeed.
      * @param maxBytes Maximum number of bytes the caller permits reading.
+     * @return True if the operation succeeded or its condition holds; otherwise false.
      */
     template<class T> static bool TryDeserialize(std::string_view input, T& result,
                                                   std::size_t maxBytes = 64u * 1024u * 1024u) noexcept {
@@ -61,6 +64,7 @@ public:
      * @param mode Direct overwrites normally; Atomic publishes via a temporary
      *             file and preserves a backup according to AtomicFile defaults.
      * @param indent Pretty-printing indentation width.
+     * @return Result of save to file in JsonSerializer.
      */
     template<class T> static FileError SaveToFile(const std::filesystem::path& path,
                                                   const T& value,

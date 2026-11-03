@@ -10,6 +10,8 @@
 #include <cmath>
 #include <utility>
 
+/** @brief Namespace collecting @231243235177340365252314071016250211144062044361 functionality for XEngine.
+ */
 namespace {
 constexpr float kEpsilon = 0.00001f;
 
@@ -94,7 +96,7 @@ bool Animator::SetController(const AnimatorController* controller)
     if (!controller) return false;
     if (controller->layers.size() > 1 ||
         (!controller->layers.empty() && controller->layers.front().mode == AnimationLayerMode::Additive)) {
-        Console.Warning("Parallel/additive Animator layers are not supported yet", "Animator");
+        Console.Warning("Parallel/additive Animator layers are not supported yet", "Engine - Animation");
         return false;
     }
     controller_ = controller;
@@ -116,7 +118,7 @@ bool Animator::MakePlayhead(std::string_view name, float normalizedTime, Playhea
     if (!state || !assets) return false;
     const auto* clip = assets->LoadAnimation(state->clip);
     if (!clip) {
-        Console.Error("Cannot load clip: " + state->clip, "Animator");
+        Console.Error("Cannot load clip: " + state->clip, "Engine - Animation");
         return false;
     }
     float duration = clip->Duration();
@@ -127,7 +129,7 @@ bool Animator::MakePlayhead(std::string_view name, float normalizedTime, Playhea
         std::string error;
         const auto frames = sheet.BuildFrames(texture->Width(), texture->Height(), error);
         if (frames.empty()) {
-            Console.Warning("Invalid spritesheet for '" + state->name + "': " + error, "Animator");
+            Console.Warning("Invalid spritesheet for '" + state->name + "': " + error, "Engine - Animation");
             return false;
         }
         if (clip->duration <= 0.f) {
