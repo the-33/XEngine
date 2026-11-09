@@ -2,7 +2,7 @@
 
 XEngine uses **Semantic Versioning 2.0.0** for engine releases. Its single
 official version is the plain UTF-8 string in the repository-root **`VERSION`**
-file, currently **`0.3.0`**. Do not prefix the value with `v`, put a release
+file, currently **`0.4.4`**. Do not prefix the value with `v`, put a release
 number directly into Doxygen configuration, or increment it for every commit
 or conversation.
 
@@ -22,7 +22,7 @@ the code state that followed that last iteration.
 
 Reset lower-order numbers to zero when incrementing MAJOR or MINOR.
 Version `1.0.0` is the planned stable-API milestone. The current development
-release is `0.3.0`, which follows the 0.x compatibility policy described below.
+release is `0.4.4`, which follows the 0.x compatibility policy described below.
 
 ## Historical 0.x.y development policy
 
@@ -51,6 +51,25 @@ XEngine used the following *project policy* while its major version was zero:
   accumulates DPI, UI-layout validation, rendering and diagnostic corrections.
   Existing widget calls and `PushLayer`/`PopLayer` remain supported. The game
   save format and animation/controller asset schema versions do not change.
+- `0.4.0`: retained widget canvases, keyed/typed element lookup, chainable
+  UI control properties and per-control callbacks (click, value changes,
+  pointer/focus/editing, and dropdown state). The existing immediate-mode
+  calls, rendering backends, canvas scaling and serialization formats stay
+  compatible. This is a new development API; native Windows/Linux validation
+  is required before considering it fully platform-verified.
+- `0.4.1`: documentation build fix for the retained canvas widgets: all
+  `DrawContent` overrides now name their deferred event parameter so that
+  Doxygen's `@param events` check matches the C++ declaration. The API,
+  behavior, save formats, and game project versions are unchanged.
+- `0.4.2`: documentation build fix for the two templated `UIManager::Find`
+  definitions: remove duplicate Doxygen `@param path` and `@tparam T` sections
+  already supplied by their public declarations. No runtime/API changes.
+- `0.4.3`: fixed the Doxygen argument name for the per-corner dropdown
+  clipping geometry helper (`outerRadii`) and added geometry documentation
+  signature validation. No runtime/API changes.
+- `0.4.4`: documented the `UIWidgetCanvas` friend access in `UIWidget` and
+  taught the Doxygen XML API checker not to treat friend access declarations
+  as separately documented functions or public API contracts.
 - `1.0.0`: declare a documented, tested, supported gameplay API stable.
 
 This list records the historical development series; it does not redefine
@@ -87,8 +106,8 @@ Before a release:
    prove that all hardware and gameplay paths are stable. Review `README.md`,
    `docs/` and Doxygen source comments for current API behavior.
 4. Distribute engine source with a filename derived from `VERSION`, e.g.
-   `XEngine-0.3.0-source.zip`, and use the corresponding immutable Git tag
-   `v0.3.0` when releasing through Git. The `v` is a *tag convention*;
+   `XEngine-0.4.4-source.zip`, and use the corresponding immutable Git tag
+   `v0.4.4` when releasing through Git. The `v` is a *tag convention*;
    it is not part of the canonical `VERSION` content.
 
 Optional pre-releases follow normal SemVer notation, e.g.
@@ -100,11 +119,11 @@ From the XEngine repository root:
 
 ```sh
 python tools/engine_version.py
-# 0.3.0
+# 0.4.4
 python tools/engine_version.py --archive-name source
-# XEngine-0.3.0-source.zip
+# XEngine-0.4.4-source.zip
 python tools/engine_version.py --archive-name patch
-# XEngine-0.3.0-patch.zip
+# XEngine-0.4.4-patch.zip
 python tools/build_doxygen.py
 ```
 

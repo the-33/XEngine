@@ -10,6 +10,7 @@
 #include <string>
 
 #include "BaseTypes.h"
+#include "XEngine/detail/UICornerRadii.h"
 #include "XEngine/detail/SpriteProjection.h"
 #include "Property.h"
 #include "Singleton.h"
@@ -160,8 +161,16 @@ struct DrawCmd
     Color screenOutline{0, 0, 0, 0};
     /** @brief Corner radius for a screen-space rounded rectangle, in pixels. */
     float screenCornerRadius = 0.f;
+    /** @brief Optional independent rounded corners for recorded screen draws. */
+    xengine::detail::ui::CornerRadii screenCornerRadii{};
+    /** @brief Whether to use screenCornerRadii instead of the uniform radius. */
+    bool hasScreenCornerRadii = false;
     /** @brief Outline thickness for a rounded rectangle or screen line, in pixels. */
     float screenStrokeWidth = 1.f;
+    /** @brief Optional pixel-aligned clip for a rounded screen-space fill. */
+    Rect screenClip{};
+    /** @brief Whether the rounded screen-space draw uses its own clip rectangle. */
+    bool hasScreenClip = false;
 
     // ScreenImage uses tex + srcPx/hasSrc + flips + tint in color
     // ScreenText
@@ -438,6 +447,8 @@ private:
             float cornerRadius = 0.f; ///< Default UI corner radius in cornerRadiusUnit units.
             float borderWidth = 1.f;  ///< Default UI border thickness in pixels.
             std::string cornerRadiusUnit = "pixels"; ///< Unit of cornerRadius: pixels or percent.
+            bool useIndividualCornerRadii = false; ///< Whether the config uses a two/four-value radius array.
+            xengine::detail::ui::CornerRadii individualCornerRadii{}; ///< Parsed clockwise radii in cornerRadiusUnit units.
             /** @brief Configured default fontpt size value used by UIStyle.
              */
             int defaultFontptSize = 24;
@@ -462,6 +473,8 @@ private:
                 cornerRadius = other.cornerRadius;
                 borderWidth = other.borderWidth;
                 cornerRadiusUnit = other.cornerRadiusUnit;
+                useIndividualCornerRadii = other.useIndividualCornerRadii;
+                individualCornerRadii = other.individualCornerRadii;
                 defaultFontptSize = other.defaultFontptSize;
                 return *this;
             }

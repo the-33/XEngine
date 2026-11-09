@@ -7,6 +7,8 @@
 #include <string>
 #include <unordered_map>
 #include <utility>
+#include <memory>
+#include <string_view>
 
 #include "Singleton.h"
 #include "BaseTypes.h"
@@ -72,6 +74,19 @@ enum class UICornerRadiusUnit {
     Percent  ///< Percentage of the shortest side of the resolved widget.
 };
 
+class UIWidgetCanvas;
+
+/** @brief Pointer state recorded during a widget's latest submission.
+ * @ingroup xengine_render
+ */
+struct UIWidgetInteraction {
+    bool hovered = false; ///< Pointer is over the topmost eligible widget.
+    bool held = false; ///< Pointer is holding a press that began on this widget.
+    bool clicked = false; ///< Activated by pointer release or UI Submit.
+    bool pointerDown = false; ///< Pointer press began on this widget this frame.
+    bool pointerUp = false; ///< Pointer press ended on this widget this frame.
+};
+
 /** @brief Immediate-mode widgets and draw commands in drawable screen pixels.
  *
  * Call widgets every frame from the UI phase; their rectangles use the SDL
@@ -113,6 +128,43 @@ public:
         float cornerRadius = 0.f;                   ///< Corner radius value in cornerRadiusUnit units.
         float borderWidth = 1.f;                    ///< Thickness of panel/control borders.
         UICornerRadiusUnit cornerRadiusUnit = UICornerRadiusUnit::Pixels; ///< Unit for cornerRadius.
+        /** @brief Whether the four-corner override replaces the legacy uniform radius. */
+        bool useIndividualCornerRadii = false;
+        /** @brief Clockwise individual radii, interpreted using cornerRadiusUnit. */
+        xengine::detail::ui::CornerRadii individualCornerRadii{};
+
+        /** @brief Set one radius for all corners and clear individual overrides.
+         * @param radius Uniform radius in cornerRadiusUnit units.
+         * @return This style for chaining configuration calls.
+         */
+        UIStyle& SetCornerRadius(float radius) noexcept {
+            cornerRadius = radius;
+            useIndividualCornerRadii = false;
+            return *this;
+        }
+
+        /** @brief Set one radius for both upper corners and another for both lower corners.
+         * @param top Radius for the top-left and top-right corners.
+         * @param bottom Radius for the bottom-right and bottom-left corners.
+         * @return This style for chaining configuration calls.
+         */
+        UIStyle& SetCornerRadius(float top, float bottom) noexcept {
+            return SetCornerRadius(top, top, bottom, bottom);
+        }
+
+        /** @brief Set independent clockwise corner radii, starting at the upper-left.
+         * @param topLeft Upper-left radius.
+         * @param topRight Upper-right radius.
+         * @param bottomRight Lower-right radius.
+         * @param bottomLeft Lower-left radius.
+         * @return This style for chaining configuration calls.
+         */
+        UIStyle& SetCornerRadius(float topLeft, float topRight,
+                                float bottomRight, float bottomLeft) noexcept {
+            individualCornerRadii = {topLeft, topRight, bottomRight, bottomLeft};
+            useIndividualCornerRadii = true;
+            return *this;
+        }
         Color focus{105, 205, 255, 255};           ///< Focus outline color.
         Color sliderTrack{38, 48, 60, 255};        ///< Slider track background.
         Color sliderTrackOutline{91, 116, 139, 255}; ///< Slider track border.
@@ -149,6 +201,7 @@ private:
     enum class CmdType {
         Rect,         ///< Filled or outlined rectangular primitive.
         RoundedPanel, ///< Panel with rounded corners and an optional border.
+        ClippedRoundedFill, ///< Popup interior fill clipped to one rectangular row.
         Line,         ///< Screen-space line with configurable thickness.
         Text,         ///< Text positioned at a screen-space origin.
         Image,        ///< Textured rectangle.
@@ -191,9 +244,15 @@ private:
         /** @brief Configured corner radius value used by DrawCmd.
          */
         float cornerRadius = 0.f;
+        /** @brief Clockwise four-corner radii for individual-corner commands. */
+        xengine::detail::ui::CornerRadii cornerRadii{};
+        /** @brief Whether this draw uses the four-corner geometry path. */
+        bool hasCornerRadii = false;
         /** @brief Configured border width value used by DrawCmd.
          */
         float borderWidth = 1.f;
+        /** @brief Clip rectangle for a row drawn from the shared popup silhouette. */
+        Rect clip{};
         /** @brief Configured from value used by DrawCmd.
          */
         Vec2 from{};
@@ -300,6 +359,8 @@ private:
     /** @brief Stored editing id value used by UIManager.
      */
     std::string mEditingId;
+    /** @brief Text field that was explicitly submitted during this frame. */
+    std::string mSubmittedTextId;
     /** @brief Stored auto select first value used by UIManager.
      */
     bool mAutoSelectFirst = true;
@@ -386,6 +447,8 @@ private:
     /** @brief Stored text mouse selecting value used by UIManager.
      */
     bool mTextMouseSelecting = false;
+    /** @brief SDL tick when the editing caret last became fully visible. */
+    uint32_t mTextCaretResetTick = 0;
 
     /** @brief Register focusable in UIManager.
      * @param id Stable identifier associated with the requested object or control.
@@ -405,6 +468,8 @@ private:
     /** @brief Stop editing in UIManager.
      */
     void StopEditing_() noexcept;
+    /** @brief Restart the real-time text caret blink cycle in the visible state. */
+    void ResetTextCaretBlink_() noexcept;
 
     /** @brief Stored cmds value used by UIManager.
      */
@@ -444,6 +509,13 @@ private:
     /** @brief Stored style stack value used by UIManager.
      */
     std::vector<UIStyle> mStyleStack;
+
+    /** @brief Canvases owning persistent, keyed UI widgets. */
+    std::unordered_map<std::string, std::unique_ptr<UIWidgetCanvas>> mWidgetCanvases;
+    /** @brief Stable canvas draw order (unordered maps do not preserve order). */
+    std::vector<std::string> mWidgetCanvasOrder;
+    /** @brief Latest interaction snapshot for each immediate or retained widget ID. */
+    std::unordered_map<std::string, UIWidgetInteraction> mWidgetInteractions;
 
     /** @brief Stored default font value used by UIManager.
      */
@@ -500,6 +572,37 @@ private:
      */
     void PushPanel_(const Rect& r, Color fill, Color outline, bool filled = true,
                     float radiusOverride = -1.f) noexcept;
+    /** @brief Resolve the current style radius in drawable pixels.
+     * @param r Element rectangle used for percentage-based radius resolution.
+     * @return Nonnegative corner radius in drawable pixels.
+     */
+    float RadiusForRect_(const Rect& r) const noexcept;
+    /** @brief Resolve individual style radii in drawable pixels.
+     * @param r Element bounds used to interpret percentage radii.
+     * @return Four pixel radii in clockwise order, normalized by the renderer.
+     */
+    xengine::detail::ui::CornerRadii RadiiForRect_(const Rect& r) const noexcept;
+    /** @brief Queue a filled, square-cornered rectangle without an outline.
+     * @param r Drawable-pixel rectangle.
+     * @param fill Fill color.
+     */
+    void PushSolidRect_(const Rect& r, Color fill) noexcept;
+    /** @brief Queue one highlight clipped to the common rounded popup interior.
+     * @param shape Shared rounded interior in drawable pixels.
+     * @param clip Rectangular intersection with one visible dropdown row.
+     * @param fill Highlight color.
+     * @param radius Physical radius of the shared interior silhouette.
+     */
+    void PushClippedRoundedFill_(const Rect& shape, const Rect& clip,
+                                 Color fill, float radius) noexcept;
+    /** @brief Queue a row highlight with four independent popup-corner radii.
+     * @param shape Common rounded popup interior.
+     * @param clip Rectangular strip for the active visible row.
+     * @param fill Highlight color.
+     * @param radii Inner corner radii, clockwise from upper-left.
+     */
+    void PushClippedRoundedFill_(const Rect& shape, const Rect& clip,
+                                 Color fill, xengine::detail::ui::CornerRadii radii) noexcept;
     /** @brief Push text in UIManager.
      * @param text UTF-8 text supplied to the operation.
      * @param r Target rectangle in the relevant coordinate space.
@@ -562,7 +665,70 @@ private:
      */
     void End() noexcept;
 
+    /** @brief Submit all registered, visible widget canvases and dispatch deferred callbacks. */
+    void DrawWidgetCanvases_() noexcept;
+
 public:
+    /** @brief Destroy the UI manager and its owned widget canvases. */
+    ~UIManager() noexcept;
+
+    /** @brief Create or find a canvas containing persistent keyed UI elements.
+     * @param key Nonempty, globally unique canvas identifier.
+     * @return Reference to the existing or newly registered canvas.
+     * @throws std::invalid_argument When key is empty.
+     */
+    UIWidgetCanvas& CreateCanvas(const std::string& key);
+    /** @brief Look up a registered canvas without creating one.
+     * @param key Canvas identifier.
+     * @return Nonowning canvas pointer, or nullptr if absent.
+     */
+    UIWidgetCanvas* FindCanvas(std::string_view key) noexcept;
+    /** @brief Look up a registered canvas from a const UI manager.
+     * @param key Canvas identifier.
+     * @return Nonowning canvas pointer, or nullptr if absent.
+     */
+    const UIWidgetCanvas* FindCanvas(std::string_view key) const noexcept;
+    /** @brief Remove a canvas and all of its elements.
+     * @param key Identifier of the canvas to remove.
+     * @return Whether a matching canvas existed.
+     */
+    bool DestroyCanvas(std::string_view key) noexcept;
+    /** @brief Remove every registered widget canvas, including persistent ones. */
+    void ClearWidgetCanvases() noexcept;
+    /** @brief Remove canvases not marked persistent during scene replacement. */
+    void ClearSceneWidgetCanvases() noexcept;
+    /** @brief Read the pointer state produced by this frame's widget call.
+     * @param id Full runtime identifier (canvas key + '/' + widget key).
+     * @return Recorded state, or an empty state if the widget was not submitted.
+     */
+    UIWidgetInteraction GetWidgetInteraction(std::string_view id) const noexcept;
+    /** @brief Test whether a registered text field is actively editing.
+     * @param id Runtime widget identifier.
+     * @return True only while the field owns the text input session.
+     */
+    bool IsTextEditing(std::string_view id) const noexcept { return mEditingId == id; }
+    /** @brief Test whether a dropdown is currently expanded.
+     * @param id Runtime widget identifier.
+     * @return True if its popup is open.
+     */
+    bool IsDropdownOpen(std::string_view id) const noexcept { return mOpenDropdownId == id; }
+    /** @brief Test whether a text field was explicitly submitted this frame.
+     * @param id Full runtime widget identifier.
+     * @return True only when Enter/UI Submit completed this field's editing.
+     */
+    bool WasTextSubmitted(std::string_view id) const noexcept { return mSubmittedTextId == id; }
+    /** @brief Find an element across canvases using its Canvas/Widget path.
+     * @tparam T Expected UIWidget concrete type.
+     * @param path Qualified widget identifier.
+     * @return Typed nonowning pointer or nullptr on missing or mismatched type.
+     */
+    template <typename T> T* Find(std::string_view path) noexcept;
+    /** @brief Find an element across canvases without modifying it.
+     * @tparam T Expected UIWidget concrete type.
+     * @param path Qualified widget identifier.
+     * @return Const typed pointer or nullptr on missing or mismatched type.
+     */
+    template <typename T> const T* Find(std::string_view path) const noexcept;
     /** @brief Set the numeric UI layer for subsequent elements this frame.
      * Higher values render on top and take mouse priority; at equal layers,
      * the last submitted interactive element wins overlapping hit tests.
@@ -1857,3 +2023,7 @@ public:
     { InvokeOnLayer_(layer, [&] { ProgressBar(value01, layout, std::forward<Args>(args)...); }); }
     /** @} */
 };
+
+// Also makes the persistent canvas and typed Find<T>() definitions available
+// when the developer includes UIManager.h directly instead of XEngine.h.
+#include "UIWidgets.h"

@@ -170,6 +170,153 @@ void RoundedOutline_(SDL_Renderer* renderer, const Rect& rect, float radius,
     RoundedBand_(renderer, innerCore, innerCoreRadius, color,
                  inside, innerRadius, transparent);
 }
+
+// Four-corner geometry shares the same SDL_RenderGeometry path as the
+// uniform-radius primitive. Each arc uses its own center and radius; side
+// fitting prevents adjacent arcs from crossing on narrow controls.
+/** @brief Generate the clockwise arc vertices for an independently rounded rectangle.
+ * @param rect Bounds in physical drawable pixels.
+ * @param radii Four corner radii, normalized to fit each side.
+ * @param points Caller-owned output vertex positions.
+ */
+void RoundedPathCorners_(const Rect& rect, xengine::detail::ui::CornerRadii radii,
+                         std::array<SDL_FPoint, kRoundedVertices_>& points) noexcept
+{
+    using xengine::detail::ui::FitCornerRadii;
+    radii = FitCornerRadii(radii, rect.w, rect.h);
+    constexpr float pi = 3.14159265358979323846f;
+    const float rs[4]{radii.topRight, radii.bottomRight,
+                      radii.bottomLeft, radii.topLeft};
+    const float centersX[4]{rect.x + rect.w - rs[0], rect.x + rect.w - rs[1],
+                            rect.x + rs[2], rect.x + rs[3]};
+    const float centersY[4]{rect.y + rs[0], rect.y + rect.h - rs[1],
+                            rect.y + rect.h - rs[2], rect.y + rs[3]};
+    for (int corner = 0; corner < 4; ++corner) {
+        for (int step = 0; step <= kRoundedArcSteps_; ++step) {
+            const float angle = (float(corner) - 1.f +
+                                 float(step) / float(kRoundedArcSteps_)) * pi * 0.5f;
+            const int index = corner * (kRoundedArcSteps_ + 1) + step;
+            points[index] = {centersX[corner] + std::cos(angle) * rs[corner],
+                             centersY[corner] + std::sin(angle) * rs[corner]};
+        }
+    }
+}
+
+/** @brief Draw the anti-aliased ring between two independently rounded contours.
+ * @param renderer SDL renderer owning the geometry submission.
+ * @param outside Outer contour bounds.
+ * @param outerRadii Outer corner radii.
+ * @param outerColor Color at the outer vertices.
+ * @param inside Inner contour bounds.
+ * @param innerRadii Inner corner radii.
+ * @param innerColor Color at the inner vertices.
+ */
+void RoundedBandCorners_(SDL_Renderer* renderer, const Rect& outside,
+                         xengine::detail::ui::CornerRadii outerRadii, Color outerColor,
+                         const Rect& inside,
+                         xengine::detail::ui::CornerRadii innerRadii,
+                         Color innerColor) noexcept
+{
+    if (outside.w <= 0.f || outside.h <= 0.f ||
+        inside.w <= 0.f || inside.h <= 0.f) return;
+    std::array<SDL_FPoint, kRoundedVertices_> outerPath{}, innerPath{};
+    RoundedPathCorners_(outside, outerRadii, outerPath);
+    RoundedPathCorners_(inside, innerRadii, innerPath);
+    std::array<SDL_Vertex, kRoundedVertices_ * 2> vertices{};
+    std::array<int, kRoundedVertices_ * 6> indices{};
+    const SDL_Color outsideTint = VertexColor_(outerColor);
+    const SDL_Color insideTint = VertexColor_(innerColor);
+    for (int i = 0; i < kRoundedVertices_; ++i) {
+        const int next = (i + 1) % kRoundedVertices_;
+        vertices[i * 2] = {outerPath[i], outsideTint, {0.f, 0.f}};
+        vertices[i * 2 + 1] = {innerPath[i], insideTint, {0.f, 0.f}};
+        const int first = i * 6;
+        indices[first] = i * 2;
+        indices[first + 1] = next * 2;
+        indices[first + 2] = i * 2 + 1;
+        indices[first + 3] = i * 2 + 1;
+        indices[first + 4] = next * 2;
+        indices[first + 5] = next * 2 + 1;
+    }
+    SDL_RenderGeometry(renderer, nullptr, vertices.data(),
+                       static_cast<int>(vertices.size()), indices.data(),
+                       static_cast<int>(indices.size()));
+}
+
+/** @brief Fill a polygon with independently rounded corners and feathered edges.
+ * @param renderer SDL renderer owning the geometry submission.
+ * @param rect Rectangle bounds in drawable pixels.
+ * @param radii Radius at each corner.
+ * @param color Fill RGBA color.
+ */
+void FilledPolygonCorners_(SDL_Renderer* renderer, const Rect& rect,
+                           xengine::detail::ui::CornerRadii radii, Color color) noexcept
+{
+    if (color.a <= 0 || rect.w <= 0.f || rect.h <= 0.f) return;
+    using xengine::detail::ui::OffsetCornerRadii;
+    constexpr float feather = 0.5f;
+    const bool antialias = rect.w > 2.f && rect.h > 2.f;
+    const Rect core = antialias ? InsetRoundedRect_(rect, feather) : rect;
+    const auto coreRadii = OffsetCornerRadii(radii, antialias ? -feather : 0.f);
+    std::array<SDL_FPoint, kRoundedVertices_> path{};
+    RoundedPathCorners_(core, coreRadii, path);
+    std::array<SDL_Vertex, kRoundedVertices_ + 1> vertices{};
+    vertices[0] = {{core.x + core.w * 0.5f, core.y + core.h * 0.5f},
+                   VertexColor_(color), {0.f, 0.f}};
+    for (int i = 0; i < kRoundedVertices_; ++i)
+        vertices[i + 1] = {path[i], VertexColor_(color), {0.f, 0.f}};
+    std::array<int, kRoundedVertices_ * 3> indices{};
+    for (int i = 0; i < kRoundedVertices_; ++i) {
+        indices[i * 3] = 0;
+        indices[i * 3 + 1] = i + 1;
+        indices[i * 3 + 2] = (i + 1) % kRoundedVertices_ + 1;
+    }
+    SDL_RenderGeometry(renderer, nullptr, vertices.data(),
+                       static_cast<int>(vertices.size()), indices.data(),
+                       static_cast<int>(indices.size()));
+    if (antialias) {
+        Color transparent = color;
+        transparent.a = 0;
+        RoundedBandCorners_(renderer, InsetRoundedRect_(rect, -feather),
+                            OffsetCornerRadii(radii, feather), transparent,
+                            core, coreRadii, color);
+    }
+}
+
+/** @brief Draw an antialiased inside border respecting four separate radii.
+ * @param renderer SDL renderer owning the geometry submission.
+ * @param rect Outer border bounds.
+ * @param radii Four corner radii in physical pixels.
+ * @param thickness Positive border width in physical pixels.
+ * @param color Outline RGBA color.
+ */
+void RoundedOutlineCorners_(SDL_Renderer* renderer, const Rect& rect,
+                            xengine::detail::ui::CornerRadii radii,
+                            float thickness, Color color) noexcept
+{
+    if (color.a <= 0 || thickness <= 0.f || rect.w <= 0.f || rect.h <= 0.f) return;
+    if (rect.w <= 2.f * thickness || rect.h <= 2.f * thickness) {
+        FilledPolygonCorners_(renderer, rect, radii, color);
+        return;
+    }
+    using xengine::detail::ui::OffsetCornerRadii;
+    constexpr float feather = 0.5f;
+    const Rect outside = InsetRoundedRect_(rect, -feather);
+    const Rect outerCore = InsetRoundedRect_(rect, feather);
+    const Rect innerCore = InsetRoundedRect_(rect, thickness - feather);
+    const Rect inside = InsetRoundedRect_(rect, thickness + feather);
+    Color transparent = color;
+    transparent.a = 0;
+    RoundedBandCorners_(renderer, outside, OffsetCornerRadii(radii, feather),
+                        transparent, outerCore, OffsetCornerRadii(radii, -feather), color);
+    if (thickness > 1.f)
+        RoundedBandCorners_(renderer, outerCore, OffsetCornerRadii(radii, -feather),
+                            color, innerCore,
+                            OffsetCornerRadii(radii, -thickness + feather), color);
+    RoundedBandCorners_(renderer, innerCore,
+                        OffsetCornerRadii(radii, -thickness + feather), color,
+                        inside, OffsetCornerRadii(radii, -thickness - feather), transparent);
+}
 }
 
 namespace {
@@ -1150,9 +1297,16 @@ void RenderManager::RenderSnapshot(const Snapshot& snap) noexcept
             break;
 
         case DrawCmd::Type::ScreenRoundedRect:
-            DrawRoundedRectScreenImmediate_(c.dstScreen, c.color, c.screenOutline,
-                                            c.screenCornerRadius, c.screenStrokeWidth,
-                                            c.filled);
+            if (c.hasScreenCornerRadii)
+                DrawRoundedRectCornersScreenImmediate_(
+                    c.dstScreen, c.color, c.screenOutline, c.screenCornerRadii,
+                    c.screenStrokeWidth, c.filled,
+                    c.hasScreenClip ? &c.screenClip : nullptr);
+            else
+                DrawRoundedRectScreenImmediate_(c.dstScreen, c.color, c.screenOutline,
+                                                c.screenCornerRadius, c.screenStrokeWidth,
+                                                c.filled,
+                                                c.hasScreenClip ? &c.screenClip : nullptr);
             break;
 
         case DrawCmd::Type::ScreenLine:
@@ -1420,6 +1574,77 @@ void RenderManager::DrawRoundedRectScreen(const Rect& screenRect, Color fill,
     mDrawPhase = DrawPhase::UI;
     DrawRoundedRectScreenImmediate_(screenRect, fill, outline,
                                     cornerRadius, borderWidth, filled);
+    mDrawPhase = previousPhase;
+}
+
+void RenderManager::DrawRoundedRectCornersScreen_(const Rect& screenRect,
+    Color fill, Color outline, xengine::detail::ui::CornerRadii radii,
+    float borderWidth, bool filled) noexcept
+{
+    if (snapRecord) {
+        DrawCmd& command = snapRecord->cmds.emplace_back();
+        command.type = DrawCmd::Type::ScreenRoundedRect;
+        command.color = fill;
+        command.screenOutline = outline;
+        command.dstScreen = screenRect;
+        command.screenCornerRadii = radii;
+        command.hasScreenCornerRadii = true;
+        command.screenStrokeWidth = borderWidth;
+        command.filled = filled;
+        return;
+    }
+    const DrawPhase previousPhase = mDrawPhase;
+    mDrawPhase = DrawPhase::UI;
+    DrawRoundedRectCornersScreenImmediate_(screenRect, fill, outline,
+                                           radii, borderWidth, filled);
+    mDrawPhase = previousPhase;
+}
+
+void RenderManager::DrawClippedRoundedFillScreen_(const Rect& screenRect,
+                                                  const Rect& clip, Color fill,
+                                                  float cornerRadius) noexcept
+{
+    if (snapRecord) {
+        DrawCmd& command = snapRecord->cmds.emplace_back();
+        command.type = DrawCmd::Type::ScreenRoundedRect;
+        command.color = fill;
+        command.screenOutline = Color{0, 0, 0, 0};
+        command.dstScreen = screenRect;
+        command.screenCornerRadius = cornerRadius;
+        command.screenStrokeWidth = 0.f;
+        command.filled = true;
+        command.screenClip = clip;
+        command.hasScreenClip = true;
+        return;
+    }
+    const DrawPhase previousPhase = mDrawPhase;
+    mDrawPhase = DrawPhase::UI;
+    DrawRoundedRectScreenImmediate_(screenRect, fill, Color{0, 0, 0, 0},
+                                    cornerRadius, 0.f, true, &clip);
+    mDrawPhase = previousPhase;
+}
+
+void RenderManager::DrawClippedRoundedFillScreen_(const Rect& screenRect,
+    const Rect& clip, Color fill, xengine::detail::ui::CornerRadii radii) noexcept
+{
+    if (snapRecord) {
+        DrawCmd& command = snapRecord->cmds.emplace_back();
+        command.type = DrawCmd::Type::ScreenRoundedRect;
+        command.color = fill;
+        command.screenOutline = Color{0, 0, 0, 0};
+        command.dstScreen = screenRect;
+        command.screenCornerRadii = radii;
+        command.hasScreenCornerRadii = true;
+        command.screenStrokeWidth = 0.f;
+        command.filled = true;
+        command.screenClip = clip;
+        command.hasScreenClip = true;
+        return;
+    }
+    const DrawPhase previousPhase = mDrawPhase;
+    mDrawPhase = DrawPhase::UI;
+    DrawRoundedRectCornersScreenImmediate_(screenRect, fill, Color{0, 0, 0, 0},
+                                           radii, 0.f, true, &clip);
     mDrawPhase = previousPhase;
 }
 
@@ -1749,7 +1974,8 @@ void RenderManager::DrawRectScreenImmediate_(const Rect& r, Color color, bool fi
 }
 
 void RenderManager::DrawRoundedRectScreenImmediate_(const Rect& r, Color fill,
-    Color outline, float cornerRadius, float borderWidth, bool filled) noexcept
+    Color outline, float cornerRadius, float borderWidth, bool filled,
+    const Rect* clip) noexcept
 {
     if (!mRenderer || !mWindow || r.w <= 0.f || r.h <= 0.f ||
         !std::isfinite(r.x) || !std::isfinite(r.y) ||
@@ -1772,9 +1998,76 @@ void RenderManager::DrawRoundedRectScreenImmediate_(const Rect& r, Color fill,
         ? std::clamp(std::max(1.f, std::round(requestedStroke)),
                      0.f, std::min(snapped.w, snapped.h) * 0.5f)
         : 0.f;
+
+    // SDL clipping is applied only to this one draw and then restored. A
+    // dropdown row draws the complete rounded popup interior behind a
+    // rectangular clip; its corners therefore match the actual popup border
+    // without applying four independent rounded corners to every row.
+    SDL_Rect oldClip{};
+    const bool hadClip = SDL_RenderIsClipEnabled(mRenderer) == SDL_TRUE;
+    if (clip) {
+        SDL_RenderGetClipRect(mRenderer, &oldClip);
+        SDL_Rect requested{
+            static_cast<int>(std::round(clip->x)),
+            static_cast<int>(std::round(clip->y)),
+            static_cast<int>(std::round(clip->w)),
+            static_cast<int>(std::round(clip->h))};
+        SDL_Rect clipped = requested;
+        if (hadClip && !SDL_Intersect(requested, oldClip, clipped)) return;
+        if (clipped.w <= 0 || clipped.h <= 0 ||
+            SDL_RenderSetClipRect(mRenderer, &clipped) != 0) return;
+    }
     SDL_SetRenderDrawBlendMode(mRenderer, SDL_BLENDMODE_BLEND);
     if (filled) FilledPolygon_(mRenderer, snapped, radius, fill);
     RoundedOutline_(mRenderer, snapped, radius, stroke, outline);
+    if (clip) SDL_RenderSetClipRect(mRenderer, hadClip ? &oldClip : nullptr);
+    ++nUIDrawCallsThisFrame;
+    CountSubmission_();
+}
+
+void RenderManager::DrawRoundedRectCornersScreenImmediate_(const Rect& r, Color fill,
+    Color outline, xengine::detail::ui::CornerRadii radii, float borderWidth,
+    bool filled, const Rect* clip) noexcept
+{
+    if (!mRenderer || !mWindow || r.w <= 0.f || r.h <= 0.f ||
+        !std::isfinite(r.x) || !std::isfinite(r.y) ||
+        !std::isfinite(r.w) || !std::isfinite(r.h)) return;
+    if (r.x >= float(mWinW) || r.y >= float(mWinH) ||
+        r.x + r.w <= 0.f || r.y + r.h <= 0.f) return;
+
+    const float left = std::round(r.x);
+    const float top = std::round(r.y);
+    const Rect snapped{left, top,
+                       std::max(1.f, std::round(r.x + r.w) - left),
+                       std::max(1.f, std::round(r.y + r.h) - top)};
+    radii.topLeft = std::round(radii.topLeft);
+    radii.topRight = std::round(radii.topRight);
+    radii.bottomRight = std::round(radii.bottomRight);
+    radii.bottomLeft = std::round(radii.bottomLeft);
+    radii = xengine::detail::ui::FitCornerRadii(radii, snapped.w, snapped.h);
+    const float requestedStroke = std::isfinite(borderWidth) ? borderWidth : 0.f;
+    const float stroke = requestedStroke > 0.f
+        ? std::clamp(std::max(1.f, std::round(requestedStroke)),
+                     0.f, std::min(snapped.w, snapped.h) * 0.5f)
+        : 0.f;
+
+    SDL_Rect oldClip{};
+    const bool hadClip = SDL_RenderIsClipEnabled(mRenderer) == SDL_TRUE;
+    if (clip) {
+        SDL_RenderGetClipRect(mRenderer, &oldClip);
+        const SDL_Rect requested{static_cast<int>(std::round(clip->x)),
+                                 static_cast<int>(std::round(clip->y)),
+                                 static_cast<int>(std::round(clip->w)),
+                                 static_cast<int>(std::round(clip->h))};
+        SDL_Rect clipped = requested;
+        if (hadClip && !SDL_Intersect(requested, oldClip, clipped)) return;
+        if (clipped.w <= 0 || clipped.h <= 0 ||
+            SDL_RenderSetClipRect(mRenderer, &clipped) != 0) return;
+    }
+    SDL_SetRenderDrawBlendMode(mRenderer, SDL_BLENDMODE_BLEND);
+    if (filled) FilledPolygonCorners_(mRenderer, snapped, radii, fill);
+    RoundedOutlineCorners_(mRenderer, snapped, radii, stroke, outline);
+    if (clip) SDL_RenderSetClipRect(mRenderer, hadClip ? &oldClip : nullptr);
     ++nUIDrawCallsThisFrame;
     CountSubmission_();
 }

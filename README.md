@@ -4,7 +4,7 @@
   <h1>XEngine</h1>
   <p><strong>A lightweight, cross-platform 2D game engine built with C++20 and SDL2.</strong></p>
   <p><em>Build 2D games in C++. Understand the engine. Own your code.</em></p>
-  <p><small>Engine release: <strong>0.3.0</strong> · <a href="docs/VERSIONING.md">Version policy</a></small></p>
+  <p><small>Engine release: <strong>0.4.4</strong> · <a href="docs/VERSIONING.md">Version policy</a></small></p>
   <p><small>Modern successor to <a href="https://github.com/the-33/XEngine-Legacy">XEngine-Legacy</a> (Visual Studio / MSVC)</small></p>
   <p>
     <a href="https://en.cppreference.com/w/cpp/20"><img alt="C++20" src="https://img.shields.io/badge/C%2B%2B-20-00599C?logo=cplusplus&amp;logoColor=white" /></a>

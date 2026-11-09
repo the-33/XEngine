@@ -107,6 +107,12 @@ def inspect(xml_dir: Path, *, include_private: bool = False,
                                 if definition.find("briefdescription") is not None else []).strip()):
                 missing.append(f"{owner}: @brief (type or namespace)")
             for member in definition.findall(".//memberdef"):
+                # A friend declaration grants C++ access; it is not a separate
+                # callable API member. Doxygen lists it as an undocumented
+                # member of the befriending class even when the referenced
+                # class itself has complete public documentation.
+                if member.get("kind") == "friend":
+                    continue
                 if not include_private and member.get("prot") not in ("public", "protected"):
                     continue
                 members += 1

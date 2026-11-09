@@ -67,6 +67,7 @@
 #include "UIRectTransform.h"
 #include "UILayoutValidation.h"
 #include "UIManager.h"
+#include "UIWidgets.h"
 #include "SceneManager.h"
 #include "PhysicsManager.h"
 #include "RandomManager.h"

@@ -1,4 +1,5 @@
 #include "UIManager.h"
+#include "UIWidgets.h"
 
 #include <cstring>
 #include <string>
@@ -16,6 +17,7 @@
 #include "ErrorHandler.h"
 #include "XEngine/detail/UIWidgetSize.h"
 #include "XEngine/detail/UILayerOrder.h"
+#include "XEngine/detail/UIVisualGeometry.h"
 #include "SDL.h"
 #include "SDL_ttf.h"
 
@@ -106,6 +108,7 @@ bool InsertUtf8_(std::string& text, size_t& cursor, std::string_view input,
 
 bool UIManager::Init(const UIStyle& defaultStyle) noexcept
 {
+    ClearWidgetCanvases();
     mBaseStyle = defaultStyle;
     mStyleStack.clear();
     ApplyStyle_(defaultStyle);
@@ -129,6 +132,7 @@ bool UIManager::Init(const UIStyle& defaultStyle) noexcept
     mTopPointerId.clear();
     mTopPointerLayer = 0;
     mFocusedId.clear();
+    mSubmittedTextId.clear();
     mPendingFocusId.clear();
     StopEditing_();
     mNavigationEnabled = true;
@@ -150,6 +154,7 @@ bool UIManager::Init(const UIStyle& defaultStyle) noexcept
 
 void UIManager::Shutdown() noexcept
 {
+    ClearWidgetCanvases();
     StopEditing_();
     mFocusableCurrent.clear();
     mFocusablePrevious.clear();
@@ -158,6 +163,7 @@ void UIManager::Shutdown() noexcept
     mTopPointerId.clear();
     mTopPointerLayer = 0;
     mFocusedId.clear();
+    mSubmittedTextId.clear();
     mPendingFocusId.clear();
     mNavigationRules.clear();
     mStyleStack.clear();
@@ -192,6 +198,7 @@ void UIManager::Begin() noexcept
     mTopPointerLayer = std::numeric_limits<int>::min();
     mMouseHitSelectable = false;
     mSubmitPressed = false;
+    mSubmittedTextId.clear();
     mCancelPressed = false;
     mSliderNavigationStep = 0;
     mDropdownOverlayCmds.clear();
@@ -286,6 +293,7 @@ void UIManager::Begin() noexcept
                 mSubmitPressed = false;
             } else if (!mEditingId.empty()) {
                 if (mSubmitPressed || mCancelPressed) {
+                    if (mSubmitPressed) mSubmittedTextId = mEditingId;
                     StopEditing_();
                     mSubmitPressed = false;
                 }
@@ -340,6 +348,8 @@ void UIManager::Begin() noexcept
     }
 
     mCmds.clear();
+    mWidgetInteractions.clear();
+    DrawWidgetCanvases_();
 }
 
 void UIManager::PushLayer(int layer) noexcept
@@ -730,6 +740,7 @@ void UIManager::StartEditing_(const char* id) noexcept
         mTextInputStarted = true;
     }
     mEditingId = id;
+    ResetTextCaretBlink_();
 }
 
 void UIManager::StopEditing_() noexcept
@@ -744,6 +755,12 @@ void UIManager::StopEditing_() noexcept
     mTextCursorByte = 0;
     mTextSelectionAnchorByte = 0;
     mTextMouseSelecting = false;
+    mTextCaretResetTick = 0;
+}
+
+void UIManager::ResetTextCaretBlink_() noexcept
+{
+    mTextCaretResetTick = SDL_GetTicks();
 }
 
 UIManager::ButtonState UIManager::ButtonBehavior_(const char* id, const Rect& r) noexcept
@@ -758,7 +775,10 @@ UIManager::ButtonState UIManager::ButtonBehavior_(const char* id, const Rect& r)
     // dismisses it first; the same press must not activate a covered button.
     if ((!mOpenDropdownId.empty() && mOpenDropdownId != id &&
          mLayer <= mOpenDropdownLayer) || mDropdownSuppressMouse)
+    {
+        mWidgetInteractions[id] = {};
         return st;
+    }
 
     st.hovered = PointInRect_(gMousePos, r) &&
                  (mTopPointerId.empty() || mTopPointerId == id);
@@ -771,6 +791,7 @@ UIManager::ButtonState UIManager::ButtonBehavior_(const char* id, const Rect& r)
     }
 
     const bool active = gActiveID && *gActiveID == id;
+    const bool pointerUp = active && gMouseReleased;
     st.held = (active && gMouseDown);
 
     // Click = release while active and hovered
@@ -787,7 +808,16 @@ UIManager::ButtonState UIManager::ButtonBehavior_(const char* id, const Rect& r)
     if (mNavigationEnabled && mSubmitPressed && mEditingId.empty() && IsFocused(id))
         st.pressed = true;
 
+    mWidgetInteractions[id] = {st.hovered, st.held, st.pressed,
+                               st.hovered && gMousePressed, pointerUp};
+
     return st;
+}
+
+UIWidgetInteraction UIManager::GetWidgetInteraction(std::string_view id) const noexcept
+{
+    const auto found = mWidgetInteractions.find(std::string(id));
+    return found == mWidgetInteractions.end() ? UIWidgetInteraction{} : found->second;
 }
 
 void UIManager::QueueCmd_(DrawCmd command) noexcept
@@ -796,16 +826,85 @@ void UIManager::QueueCmd_(DrawCmd command) noexcept
     mCmds.push_back(std::move(command));
 }
 
-void UIManager::PushPanel_(const Rect& r, Color fill, Color outline, bool filled,
-                           float radiusOverride) noexcept
+float UIManager::RadiusForRect_(const Rect& r) const noexcept
 {
-    const float styleRadius = mActiveStyle.cornerRadiusUnit == UICornerRadiusUnit::Percent
+    return mActiveStyle.cornerRadiusUnit == UICornerRadiusUnit::Percent
         ? std::max(0.f, std::min(r.w, r.h)) *
           std::clamp(mActiveStyle.cornerRadius, 0.f, 50.f) * 0.01f
         : std::max(0.f, mActiveStyle.cornerRadius * mTextScale);
+}
+
+xengine::detail::ui::CornerRadii UIManager::RadiiForRect_(const Rect& r) const noexcept
+{
+    using xengine::detail::ui::UniformRadii;
+    if (!mActiveStyle.useIndividualCornerRadii)
+        return UniformRadii(RadiusForRect_(r));
+    auto radii = mActiveStyle.individualCornerRadii;
+    const float scale = mActiveStyle.cornerRadiusUnit == UICornerRadiusUnit::Percent
+        ? std::max(0.f, std::min(r.w, r.h)) * 0.01f : mTextScale;
+    const auto resolved = [&](float value) noexcept {
+        return std::max(0.f, mActiveStyle.cornerRadiusUnit == UICornerRadiusUnit::Percent
+            ? std::clamp(value, 0.f, 50.f) * scale : value * scale);
+    };
+    radii.topLeft = resolved(radii.topLeft);
+    radii.topRight = resolved(radii.topRight);
+    radii.bottomRight = resolved(radii.bottomRight);
+    radii.bottomLeft = resolved(radii.bottomLeft);
+    return radii;
+}
+
+void UIManager::PushSolidRect_(const Rect& r, Color fill) noexcept
+{
+    if (r.w <= 0.f || r.h <= 0.f || fill.a <= 0) return;
+    DrawCmd command;
+    command.type = CmdType::Rect;
+    command.r = r;
+    command.color = fill;
+    command.filled = true;
+    QueueCmd_(std::move(command));
+}
+
+void UIManager::PushClippedRoundedFill_(const Rect& shape, const Rect& clip,
+                                        Color fill, float radius) noexcept
+{
+    if (shape.w <= 0.f || shape.h <= 0.f || clip.w <= 0.f || clip.h <= 0.f ||
+        fill.a <= 0) return;
+    DrawCmd command;
+    command.type = CmdType::ClippedRoundedFill;
+    command.r = shape;
+    command.clip = clip;
+    command.color = fill;
+    command.cornerRadius = radius;
+    QueueCmd_(std::move(command));
+}
+
+void UIManager::PushClippedRoundedFill_(const Rect& shape, const Rect& clip,
+                                        Color fill, xengine::detail::ui::CornerRadii radii) noexcept
+{
+    if (shape.w <= 0.f || shape.h <= 0.f || clip.w <= 0.f || clip.h <= 0.f ||
+        fill.a <= 0) return;
+    DrawCmd command;
+    command.type = CmdType::ClippedRoundedFill;
+    command.r = shape;
+    command.clip = clip;
+    command.color = fill;
+    command.cornerRadii = radii;
+    command.hasCornerRadii = true;
+    QueueCmd_(std::move(command));
+}
+
+void UIManager::PushPanel_(const Rect& r, Color fill, Color outline, bool filled,
+                           float radiusOverride) noexcept
+{
+    const float styleRadius = RadiusForRect_(r);
     const float radius = radiusOverride >= 0.f ? radiusOverride : styleRadius;
+    const bool individualCorners = radiusOverride < 0.f &&
+        mActiveStyle.useIndividualCornerRadii;
+    const auto radii = individualCorners ? RadiiForRect_(r)
+        : xengine::detail::ui::UniformRadii(radius);
     const float border = std::max(0.f, mActiveStyle.borderWidth * mTextScale);
-    if (radius > 0.f || std::fabs(border - 1.f) > 0.01f) {
+    if (xengine::detail::ui::HasRoundedCorner(radii) ||
+        std::fabs(border - 1.f) > 0.01f) {
         DrawCmd command;
         command.type = CmdType::RoundedPanel;
         command.r = r;
@@ -813,6 +912,8 @@ void UIManager::PushPanel_(const Rect& r, Color fill, Color outline, bool filled
         command.outline = outline;
         command.filled = filled;
         command.cornerRadius = radius;
+        command.cornerRadii = radii;
+        command.hasCornerRadii = individualCorners;
         command.borderWidth = border;
         QueueCmd_(std::move(command));
         return;
@@ -1036,6 +1137,8 @@ void UIManager::Panel(const Rect& r, Color fill, Color outline, bool filled) noe
 void UIManager::Panel(const Rect& r, Color fill) noexcept
 {
     if (mActiveStyle.cornerRadius > 0.f ||
+        (mActiveStyle.useIndividualCornerRadii &&
+         xengine::detail::ui::HasRoundedCorner(mActiveStyle.individualCornerRadii)) ||
         std::fabs(mActiveStyle.borderWidth - 1.f) > 0.01f) {
         PushPanel_(r, fill, Color{0, 0, 0, 0});
         return;
@@ -1418,17 +1521,39 @@ bool UIManager::Dropdown(const char* id, const Rect& r, int* selectedIndex,
     mHitRegionsCurrent.push_back({id, popup, mLayer, true});
 
     const std::size_t firstCommand = mCmds.size();
-    PushPanel_(popup, mActiveStyle.dropdownBackground, mFocusColor);
+    // Paint the common rounded background, then each highlight through a
+    // *rectangular* row clip. The popup outline must be queued last so row
+    // fills and labels cannot cover its physical-pixel border.
+    PushPanel_(popup, mActiveStyle.dropdownBackground, Color{0, 0, 0, 0});
+    const float popupRadius = RadiusForRect_(popup);
+    const auto popupRadii = RadiiForRect_(popup);
+    const float popupBorder = std::max(0.f, mActiveStyle.borderWidth * mTextScale);
     for (int visibleRow = 0; visibleRow < visible; ++visibleRow) {
         const int item = mDropdownFirstVisible + visibleRow;
-        const Rect row{popup.x + 2.f, popup.y + visibleRow * rowHeight,
-                       popup.w - 4.f, rowHeight};
-        if (item == mDropdownHighlighted || visibleRow == hovered)
-            Panel(row, item == mDropdownHighlighted ? mActiveStyle.dropdownSelected
-                                                   : mActiveStyle.dropdownHovered);
-        Label(options[item], {row.x + 8.f, row.y, row.w - 16.f, row.h},
+        const auto geometry = mActiveStyle.useIndividualCornerRadii
+            ? xengine::detail::ui::DropdownRowClip(
+                popup, rowHeight, visibleRow, visible, popupRadii, popupBorder)
+            : xengine::detail::ui::DropdownRowClip(
+                popup, rowHeight, visibleRow, visible, popupRadius, popupBorder);
+        if (geometry.valid &&
+            (item == mDropdownHighlighted || visibleRow == hovered)) {
+            if (mActiveStyle.useIndividualCornerRadii)
+                PushClippedRoundedFill_(geometry.shape, geometry.clip,
+                    item == mDropdownHighlighted ? mActiveStyle.dropdownSelected
+                                                 : mActiveStyle.dropdownHovered,
+                    geometry.radii);
+            else
+                PushClippedRoundedFill_(geometry.shape, geometry.clip,
+                    item == mDropdownHighlighted ? mActiveStyle.dropdownSelected
+                                                 : mActiveStyle.dropdownHovered,
+                    geometry.radius);
+        }
+        const Rect row{popup.x, popup.y + visibleRow * rowHeight, popup.w, rowHeight};
+        Label(options[item], {row.x + 8.f * mTextScale, row.y,
+                              std::max(0.f, row.w - 16.f * mTextScale), row.h},
               AlignH::Left, AlignV::Middle);
     }
+    PushPanel_(popup, Color{0, 0, 0, 0}, mFocusColor, false);
     // Defer popup commands until End(), after all other widgets in this frame.
     for (std::size_t index = firstCommand; index < mCmds.size(); ++index)
         mDropdownOverlayCmds.push_back(std::move(mCmds[index]));
@@ -1510,6 +1635,8 @@ bool UIManager::TextInput(const char* id, const Rect& r, std::string* value,
 
     if (editing) {
         auto* input = InputManager::GetInstancePtr();
+        const size_t oldCursor = mTextCursorByte;
+        const size_t oldAnchor = mTextSelectionAnchorByte;
         mTextCursorByte = std::min(mTextCursorByte, value->size());
         mTextSelectionAnchorByte = std::min(mTextSelectionAnchorByte, value->size());
         // The caller may replace the value between frames; restore a UTF-8 boundary.
@@ -1608,6 +1735,9 @@ bool UIManager::TextInput(const char* id, const Rect& r, std::string* value,
                 mTextSelectionAnchorByte = mTextCursorByte;
             }
         }
+        if (changed || hitByMouse || mTextCursorByte != oldCursor ||
+            mTextSelectionAnchorByte != oldAnchor)
+            ResetTextCaretBlink_();
     }
 
     const Color outline = IsFocused(id) ? mFocusColor : mBtnOutlineDefaultColor;
@@ -1625,8 +1755,9 @@ bool UIManager::TextInput(const char* id, const Rect& r, std::string* value,
         if (begin < end) {
             const float left = textWidth(std::string_view(full).substr(from, begin - from));
             const float right = textWidth(std::string_view(full).substr(from, end - from));
-            Panel({r.x + pad + left, r.y + pad, right - left,
-                   std::max(2.f, r.h - 2.f * pad)}, mActiveStyle.textSelection);
+            PushSolidRect_({r.x + pad + left, r.y + pad, right - left,
+                            std::max(2.f, r.h - 2.f * pad)},
+                           mActiveStyle.textSelection);
         }
     }
     if (mDefaultFont && !full.empty()) {
@@ -1634,14 +1765,15 @@ bool UIManager::TextInput(const char* id, const Rect& r, std::string* value,
         PushTextInRect_(r, mDefaultFont, full.substr(from, to - from), textColor,
                         AlignH::Left, AlignV::Middle, pad / drawScale);
     }
-    if (editing) {
+    if (editing && xengine::detail::ui::CaretVisible(
+                       SDL_GetTicks(), mTextCaretResetTick)) {
         const size_t caret = std::clamp(mTextCursorByte, from, to);
         const float offset = ttf ? textWidth(
             std::string_view(full).substr(from, caret - from)) : 0.f;
         const float x = std::clamp(r.x + pad + offset, r.x + pad,
                                    std::max(r.x + pad, r.x + r.w - pad - 2.f));
         const float h = std::max(2.f, r.h - pad * 2.f);
-        Panel(Rect{x, r.y + pad, 2.f, h}, Color{235, 235, 235, 255});
+        PushSolidRect_(Rect{x, r.y + pad, 2.f, h}, Color{235, 235, 235, 255});
     }
     return changed;
 }
@@ -1685,8 +1817,21 @@ void UIManager::End() noexcept
             break;
 
         case CmdType::RoundedPanel:
-            render->DrawRoundedRectScreen(c.r, c.color, c.outline,
-                                          c.cornerRadius, c.borderWidth, c.filled);
+            if (c.hasCornerRadii)
+                render->DrawRoundedRectCornersScreen_(c.r, c.color, c.outline,
+                    c.cornerRadii, c.borderWidth, c.filled);
+            else
+                render->DrawRoundedRectScreen(c.r, c.color, c.outline,
+                                              c.cornerRadius, c.borderWidth, c.filled);
+            break;
+
+        case CmdType::ClippedRoundedFill:
+            if (c.hasCornerRadii)
+                render->DrawClippedRoundedFillScreen_(c.r, c.clip, c.color,
+                                                     c.cornerRadii);
+            else
+                render->DrawClippedRoundedFillScreen_(c.r, c.clip, c.color,
+                                                     c.cornerRadius);
             break;
 
         case CmdType::Line:

@@ -6,6 +6,7 @@
 #include "CollisionManager.h"
 #include "PhysicsManager.h"
 #include "Scene.h"
+#include "UIManager.h"
 
 bool SceneManager::Init() noexcept
 {
@@ -101,6 +102,12 @@ void SceneManager::ApplyPendingScene() noexcept
     {
         mActive->OnDestroyAll();
     }
+
+    // UI widgets are scene-local by default, unlike the reusable canvas
+    // scaler. Persisted canvases explicitly opt out of scene cleanup.
+    if (hadActive)
+        if (auto* ui = UIManager::GetInstancePtr_NO_ERROR_MSG())
+            ui->ClearSceneWidgetCanvases();
 
     CollisionManager::GetInstancePtr()->ClearAll();
     PhysicsManager::GetInstancePtr()->mBodies.clear();

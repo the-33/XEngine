@@ -434,6 +434,11 @@ bool Engine::StartImpl(const std::string configPath, bool inlineJson) noexcept
         };
         style.cornerRadiusUnit = mCfg.uiStyle.cornerRadiusUnit == "percent"
             ? UICornerRadiusUnit::Percent : UICornerRadiusUnit::Pixels;
+        if (mCfg.uiStyle.useIndividualCornerRadii) {
+            const auto& corners = mCfg.uiStyle.individualCornerRadii;
+            style.SetCornerRadius(corners.topLeft, corners.topRight,
+                                  corners.bottomRight, corners.bottomLeft);
+        }
 
         ok = ui->Init(style);
         if (!ok)
@@ -1294,6 +1299,26 @@ bool Engine::LoadConfigFromJson(const std::string& text, const std::string& orig
                 const float radius = ui["cornerRadius"].get<float>();
                 if (std::isfinite(radius) && radius >= 0.f)
                     out.uiStyle.cornerRadius = radius;
+            }
+            if (ui.contains("cornerRadius") && ui["cornerRadius"].is_array()) {
+                const auto& values = ui["cornerRadius"];
+                if ((values.size() == 2 || values.size() == 4) &&
+                    std::all_of(values.begin(), values.end(), [](const auto& value) {
+                        return value.is_number() &&
+                            std::isfinite(value.template get<float>()) &&
+                            value.template get<float>() >= 0.f;
+                    })) {
+                    const float topLeft = values[0].get<float>();
+                    const float topRight = values.size() == 2
+                        ? topLeft : values[1].get<float>();
+                    const float bottomRight = values.size() == 2
+                        ? values[1].get<float>() : values[2].get<float>();
+                    const float bottomLeft = values.size() == 2
+                        ? bottomRight : values[3].get<float>();
+                    out.uiStyle.individualCornerRadii = {
+                        topLeft, topRight, bottomRight, bottomLeft};
+                    out.uiStyle.useIndividualCornerRadii = true;
+                }
             }
             if (ui.contains("borderWidth") && ui["borderWidth"].is_number()) {
                 const float width = ui["borderWidth"].get<float>();

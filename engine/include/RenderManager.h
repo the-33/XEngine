@@ -941,9 +941,55 @@ private:
      * @param cornerRadius Corner radius supplied to RenderManager.
      * @param borderWidth Border width supplied to RenderManager.
      * @param filled Filled supplied to RenderManager.
+     * @param clip Optional pixel-aligned row clip, restored after drawing.
      */
     void DrawRoundedRectScreenImmediate_(const Rect& screenRect, Color fill,
-        Color outline, float cornerRadius, float borderWidth, bool filled) noexcept;
+        Color outline, float cornerRadius, float borderWidth, bool filled,
+        const Rect* clip = nullptr) noexcept;
+
+    /** @brief Draw a screen-space rounded rectangle with independent corner radii.
+     * @param screenRect Rectangle in physical drawable coordinates.
+     * @param fill Interior color.
+     * @param outline Outline color.
+     * @param radii Clockwise radii starting at the upper-left corner.
+     * @param borderWidth Outline width in physical pixels.
+     * @param filled Whether to draw the interior.
+     * @param clip Optional row clip, restored after the draw.
+     */
+    void DrawRoundedRectCornersScreenImmediate_(const Rect& screenRect, Color fill,
+        Color outline, xengine::detail::ui::CornerRadii radii,
+        float borderWidth, bool filled, const Rect* clip = nullptr) noexcept;
+
+    /** @brief Queue or immediately draw an independently rounded UI panel.
+     * @param screenRect Rectangle in physical drawable coordinates.
+     * @param fill Interior color.
+     * @param outline Outline color.
+     * @param radii Four radii, clockwise from upper-left.
+     * @param borderWidth Outline width in physical pixels.
+     * @param filled Whether to draw the interior.
+     */
+    void DrawRoundedRectCornersScreen_(const Rect& screenRect, Color fill,
+        Color outline, xengine::detail::ui::CornerRadii radii,
+        float borderWidth, bool filled) noexcept;
+
+    /** @brief Draw a shared rounded popup silhouette clipped to a single row.
+     * This internal primitive preserves the existing public UI/render APIs
+     * in both immediate and recorded renderer modes.
+     * @param screenRect Rounded popup interior in drawable pixels.
+     * @param clip Pixel-aligned rectangular row intersecting the popup.
+     * @param fill Row highlight color.
+     * @param cornerRadius Inner popup radius in drawable pixels.
+     */
+    void DrawClippedRoundedFillScreen_(const Rect& screenRect, const Rect& clip,
+                                      Color fill, float cornerRadius) noexcept;
+    /** @brief Draw a clipped popup interior with four independent corner radii.
+     * @param screenRect Shared popup interior in physical drawable pixels.
+     * @param clip Row's rectangular clipping area.
+     * @param fill Row highlight color.
+     * @param radii Four interior radii, clockwise from upper-left.
+     */
+    void DrawClippedRoundedFillScreen_(const Rect& screenRect, const Rect& clip,
+                                      Color fill, xengine::detail::ui::CornerRadii radii) noexcept;
 
     /** @brief Draw line screen immediate in RenderManager.
      * @param x1 X1 supplied to RenderManager.

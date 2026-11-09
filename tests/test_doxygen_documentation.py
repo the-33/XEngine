@@ -13,6 +13,28 @@ import check_doxygen_docs  # noqa: E402
 
 
 class DoxygenDocumentationTests(unittest.TestCase):
+    def test_friend_declarations_are_not_separate_public_api_contracts(self):
+        """Doxygen emits UIWidget::UIWidgetCanvas for a private friend class."""
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp)
+            (path / "index.xml").write_text(
+                '<doxygenindex><compound kind="class" refid="classUIWidget"/></doxygenindex>',
+                encoding="utf-8",
+            )
+            (path / "classUIWidget.xml").write_text('''<doxygen>
+                <compounddef kind="class"><compoundname>UIWidget</compoundname>
+                <briefdescription><para>Base widget.</para></briefdescription>
+                <sectiondef><memberdef kind="friend" prot="public">
+                <name>UIWidgetCanvas</name><briefdescription/>
+                <detaileddescription/></memberdef>
+                <memberdef kind="function" prot="public"><name>Show</name>
+                <type>void</type><briefdescription><para>Show widget.</para></briefdescription>
+                <detaileddescription/></memberdef></sectiondef>
+                </compounddef></doxygen>''', encoding="utf-8")
+            members, enums, missing = check_doxygen_docs.inspect(
+                path, require_contracts=True)
+            self.assertEqual((members, enums, missing), (1, 0, []))
+
     def test_responsive_ui_public_fields_have_doxygen_comments(self):
         header = (PROJECT / "engine/include/UIRectTransform.h").read_text(encoding="utf-8")
         for field in (

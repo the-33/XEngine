@@ -42,6 +42,54 @@ the engine currently exposes a small set of file-scope UI state in
 `UIManager.cpp`; class-owned state belongs in the corresponding class page.
 Use the source browser or XML reference to audit private code symbols.
 
+### Retained widgets on keyed canvases (engine 0.4.0)
+
+`engine/include/UIWidgets.h` supplies the persistent widget hierarchy and
+`engine/src/UIWidgets.cpp` implements canvas management on `UIManager`.
+This does **not** introduce a second renderer: concrete `UIButton`,
+`UIImageButton`, `UIPanel`, `UILabel`, `UICheckbox`, `UISlider`, `UIToggle`,
+`UITextInput`, `UIDropdown`, `UIProgressBar`, `UIImage`, `UILine` and
+`UIInvisibleButton` call the existing
+styled UIManager overloads, preserving input and immediate/replayed drawing.
+
+- `UIWidget` owns a `Canvas/Key` runtime ID, style, geometry, optional copied
+  parent, layer, visibility and common focus/pointer event handlers.
+  `UIWidgetFluent<Derived>` provides fluent CRTP setters returning `Derived&`;
+  concrete classes add real type-specific properties and value callbacks.
+  Capabilities such as rounded corners are constrained for labels/textures,
+  which do not own a rounded rectangular frame.
+- `UIWidgetCanvas` keeps owned `unique_ptr<UIWidget>` in a keyed map and
+  separately preserves insertion order. Duplicate/empty keys are rejected;
+  typed `Find<T>` checks RTTI. `UIManager` owns the canvases by key and also
+  supports `Find<T>("Canvas/Key")` from any script. References stay stable
+  across map rehashes but **not** element removal or scene destruction.
+- `Engine::PollInput_` calls `UIManager::Begin()` after input polling and
+  before scene Update. The last step of `Begin()` now submits visible canvases
+  with their own UICanvas scalers and per-widget appearance/layer. Completed
+  callbacks are queued by value and dispatched **after** all canvases are
+  traversed, so an OnClick can remove elements or schedule a scene change
+  without invalidating the traversal. `UIManager::End()` still flushes the
+  commands, sorted by numeric layer, as before.
+- `ButtonBehavior_` records per-frame hover/held/click/pointer-up/down
+  snapshots alongside its established topmost-hit/modal filtering; wrappers
+  use the original `bool` return to emit `OnClick`/`OnValueChanged` only on
+  genuine interaction. Text fields additionally detect edit completion,
+  with `mSubmittedTextId` distinguishing Enter/UI Submit from focus loss.
+  Programmatic `SetValue` notifies if changed, whereas `WithoutNotify`
+  never notifies. Pointer/keyboard callbacks carry copied values.
+- When a scene is replaced, `SceneManager::ApplyPendingScene()` destroys all
+  canvases without `SetPersistent(true)`. `UIManager::Shutdown()` destroys
+  every canvas. Initial scene activation (no outgoing scene) keeps UI created
+  during game initialization. A canvas's `SetScaler` is per-canvas; the old
+  plain `UICanvas` value struct and `UIManager::SetCanvas` remain supported.
+
+The retained API does not yet implement curved texture clipping, serialized
+inspector events, or a nested layout/parent hierarchy. Do not expose
+nonfunctional styling methods for those future capabilities. The production
+header is compiled and exercised against an SDL-independent test manager in
+`tests/test_ui_widget_canvas.py`; true SDL2 Windows/Linux Debug and Release
+tests are still required before declaring platform validation complete.
+
 ### Screen-space UI geometry and focus
 
 `UIManager` queues immediate-mode widget commands, including styled rounded
@@ -51,6 +99,36 @@ and `DrawLineScreen` submit their geometry through SDL and also record distinct
 snapshot path. These commands bypass camera projection, use drawable pixels
 and count as UI work. Keep the immediate and recorded paths equivalent when
 changing their drawing logic.
+
+TextInput's internal selection and caret use `UIManager::PushSolidRect_` to
+queue a filled screen rectangle **without** inheriting border width or corner
+radius. Its caret phase uses `SDL_GetTicks` through the SDL-independent
+`xengine::detail::ui::CaretVisible` helper; editing or cursor/anchor changes
+reset the visible phase. Keep the UTF-8 byte-boundary and input/clipboard
+logic independent of this visual state.
+
+Dropdown highlights deliberately reuse one rounded popup *interior* instead
+of giving each row four rounded corners. `DropdownRowClip` snaps that common
+silhouette and derives contiguous, pixel-aligned row clips after subtracting
+the style's border width. `UIManager` queues `ClippedRoundedFill` commands;
+`RenderManager::DrawClippedRoundedFillScreen_` records a clipped
+`ScreenRoundedRect` command or temporarily sets SDL's clip rectangle in the
+immediate path, restoring any previous clip afterwards. The popup's outline
+is queued **after** row highlights/text so no highlight can cover it. This
+path preserves numeric layer ordering and the existing pointer-hit regions.
+
+`UIStyle::SetCornerRadius` has one-, two- and four-value overloads. The
+legacy `cornerRadius` float remains intact; the two/four-value overloads
+enable a stored four-corner override. The two-value form maps to
+`{top, top, bottom, bottom}`. `RadiiForRect_` resolves those values through
+the existing pixel/percent unit convention. `FitCornerRadii` normalizes
+adjacent radii proportionally to fit every side, and `OffsetCornerRadii`
+derives the interior and anti-aliased outline contours. The new private
+`RenderManager::DrawRoundedRectCornersScreen_` preserves both immediate
+SDL geometry submission and snapshot replay (`hasScreenCornerRadii`), while
+the old uniform-radius path/API remains unchanged. Clipped Dropdown rows
+also use the same four-corner silhouette when that override is active;
+`engine.json` accepts scalar, two-value or four-value `cornerRadius`.
 
 The UI focus list is rebuilt every frame. `SetInitialFocus` retains a requested
 ID until the next matching widget registration; `SetAutoSelectFirst(false)`
